@@ -1,5 +1,3 @@
-### 📁 **Docs_&_Reports/README.md**  
-```md
 # 📄 Documentation & Rapports
 
 Ce dossier regroupe toute la documentation officielle du projet.
