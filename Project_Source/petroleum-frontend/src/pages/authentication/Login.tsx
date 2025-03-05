@@ -12,20 +12,45 @@ import {
   Typography,
   InputAdornment,
   FormControlLabel,
+  Alert,
 } from '@mui/material';
 import IconifyIcon from 'components/base/IconifyIcon';
-import { useState, ReactElement } from 'react';
+import { useState, ReactElement, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rootPaths } from 'routes/paths';
 import Image from 'components/base/Image';
 import logoWithText from '/Logo-with-text.png';
+import { useAppDispatch } from '../../hooks/useAppDispatch';
+import { loginUser, clearError } from '../../store/slices/authSlice';
+import { useAppSelector } from '../../hooks/useAppSelector';
 
 const Login = (): ReactElement => {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const dispatch = useAppDispatch();
+  const { loading, error, token } = useAppSelector((state) => state.auth);
 
-  const handleSubmit = () => {
-    navigate(rootPaths.homeRoot);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    motDePasse: '',
+  });
+
+  useEffect(() => {
+    if (token) {
+      navigate(rootPaths.homeRoot);
+    }
+  }, [token, navigate]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    dispatch(loginUser(formData));
   };
 
   const handleClickShowPassword = () => {
@@ -40,6 +65,8 @@ const Login = (): ReactElement => {
         </Link>
       </Box>
       <Paper
+        component="form"
+        onSubmit={handleSubmit}
         sx={{
           py: 6,
           px: { xs: 5, sm: 7.5 },
@@ -49,16 +76,21 @@ const Login = (): ReactElement => {
           <Typography variant="h3" textAlign="center" color="text.secondary">
             Log In
           </Typography>
-          <Typography variant="h6" fontWeight={500} textAlign="center" color="text.primary">
-            Don’t have an account?{' '}
-            <Link href="/authentication/sign-up" underline="none">
-              Sign up
-            </Link>
-          </Typography>
+
+          {error && (
+            <Alert severity="error" onClose={() => dispatch(clearError())}>
+              {error}
+            </Alert>
+          )}
+
           <TextField
             variant="filled"
             label="Email"
             type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            required
             sx={{
               '.MuiFilledInput-root': {
                 bgcolor: 'grey.A100',
@@ -79,6 +111,10 @@ const Login = (): ReactElement => {
             variant="filled"
             label="Password"
             type={showPassword ? 'text' : 'password'}
+            name="motDePasse"
+            value={formData.motDePasse}
+            onChange={handleInputChange}
+            required
             sx={{
               '.MuiFilledInput-root': {
                 bgcolor: 'grey.A100',
@@ -116,6 +152,7 @@ const Login = (): ReactElement => {
               ),
             }}
           />
+
           <FormGroup sx={{ ml: 1, width: 'fit-content' }}>
             <FormControlLabel
               control={<Checkbox />}
@@ -125,14 +162,23 @@ const Login = (): ReactElement => {
               }}
             />
           </FormGroup>
+
           <Button
-            onClick={handleSubmit}
+            type="submit"
+            disabled={loading}
             sx={{
               fontWeight: 'fontWeightRegular',
             }}
           >
-            Log In
+            {loading ? 'Logging in...' : 'Log In'}
           </Button>
+
+          <Typography variant="h6" fontWeight={500} textAlign="center" color="text.primary">
+            Don't have an account?{' '}
+            <Link href="/authentication/sign-up" underline="none">
+              Sign up
+            </Link>
+          </Typography>
           <Divider />
           <Typography textAlign="center" color="text.secondary" variant="body1">
             Or sign in using:
