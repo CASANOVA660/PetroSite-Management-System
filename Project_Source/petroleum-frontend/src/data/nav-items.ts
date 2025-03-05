@@ -4,6 +4,7 @@ export interface NavItem {
   title: string;
   icon: string;
   active: boolean;
+  requiresManager?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -16,6 +17,14 @@ const navItems: NavItem[] = [
   },
   {
     id: 2,
+    title: 'Gestion des Utilisateurs',
+    icon: 'mdi:account-group',
+    path: '/user-management',
+    active: false,
+    requiresManager: true
+  },
+  {
+    id: 13,
     path: '#!',
     title: 'Profile',
     icon: 'clarity:user-line',
@@ -90,7 +99,7 @@ const navItems: NavItem[] = [
     title: 'Sign Up',
     icon: 'tdesign:user-add',
     active: true,
-  },
+  }
 ];
 
 export default navItems;

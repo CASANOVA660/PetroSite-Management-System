@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 
 const createUser = async (req, res) => {
   try {
-    const { nom, email, motDePasse, role } = req.body;
+    const { nom, email, motDePasse, role, telephone, departement } = req.body;
 
     // Check if any users exist
     const userCount = await User.countDocuments();
@@ -22,10 +22,21 @@ const createUser = async (req, res) => {
     // For first user, force role to be Manager
     const userRole = isFirstUser ? 'Manager' : role;
 
-    // Check if email exists
+    // Check if email exists with a more specific error message
     const existingAccount = await Account.findOne({ email });
     if (existingAccount) {
-      return res.status(400).json({ error: 'Email déjà utilisé' });
+      return res.status(400).json({
+        error: 'Cet email est déjà utilisé par un autre utilisateur',
+        field: 'email'
+      });
+    }
+
+    // Validate required fields
+    if (!nom || !email) {
+      return res.status(400).json({
+        error: 'Le nom et l\'email sont requis',
+        field: !nom ? 'nom' : 'email'
+      });
     }
 
     // Generate activation token and temporary password
@@ -36,13 +47,15 @@ const createUser = async (req, res) => {
     // Hash the temporary password
     const encryptedPassword = await hashPassword(tempPassword);
 
-    // Create user
+    // Create user with additional fields
     const user = await User.create({
       nom,
       email,
       role: userRole,
+      telephone,
+      departement,
       niveauAcces: userRole === 'Manager' ? 'admin' : 'user',
-      estActif: false // User starts as inactive
+      estActif: false
     });
 
     // Create account
@@ -78,7 +91,10 @@ const createUser = async (req, res) => {
 
   } catch (error) {
     console.error('User creation error:', error);
-    res.status(500).json({ error: 'Erreur lors de la création de l\'utilisateur' });
+    res.status(500).json({
+      error: 'Erreur lors de la création de l\'utilisateur',
+      details: error.message
+    });
   }
 };
 
@@ -142,24 +158,37 @@ const completeProfile = async (req, res) => {
 };
 
 const listUsers = async (req, res) => {
-  if (req.user.rôle !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
-  const utilisateurs = await User.find();
-  res.status(200).json(utilisateurs);
+  try {
+    // Check if user is Manager
+    if (req.user.role !== 'Manager') {
+      return res.status(403).json({ error: 'Accès interdit. Seul le Manager peut lister les utilisateurs.' });
+    }
+
+    // Fetch users with populated fields
+    const users = await User.find()
+      .select('nom email role telephone departement estActif createdAt')
+      .sort({ createdAt: -1 }); // Sort by creation date, newest first
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des utilisateurs' });
+  }
 };
 
 const getUser = async (req, res) => {
-  if (req.user.rôle !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
+  if (req.user.role !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
   const utilisateur = await User.findById(req.params.id);
   const compte = await Account.findOne({ utilisateurAssocie: req.params.id });
   res.status(200).json({ utilisateur, compte });
 };
 
 const updateUser = async (req, res) => {
-  if (req.user.rôle !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
+  if (req.user.role !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
   const { email, rôle, niveauAcces, motDePasse } = req.body;
   const utilisateur = await User.findById(req.params.id);
   if (email) utilisateur.email = email;
-  if (rôle) utilisateur.rôle = rôle;
+  if (rôle) utilisateur.role = rôle;
   if (niveauAcces) utilisateur.niveauAcces = niveauAcces;
   utilisateur.updatedAt = Date.now();
   await utilisateur.save();
@@ -174,7 +203,7 @@ const updateUser = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
-  if (req.user.rôle !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
+  if (req.user.role !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
   await User.findByIdAndDelete(req.params.id);
   await Account.deleteOne({ utilisateurAssocie: req.params.id });
   res.status(200).json({ message: 'Utilisateur supprimé' });
