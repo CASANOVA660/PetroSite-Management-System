@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const authMiddleware = require('../../../middleware/auth');
+const { authenticateToken } = require('../../middleware/auth');
 const User = require('../models/User');
 
 // Middleware to check if it's the first user
@@ -13,15 +13,18 @@ const firstUserMiddleware = async (req, res, next) => {
             next();
         } else {
             // Apply auth middleware for subsequent users
-            authMiddleware(req, res, next);
+            authenticateToken(req, res, next);
         }
     } catch (error) {
         res.status(500).json({ error: 'Server error' });
     }
 };
 
+// Public routes - no authentication needed
+router.post('/activate', userController.activateAccount);
+
 // Protected routes - require authentication
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 // List users - only accessible by Manager
 router.get('/', userController.listUsers);
@@ -31,8 +34,6 @@ router.delete('/:id', userController.deleteUser);
 router.get('/:id', userController.getUser);
 
 // Public route for account activation
-router.post('/activate', userController.activateAccount);
-
 router.get('/activate/:token', userController.activateAccount);
 router.post('/complete-profile/:token', userController.completeProfile);
 

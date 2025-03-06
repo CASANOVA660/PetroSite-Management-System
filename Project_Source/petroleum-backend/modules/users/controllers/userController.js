@@ -4,6 +4,7 @@ const { hashPassword } = require('../../../utils/bcrypt');
 const crypto = require('crypto');
 const { sendActivationEmail } = require('../services/emailService');
 const jwt = require('jsonwebtoken');
+const { createNotification } = require('../../../modules/notifications/controllers/notificationController');
 
 
 const createUser = async (req, res) => {
@@ -106,7 +107,7 @@ const activateAccount = async (req, res) => {
     const account = await Account.findOne({
       activationToken: token,
       activationTokenExpiry: { $gt: new Date() }
-    });
+    }).populate('utilisateurAssocie');
 
     if (!account) {
       return res.status(400).json({ error: 'Token invalide ou expiré' });
@@ -123,9 +124,28 @@ const activateAccount = async (req, res) => {
     await account.save();
 
     // Activate user
-    await User.findByIdAndUpdate(account.utilisateurAssocie, {
-      estActif: true
-    });
+    const user = await User.findByIdAndUpdate(
+      account.utilisateurAssocie._id,
+      { estActif: true },
+      { new: true }
+    );
+
+    // Find manager and create notification
+    const manager = await User.findOne({ role: 'Manager' });
+    if (manager) {
+      await createNotification({
+        type: 'ACCOUNT_ACTIVATION',
+        message: `L'utilisateur ${user.nom} (${user.email}) a activé son compte.`,
+        userId: manager._id,
+        isRead: false
+      });
+
+      // Emit socket event for real-time table update
+      global.io.emit('userStatusUpdate', {
+        userId: user._id,
+        estActif: true
+      });
+    }
 
     res.json({ message: 'Compte activé avec succès' });
 
