@@ -65,9 +65,7 @@ export default function App() {
             <Route
               path="/user-management"
               element={
-                <ProtectedRoute roles={['Manager']}>
-                  <UserManagement />
-                </ProtectedRoute>
+                <UserManagement />
               }
             />
           </Route>
