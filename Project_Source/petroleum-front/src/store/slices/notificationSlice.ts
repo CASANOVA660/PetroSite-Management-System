@@ -25,7 +25,7 @@ const initialState: NotificationState = {
 export const fetchNotifications = createAsyncThunk(
     'notifications/fetchAll',
     async () => {
-        const response = await axios.get('/api/notifications');
+        const response = await axios.get('/notifications');
         return response.data as Notification[];
     }
 );
@@ -33,7 +33,7 @@ export const fetchNotifications = createAsyncThunk(
 export const markAsRead = createAsyncThunk(
     'notifications/markAsRead',
     async (notificationId: string) => {
-        const response = await axios.put(`/api/notifications/${notificationId}/read`);
+        const response = await axios.put(`/notifications/${notificationId}/read`);
         return response.data as Notification;
     }
 );
