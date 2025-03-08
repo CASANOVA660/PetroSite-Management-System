@@ -22,8 +22,7 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import UserManagement from "./pages/UserManagement/UserManagement";
 import ActivationPage from './pages/Activation/ActivationPage';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { DefaultLayout } from './layout/DefaultLayout';
+
 
 export default function App() {
   return (
