@@ -29,7 +29,7 @@ export default function SignInForm() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate(user.role === 'Manager' ? '/dashboard' : '/dashboard');
+      navigate(user.role === 'Manager' ? '/dashboard' : '/user-dashboard');
     }
   }, [user, navigate]);
 
@@ -61,8 +61,6 @@ export default function SignInForm() {
           to="/"
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
-          <ChevronLeftIcon className="size-5" />
-          Back to dashboard
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
