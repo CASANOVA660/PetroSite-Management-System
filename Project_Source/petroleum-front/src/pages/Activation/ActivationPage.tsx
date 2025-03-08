@@ -18,7 +18,7 @@ export default function ActivationPage() {
 
     useEffect(() => {
         if (!token) {
-            navigate('/login');
+            navigate('/signin');
         }
     }, [token, navigate]);
 
