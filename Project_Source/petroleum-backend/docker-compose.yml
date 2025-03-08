@@ -11,14 +11,14 @@ services:
       - .:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://mongodb:27017/petroleum
+      - PORT=5000
+      - MONGODB_URI=mongodb+srv://admin:admin@cluster0.pmxg5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
       - REDIS_URI=redis://redis:6379
     command: npm run dev
     depends_on:
-      - mongodb
       - redis
     networks:
       - petroleum-network
@@ -28,13 +28,13 @@ services:
     build: .
     container_name: petroleum-backend-prod
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/petroleum
+      - PORT=5000
+      - MONGODB_URI=mongodb+srv://admin:admin@cluster0.pmxg5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
       - REDIS_URI=redis://redis:6379
     depends_on:
-      - mongodb
       - redis
     networks:
       - petroleum-network
@@ -42,17 +42,6 @@ services:
       restart_policy:
         condition: on-failure
         max_attempts: 3
-
-  # MongoDB service
-  mongodb:
-    image: mongo:latest
-    container_name: petroleum-mongodb
-    volumes:
-      - mongodb_data:/data/db
-    ports:
-      - "27017:27017"
-    networks:
-      - petroleum-network
 
   # Redis service
   redis:
@@ -66,7 +55,6 @@ services:
       - petroleum-network
 
 volumes:
-  mongodb_data:
   redis_data:
 
 networks:
