@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18.19.0-alpine AS build
+FROM node:20.14.0-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -29,4 +29,4 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 # Start nginx
-CMD ["nginx", "-g", "daemon off;"] 
+CMD ["nginx", "-g", "daemon off;"]
