@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-alpine as builder
+FROM node:18.19.0-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN npm ci
 COPY . .
 
 # Production stage
-FROM node:18-alpine
+FROM node:18.19.0-alpine
 
 # Install production dependencies only
 WORKDIR /app
@@ -30,14 +30,14 @@ USER nodejs
 
 # Environment variables
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=5000
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1
 
 # Start the application
 CMD ["node", "server.js"]
