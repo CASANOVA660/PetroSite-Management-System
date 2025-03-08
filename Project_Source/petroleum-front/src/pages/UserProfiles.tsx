@@ -3,7 +3,6 @@ import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import UserMetaCard from "../components/UserProfile/UserMetaCard";
 import UserInfoCard from "../components/UserProfile/UserInfoCard";
-import UserAddressCard from "../components/UserProfile/UserAddressCard";
 import DocumentsCard from "../components/UserProfile/DocumentsCard";
 import Alert from "../components/ui/alert/Alert";
 
@@ -73,7 +72,6 @@ export default function UserProfiles() {
               <>
                 <UserMetaCard />
                 <UserInfoCard />
-                <UserAddressCard />
               </>
             ) : (
               <DocumentsCard onAlert={handleAlertShow} />

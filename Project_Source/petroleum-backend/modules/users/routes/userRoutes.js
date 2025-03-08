@@ -22,19 +22,20 @@ const firstUserMiddleware = async (req, res, next) => {
 
 // Public routes - no authentication needed
 router.post('/activate', userController.activateAccount);
+router.get('/activate/:token', userController.activateAccount);
+router.post('/complete-profile/:token', userController.completeProfile);
 
 // Protected routes - require authentication
 router.use(authenticateToken);
 
-// List users - only accessible by Manager
+// User management routes
 router.get('/', userController.listUsers);
 router.post('/', userController.createUser);
+router.get('/:id', userController.getUserById);
 router.put('/:id', userController.updateUser);
 router.delete('/:id', userController.deleteUser);
-router.get('/:id', userController.getUser);
 
-// Public route for account activation
-router.get('/activate/:token', userController.activateAccount);
-router.post('/complete-profile/:token', userController.completeProfile);
+// Profile routes (protected)
+router.put('/:id/profile', userController.updateProfile);
 
 module.exports = router;

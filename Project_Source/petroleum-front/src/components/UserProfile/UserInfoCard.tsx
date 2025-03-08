@@ -1,16 +1,110 @@
+import { useEffect, useState } from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useAppSelector } from "../../hooks/useAppSelector";
+import { useAppDispatch } from "../../hooks/useAppDispatch";
+import { getUserById, updateProfile } from "../../store/slices/userSlice";
+
+interface UserProfileData {
+  telephone?: string;
+  country?: string;
+  city?: string;
+  state?: string;
+}
 
 export default function UserInfoCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
+  const { currentUser, loading, error } = useAppSelector((state) => state.users);
+  const [formData, setFormData] = useState<UserProfileData>({
+    telephone: '',
+    country: '',
+    city: '',
+    state: ''
+  });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const storedUser = localStorage.getItem('user');
+      const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+      const userId = user?._id || user?.id || parsedStoredUser?.id || parsedStoredUser?._id;
+
+      if (userId) {
+        try {
+          await dispatch(getUserById(userId)).unwrap();
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [dispatch, user]);
+
+  useEffect(() => {
+    if (currentUser) {
+      setFormData({
+        telephone: currentUser.telephone || '',
+        country: currentUser.country || '',
+        city: currentUser.city || '',
+        state: currentUser.state || ''
+      });
+    }
+  }, [currentUser]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
+
+  const handleSave = async () => {
+    try {
+      if (currentUser?._id) {
+        console.log('Updating profile for user:', currentUser._id, 'with data:', formData);
+
+        const result = await dispatch(updateProfile({
+          userId: currentUser._id,
+          userData: formData
+        })).unwrap();
+
+        console.log('Update result:', result);
+
+        if (result.user) {
+          // Refresh user data
+          await dispatch(getUserById(currentUser._id));
+          closeModal();
+        }
+      }
+    } catch (err: any) {
+      console.error('Error updating profile:', err);
+      // You might want to show this error to the user in a more user-friendly way
+      // For example, using a toast notification or alert component
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+        <p className="text-center text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+        <p className="text-center text-gray-500">No user data available</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -19,13 +113,24 @@ export default function UserInfoCard() {
             Personal Information
           </h4>
 
+          {currentUser.employeeId && (
+            <div className="mb-4">
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Employee ID
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {currentUser.employeeId}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 First Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Musharof
+                {currentUser.nom}
               </p>
             </div>
 
@@ -34,7 +139,7 @@ export default function UserInfoCard() {
                 Last Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Chowdhury
+                {currentUser.prenom}
               </p>
             </div>
 
@@ -43,7 +148,7 @@ export default function UserInfoCard() {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
+                {currentUser.email}
               </p>
             </div>
 
@@ -52,16 +157,18 @@ export default function UserInfoCard() {
                 Phone
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
+                {currentUser.telephone || 'Not specified'}
               </p>
             </div>
 
-            <div>
+            <div className="col-span-2">
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Bio
+                Address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
+                {currentUser.city && currentUser.country ?
+                  `${currentUser.city}, ${currentUser.state || ''} ${currentUser.country}` :
+                  'Not specified'}
               </p>
             </div>
           </div>
@@ -83,7 +190,6 @@ export default function UserInfoCard() {
               fillRule="evenodd"
               clipRule="evenodd"
               d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206ZM12.9698 3.84272C13.2627 3.54982 13.7376 3.54982 14.0305 3.84272L14.6934 4.50563C14.9863 4.79852 14.9863 5.2734 14.6934 5.56629L14.044 6.21573L12.3204 4.49215L12.9698 3.84272ZM11.2597 5.55281L5.6359 11.1766C5.53309 11.2794 5.46238 11.4099 5.43238 11.5522L5.01758 13.5185L6.98394 13.1037C7.1262 13.0737 7.25666 13.003 7.35947 12.9002L12.9833 7.27639L11.2597 5.55281Z"
-              fill=""
             />
           </svg>
           Edit
@@ -91,88 +197,82 @@ export default function UserInfoCard() {
       </div>
 
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
-        <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+        <div className="relative w-full p-4 overflow-y-auto bg-white no-scrollbar rounded-3xl dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Edit Personal Information
+              Edit Profile Information
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
               Update your details to keep your profile up-to-date.
             </p>
           </div>
-          <form className="flex flex-col">
-            <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-              <div>
-                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                  Social Links
-                </h5>
-
-                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div>
-                    <Label>Facebook</Label>
-                    <Input
-                      type="text"
-                      value="https://www.facebook.com/PimjoHQ"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>X.com</Label>
-                    <Input type="text" value="https://x.com/PimjoHQ" />
-                  </div>
-
-                  <div>
-                    <Label>Linkedin</Label>
-                    <Input
-                      type="text"
-                      value="https://www.linkedin.com/company/pimjo"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Instagram</Label>
-                    <Input type="text" value="https://instagram.com/PimjoHQ" />
-                  </div>
+          <form className="flex flex-col" onSubmit={(e) => {
+            e.preventDefault();
+            handleSave();
+          }}>
+            <div className="px-2 overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                <div>
+                  <Label>First Name</Label>
+                  <Input type="text" value={currentUser.nom} disabled />
                 </div>
-              </div>
-              <div className="mt-7">
-                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                  Personal Information
-                </h5>
 
-                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>First Name</Label>
-                    <Input type="text" value="Musharof" />
-                  </div>
+                <div>
+                  <Label>Last Name</Label>
+                  <Input type="text" value={currentUser.prenom} disabled />
+                </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Last Name</Label>
-                    <Input type="text" value="Chowdhury" />
-                  </div>
+                <div>
+                  <Label>Email Address</Label>
+                  <Input type="text" value={currentUser.email} disabled />
+                </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Email Address</Label>
-                    <Input type="text" value="randomuser@pimjo.com" />
-                  </div>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    type="text"
+                    name="telephone"
+                    value={formData.telephone}
+                    onChange={handleInputChange}
+                  />
+                </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" value="+09 363 398 46" />
-                  </div>
+                <div>
+                  <Label>Country</Label>
+                  <Input
+                    type="text"
+                    name="country"
+                    value={formData.country}
+                    onChange={handleInputChange}
+                  />
+                </div>
 
-                  <div className="col-span-2">
-                    <Label>Bio</Label>
-                    <Input type="text" value="Team Manager" />
-                  </div>
+                <div>
+                  <Label>City</Label>
+                  <Input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <div>
+                  <Label>State</Label>
+                  <Input
+                    type="text"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                  />
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button size="sm" variant="outline" onClick={closeModal}>
+              <Button size="sm" variant="outline" type="button" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
+              <Button size="sm" type="submit">
                 Save Changes
               </Button>
             </div>

@@ -243,8 +243,26 @@ const deleteUser = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const userId = req.user._id; // Get user ID from authenticated user
+    const userId = req.params.id;
+    console.log('Updating profile for user:', userId);
+    console.log('Request user:', req.user);
+    console.log('Request body:', req.body);
+
     const { telephone, country, city, state } = req.body;
+
+    // Verify user has permission to update this profile
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Non authentifié',
+        message: 'Veuillez vous connecter pour accéder à cette ressource'
+      });
+    }
+
+    // Convert IDs to strings for comparison
+    const requestingUserId = req.user._id;
+    const targetUserId = userId;
+
+
 
     // Only allow updating specific fields
     const updateData = {
@@ -262,12 +280,16 @@ const updateProfile = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+      return res.status(404).json({
+        error: 'Utilisateur non trouvé',
+        message: 'L\'utilisateur demandé n\'existe pas'
+      });
     }
 
     res.status(200).json({
       message: 'Profil mis à jour avec succès',
       user: {
+        _id: user._id,
         nom: user.nom,
         prenom: user.prenom,
         email: user.email,
@@ -276,13 +298,83 @@ const updateProfile = async (req, res) => {
         telephone: user.telephone,
         country: user.country,
         city: user.city,
-        state: user.state
+        state: user.state,
+        estActif: user.estActif
       }
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ error: 'Erreur lors de la mise à jour du profil' });
+    res.status(500).json({
+      error: 'Erreur serveur',
+      message: 'Erreur lors de la mise à jour du profil'
+    });
   }
 };
 
-module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile };
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Non authentifié',
+        message: 'Veuillez vous connecter pour accéder à cette ressource'
+      });
+    }
+
+    const requestingUser = req.user;
+
+    // Log the raw values first
+    console.log('Raw values:', {
+      requestedId: id,
+      requestingUser: requestingUser,
+      requestingUserId: requestingUser.userId
+    });
+
+    // Validate MongoDB ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        error: 'ID invalide',
+        message: 'Format d\'ID utilisateur invalide'
+      });
+    }
+
+    // Convert both IDs to strings for comparison
+    const requestedId = id;
+    const requestingUserId = requestingUser.userId;
+
+    console.log('Debug info:', {
+      requestedId,
+      requestingUserId,
+      requestingUserRole: requestingUser.role,
+      idsMatch: requestedId === requestingUserId
+    });
+
+    // If user is not a manager, they can only view their own profile
+    if (requestingUser.role !== 'Manager' && requestedId !== requestingUserId) {
+      return res.status(403).json({
+        error: 'Accès non autorisé',
+        message: 'Vous ne pouvez consulter que votre propre profil'
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        error: 'Utilisateur non trouvé',
+        message: 'L\'utilisateur demandé n\'existe pas'
+      });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error in getUserById:', error);
+    res.status(500).json({
+      error: 'Erreur serveur',
+      message: 'Une erreur est survenue lors de la récupération des données'
+    });
+  }
+};
+
+module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile, getUserById };

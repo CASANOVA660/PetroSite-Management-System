@@ -23,25 +23,46 @@ export default function UserMetaCard() {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      // Get stored user data from localStorage as fallback
       const storedUser = localStorage.getItem('user');
       const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
+      const token = localStorage.getItem('token');
 
-      // Check both _id and id since the stored format might vary
-      const userId = user?._id || user?.id || parsedStoredUser?.id || parsedStoredUser?._id;
+      if (!token) {
+        console.log('No auth token found');
+        return;
+      }
 
-      console.log('Auth user:', user);
-      console.log('Stored user:', parsedStoredUser);
-      console.log('User ID to use:', userId);
+      // Get the authenticated user's ID and role
+      const authUserId = user?._id || user?.id || parsedStoredUser?.id || parsedStoredUser?._id;
+      const userRole = user?.role || parsedStoredUser?.role;
 
-      if (!userId) {
+      console.log('Auth state:', {
+        authUserId,
+        userRole,
+        token: token ? 'Present' : 'Missing',
+        parsedStoredUser
+      });
+
+      if (!authUserId) {
         console.log('No user ID found in auth state or localStorage');
         return;
       }
 
       try {
-        await dispatch(getUserById(userId));
-      } catch (err) {
+        // Get the ID from the URL if it exists
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestedUserId = urlParams.get('id');
+
+        // If no ID in URL or user is not manager, use their own ID
+        const idToFetch = (userRole === 'Manager' && requestedUserId) ? requestedUserId : authUserId;
+
+        // Ensure the ID is properly formatted
+        const formattedId = idToFetch.trim();
+
+        console.log('Fetching user data for ID:', formattedId);
+        const result = await dispatch(getUserById(formattedId)).unwrap();
+        console.log('Fetch result:', result);
+      } catch (err: any) {
         console.error('Error fetching user data:', err);
       }
     };
@@ -60,7 +81,9 @@ export default function UserMetaCard() {
   if (error) {
     return (
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-red-500">{error}</p>
+        <p className="text-center text-red-500">
+          {error === 'Unauthorized access' ? "Vous ne pouvez consulter que votre propre profil" : error}
+        </p>
       </div>
     );
   }

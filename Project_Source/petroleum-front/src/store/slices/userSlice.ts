@@ -109,15 +109,55 @@ export const activateAccount = createAsyncThunk(
 // Add this new thunk to userSlice.ts
 export const getUserById = createAsyncThunk(
     'users/getById',
-    async (userId: string, { rejectWithValue }) => {
+    async (id: string, { rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:5000/api/users/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            // Ensure the ID is properly formatted
+            const formattedId = id.trim();
+
+            console.log('Making request for user:', formattedId);
+
+            const response = await axios.get(`http://localhost:5000/api/users/${formattedId}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                }
             });
+
             return response.data;
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.error || 'Failed to fetch user');
+            console.error('Error in getUserById:', error.response?.data);
+            return rejectWithValue(
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                'Failed to fetch user data'
+            );
+        }
+    }
+);
+
+// Add this to your existing userSlice.ts
+export const updateProfile = createAsyncThunk(
+    'users/updateProfile',
+    async ({ userId, userData }: { userId: string; userData: Partial<User> }, { rejectWithValue }) => {
+        try {
+            const token = localStorage.getItem('token');
+            console.log('Updating profile with data:', { userId, userData });
+
+            const response = await axios.put(`http://localhost:5000/api/users/${userId}/profile`, userData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('Update response:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('Profile update error:', error.response?.data);
+            return rejectWithValue(
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                'Failed to update profile'
+            );
         }
     }
 );
@@ -194,6 +234,22 @@ const userSlice = createSlice({
                 state.error = null;
             })
             .addCase(getUserById.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            // Update profile cases
+            .addCase(updateProfile.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateProfile.fulfilled, (state, action) => {
+                state.loading = false;
+                state.success = 'Profile updated successfully';
+                if (action.payload.user) {
+                    state.currentUser = action.payload.user;
+                }
+            })
+            .addCase(updateProfile.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });
