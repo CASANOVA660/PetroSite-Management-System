@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # Development service
+  frontend-dev:
+    build:
+      context: .
+      target: build
+    container_name: petroleum-front-dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    networks:
+      - petroleum-network
+
+  # Production service
+  frontend-prod:
+    build: .
+    container_name: petroleum-front-prod
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - petroleum-network
+
+networks:
+  petroleum-network:
+    driver: bridge 

@@ -1,14 +1,31 @@
 version: '3.8'
 
 services:
-  # Development backend service
+  # Frontend Development
+  frontend-dev:
+    build:
+      context: ./petroleum-front
+      target: build
+    container_name: petroleum-front-dev
+    volumes:
+      - ./petroleum-front:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+    networks:
+      - petroleum-network
+
+  # Backend Development
   backend-dev:
     build:
-      context: .
+      context: ./petroleum-backend
       target: builder
     container_name: petroleum-backend-dev
     volumes:
-      - .:/app
+      - ./petroleum-backend:/app
       - /app/node_modules
     ports:
       - "3000:3000"
@@ -22,26 +39,6 @@ services:
       - redis
     networks:
       - petroleum-network
-
-  # Production backend service
-  backend-prod:
-    build: .
-    container_name: petroleum-backend-prod
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/petroleum
-      - REDIS_URI=redis://redis:6379
-    depends_on:
-      - mongodb
-      - redis
-    networks:
-      - petroleum-network
-    deploy:
-      restart_policy:
-        condition: on-failure
-        max_attempts: 3
 
   # MongoDB service
   mongodb:
@@ -71,4 +68,4 @@ volumes:
 
 networks:
   petroleum-network:
-    driver: bridge
+    driver: bridge 
