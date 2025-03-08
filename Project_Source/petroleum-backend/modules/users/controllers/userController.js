@@ -9,7 +9,7 @@ const { createNotification } = require('../../../modules/notifications/controlle
 
 const createUser = async (req, res) => {
   try {
-    const { nom, email, motDePasse, role, telephone, departement } = req.body;
+    const { nom, prenom, email, role } = req.body;
 
     // Check if any users exist
     const userCount = await User.countDocuments();
@@ -33,10 +33,9 @@ const createUser = async (req, res) => {
     }
 
     // Validate required fields
-    if (!nom || !email) {
+    if (!nom || !prenom || !email || !role) {
       return res.status(400).json({
-        error: 'Le nom et l\'email sont requis',
-        field: !nom ? 'nom' : 'email'
+        error: 'Le nom, prénom, email et rôle sont requis',
       });
     }
 
@@ -48,14 +47,12 @@ const createUser = async (req, res) => {
     // Hash the temporary password
     const encryptedPassword = await hashPassword(tempPassword);
 
-    // Create user with additional fields
+    // Create user with only required fields
     const user = await User.create({
       nom,
+      prenom,
       email,
-      role: userRole,
-      telephone,
-      departement,
-      niveauAcces: userRole === 'Manager' ? 'admin' : 'user',
+      role,
       estActif: false
     });
 
@@ -179,16 +176,17 @@ const completeProfile = async (req, res) => {
 
 const listUsers = async (req, res) => {
   try {
-    // Check if user is Manager
-    if (req.user.role !== 'Manager') {
-      return res.status(403).json({ error: 'Accès interdit. Seul le Manager peut lister les utilisateurs.' });
+    let users;
+
+    // If user is Manager, return all users
+    if (req.user.role === 'Manager') {
+      users = await User.find().sort({ createdAt: -1 });
+    } else {
+      // For non-managers, only return their own data
+      users = await User.find({ _id: req.user._id });
     }
 
-    // Fetch users with populated fields
-    const users = await User.find()
-      .select('nom email role telephone departement estActif createdAt')
-      .sort({ createdAt: -1 }); // Sort by creation date, newest first
-
+    console.log('Sending users:', users); // Debug log
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -197,10 +195,24 @@ const listUsers = async (req, res) => {
 };
 
 const getUser = async (req, res) => {
-  if (req.user.role !== 'Manager') return res.status(403).json({ error: 'Accès interdit' });
-  const utilisateur = await User.findById(req.params.id);
-  const compte = await Account.findOne({ utilisateurAssocie: req.params.id });
-  res.status(200).json({ utilisateur, compte });
+  try {
+    const userId = req.params.id;
+
+    // Allow users to only see their own profile unless they are Manager
+    if (req.user.role !== 'Manager' && req.user._id !== userId) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération de l\'utilisateur' });
+  }
 };
 
 const updateUser = async (req, res) => {
@@ -229,4 +241,48 @@ const deleteUser = async (req, res) => {
   res.status(200).json({ message: 'Utilisateur supprimé' });
 };
 
-module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser };
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user._id; // Get user ID from authenticated user
+    const { telephone, country, city, state } = req.body;
+
+    // Only allow updating specific fields
+    const updateData = {
+      telephone,
+      country,
+      city,
+      state,
+      updatedAt: new Date()
+    };
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    res.status(200).json({
+      message: 'Profil mis à jour avec succès',
+      user: {
+        nom: user.nom,
+        prenom: user.prenom,
+        email: user.email,
+        role: user.role,
+        employeeId: user.employeeId,
+        telephone: user.telephone,
+        country: user.country,
+        city: user.city,
+        state: user.state
+      }
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour du profil' });
+  }
+};
+
+module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile };

@@ -4,15 +4,22 @@ import axios from '../../utils/axios';
 interface User {
     _id: string;
     nom: string;
+    prenom: string;
     email: string;
     role: string;
+    employeeId: string;
     telephone?: string;
-    departement?: string;
+    country?: string;
+    city?: string;
+    state?: string;
     estActif: boolean;
+    createdAt: Date;
+    updatedAt?: Date;
 }
 
 interface UserState {
     users: User[];
+    currentUser: User | null;
     loading: boolean;
     error: string | null;
     success: string | null;
@@ -20,6 +27,7 @@ interface UserState {
 
 const initialState: UserState = {
     users: [],
+    currentUser: null,
     loading: false,
     error: null,
     success: null
@@ -98,6 +106,22 @@ export const activateAccount = createAsyncThunk(
     }
 );
 
+// Add this new thunk to userSlice.ts
+export const getUserById = createAsyncThunk(
+    'users/getById',
+    async (userId: string, { rejectWithValue }) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`http://localhost:5000/api/users/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.error || 'Failed to fetch user');
+        }
+    }
+);
+
 const userSlice = createSlice({
     name: 'users',
     initialState,
@@ -158,6 +182,20 @@ const userSlice = createSlice({
             })
             .addCase(activateAccount.rejected, (state, action) => {
                 // Handle activation error if needed
+            })
+            // Get user by ID cases
+            .addCase(getUserById.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(getUserById.fulfilled, (state, action) => {
+                state.loading = false;
+                state.currentUser = action.payload;
+                state.error = null;
+            })
+            .addCase(getUserById.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             });
     }
 });

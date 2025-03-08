@@ -6,7 +6,7 @@ import Button from "../../components/ui/button/Button";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { createUser, fetchUsers, deleteUser, updateUser, clearMessages } from "../../store/slices/userSlice";
-import { PlusIcon, TrashBinIcon } from "../../icons";
+import { PlusIcon, TrashBinIcon, PencilIcon } from "../../icons";
 import {
     Table,
     TableBody,
@@ -19,36 +19,42 @@ import { socket } from '../../utils/socket';
 interface User {
     _id: string;
     nom: string;
+    prenom: string;
     email: string;
     role: string;
+    employeeId: string;
     telephone?: string;
-    departement?: string;
+    country?: string;
+    city?: string;
+    state?: string;
     estActif: boolean;
+    createdAt: Date;
+    updatedAt?: Date;
 }
 
 interface UserFormData {
     nom: string;
+    prenom: string;
     email: string;
     role: string;
-    departement?: string;
 }
 
 export default function UserManagement() {
     const dispatch = useAppDispatch();
     const { users, loading, error, success } = useAppSelector((state) => state.users);
     const [showForm, setShowForm] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState<UserFormData>({
         nom: '',
+        prenom: '',
         email: '',
-        role: 'User',
-        departement: ''
+        role: 'Chef projet'
     });
 
     useEffect(() => {
         dispatch(fetchUsers());
 
         socket.on('userStatusUpdate', (data: { userId: string; estActif: boolean }) => {
-            // Refresh the users list when status changes
             dispatch(fetchUsers());
         });
 
@@ -59,8 +65,9 @@ export default function UserManagement() {
 
     useEffect(() => {
         if (success) {
-            setFormData({ nom: '', email: '', role: 'User', departement: '' });
+            setFormData({ nom: '', prenom: '', email: '', role: 'Chef projet' });
             setShowForm(false);
+            setEditingUser(null);
             dispatch(fetchUsers());
 
             const timer = setTimeout(() => {
@@ -73,13 +80,34 @@ export default function UserManagement() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        dispatch(createUser(formData));
+        if (editingUser) {
+            dispatch(updateUser({ userId: editingUser._id, userData: formData }));
+        } else {
+            dispatch(createUser(formData));
+        }
+    };
+
+    const handleEdit = (user: User) => {
+        setEditingUser(user);
+        setFormData({
+            nom: user.nom,
+            prenom: user.prenom,
+            email: user.email,
+            role: user.role
+        });
+        setShowForm(true);
     };
 
     const handleDelete = (userId: string) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
             dispatch(deleteUser(userId));
         }
+    };
+
+    const handleCancel = () => {
+        setShowForm(false);
+        setEditingUser(null);
+        setFormData({ nom: '', prenom: '', email: '', role: 'Chef projet' });
     };
 
     return (
@@ -105,8 +133,8 @@ export default function UserManagement() {
                         onClick={() => setShowForm(true)}
                         size="sm"
                     >
-
-                        <span>Nouvel Utilisateur + </span>
+                        <PlusIcon className="h-5 w-5" />
+                        <span>Nouvel Utilisateur</span>
                     </Button>
                 </div>
 
@@ -114,19 +142,32 @@ export default function UserManagement() {
                     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03] mb-6">
                         <div className="p-6">
                             <h3 className="text-xl font-semibold text-gray-800 dark:text-white/90 mb-6">
-                                Créer un Nouvel Utilisateur
+                                {editingUser ? 'Modifier l\'Utilisateur' : 'Créer un Nouvel Utilisateur'}
                             </h3>
                             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2">
-                                        Nom Complet
+                                        Nom
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.nom}
                                         onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
                                         className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-white/[0.05] dark:text-white dark:placeholder:text-white/60"
-                                        placeholder="Entrez le nom complet"
+                                        placeholder="Entrez le nom"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2">
+                                        Prénom
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.prenom}
+                                        onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                                        className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-white/[0.05] dark:text-white dark:placeholder:text-white/60"
+                                        placeholder="Entrez le prénom"
                                         required
                                     />
                                 </div>
@@ -152,21 +193,15 @@ export default function UserManagement() {
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                         className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-white/[0.05] dark:text-white"
                                     >
-                                        <option value="User">Utilisateur</option>
-                                        <option value="Manager">Manager</option>
+                                        <option value="Chef projet">Chef projet</option>
+                                        <option value="Resp. RH">Resp. RH</option>
+                                        <option value="Resp. Logistique">Resp. Logistique</option>
+                                        <option value="Chef de base">Chef de base</option>
+                                        <option value="Resp. magasin">Resp. magasin</option>
+                                        <option value="Resp. Achat">Resp. Achat</option>
+                                        <option value="Resp. Maintenance">Resp. Maintenance</option>
+                                        <option value="Chef Opérateur">Chef Opérateur</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2">
-                                        Département
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.departement}
-                                        onChange={(e) => setFormData({ ...formData, departement: e.target.value })}
-                                        className="w-full rounded-lg border border-stroke bg-transparent px-4 py-2 outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-white/[0.05] dark:text-white dark:placeholder:text-white/60"
-                                        placeholder="Entrez le département"
-                                    />
                                 </div>
                                 <div className="md:col-span-2 flex gap-4">
                                     <Button
@@ -175,12 +210,12 @@ export default function UserManagement() {
                                         disabled={loading}
                                         className="w-full"
                                     >
-                                        {loading ? 'Chargement...' : 'Créer'}
+                                        {loading ? 'Chargement...' : editingUser ? 'Modifier' : 'Créer'}
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => setShowForm(false)}
+                                        onClick={handleCancel}
                                         className="w-full"
                                     >
                                         Annuler
@@ -213,12 +248,6 @@ export default function UserManagement() {
                                             isHeader
                                             className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                                         >
-                                            Département
-                                        </TableCell>
-                                        <TableCell
-                                            isHeader
-                                            className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                                        >
                                             Status
                                         </TableCell>
                                         <TableCell
@@ -242,7 +271,7 @@ export default function UserManagement() {
                                                     </div>
                                                     <div>
                                                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                                            {user.nom}
+                                                            {user.nom} {user.prenom}
                                                         </span>
                                                         <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
                                                             {user.role}
@@ -253,19 +282,22 @@ export default function UserManagement() {
                                             <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                                                 {user.email}
                                             </TableCell>
-                                            <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                                {user.departement || '-'}
-                                            </TableCell>
                                             <TableCell className="px-4 py-3 text-start text-theme-sm">
                                                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-sm font-medium ${user.estActif
-                                                    ? 'bg-[#34D399]/10 text-[#34D399]'   // Yellow Pending
-                                                    : 'bg-[#F43F5E]/10 text-[#F43F5E]'  // Yellow from BasicTable
+                                                    ? 'bg-[#34D399]/10 text-[#34D399]'
+                                                    : 'bg-[#F43F5E]/10 text-[#F43F5E]'
                                                     }`}>
                                                     {user.estActif ? 'Actif' : 'Inactif'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                                                 <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => handleEdit(user)}
+                                                        className="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary"
+                                                    >
+                                                        <PencilIcon className="h-5 w-5" />
+                                                    </button>
                                                     <button
                                                         onClick={() => handleDelete(user._id)}
                                                         className="text-gray-500 hover:text-danger dark:text-gray-400 dark:hover:text-danger"
