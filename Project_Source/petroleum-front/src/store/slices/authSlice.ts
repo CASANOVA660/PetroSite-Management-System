@@ -2,31 +2,38 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
 
 interface User {
-    id: string;
+    _id: string;
+    id?: string;
     email: string;
     role: string;
     nom: string;
 }
 
 interface AuthState {
-    user: {
-        _id: string;
-        nom: string;
-        email: string;
-        role: string;
-    } | null;
+    user: User | null;
     isAuthenticated: boolean;
     loading: boolean;
     error: string | null;
     token: string | null;
 }
 
+const storedUser = localStorage.getItem('user');
+const storedToken = localStorage.getItem('token');
+
+const normalizeUser = (user: any) => {
+    if (!user) return null;
+    return {
+        ...user,
+        _id: user._id || user.id,
+    };
+};
+
 const initialState: AuthState = {
-    user: null,
-    isAuthenticated: false,
+    user: storedUser ? normalizeUser(JSON.parse(storedUser)) : null,
+    isAuthenticated: !!storedToken,
     loading: false,
     error: null,
-    token: null,
+    token: storedToken,
 };
 
 export const loginUser = createAsyncThunk(
@@ -35,11 +42,17 @@ export const loginUser = createAsyncThunk(
         try {
             const response = await axios.post('http://localhost:5000/api/auth/login', credentials);
 
-            // Store token and user in localStorage
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+            const normalizedUser = normalizeUser(response.data.user);
 
-            return response.data;
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
+
+            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+
+            return {
+                ...response.data,
+                user: normalizedUser,
+            };
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.error || 'Login failed');
         }
