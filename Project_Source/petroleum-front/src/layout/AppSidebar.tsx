@@ -301,11 +301,11 @@ const AppSidebar: React.FC = () => {
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <img
-              className="h-10"
+              className="h-30 -mt-10"
               src="/images/logo/logo.PNG"
               alt="Italfluid Petroconnect"
-              width={150}
-              height={40}
+              width={200}
+              height={100}
             />
           ) : (
             <img

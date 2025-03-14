@@ -33,7 +33,7 @@ services:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb+srv://admin:admin@cluster0.pmxg5.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
-      - REDIS_URI=redis://redis:6379
+      - REDIS_URI=redis://petroleum-redis:6379 
       - JWT_SECRET=13eafa54fcf4b9ec587ae9727d6f6331ad2f56269c148afdba8c11c6acd0dfec89fbdbcda9a348b30780f5cfa0849d7b4aa3220c2e9c8ce7a1fcd40f90c33f76860aff8fe06c15f52c20e0bddf098219027e0ec68304f67a855ad1ec0e45e624679ab0446c6433ec24fb304f0dc217368d1e8c7d407fea4d57cc031d45728f8520292876fa11db7a4f39f46d4cf627093370809316f6315a3ab31262b08fdc90029cd8a1e51c2197a0bc9c2b8f3792a96b42bde61308b60aa021221b7be703a531f4b82c755d9bfe21bc32bd82c2fedd4ab60409396e703040760bb300578c6ede394bb2bcd383ba544a954684c7588d6c536d4d41cf07b0768c078919eb1832
       - SENDER_EMAIL=boual.boual@gmail.com
       - SENDER_NAME=Petroleum
