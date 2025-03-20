@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {  EyeCloseIcon, EyeIcon } from "../../icons";
+import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
@@ -186,11 +186,9 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <button type="submit">
-                    <Button className="w-full" size="sm" disabled={loading}>
-                      {loading ? "Signing in..." : "Sign in"}
-                    </Button>
-                  </button>
+                  <Button type="submit" className="w-full" size="sm" disabled={loading}>
+                    {loading ? "Signing in..." : "Sign in"}
+                  </Button>
                 </div>
               </div>
             </form>
