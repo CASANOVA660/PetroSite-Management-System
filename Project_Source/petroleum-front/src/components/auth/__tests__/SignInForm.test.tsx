@@ -67,6 +67,7 @@ describe('SignInForm', () => {
 
         // Note: We can't test the actual API call here as it's mocked in the component
         // We can only verify that the form submission was attempted
-        expect(submitButton).toBeDisabled();
+        expect(screen.getByRole('button', { name: /signing in\.\.\./i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /signing in\.\.\./i })).toBeDisabled();
     });
 }); 

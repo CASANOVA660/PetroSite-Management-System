@@ -5,6 +5,35 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import AppSidebar from '../AppSidebar';
 import authReducer from '../../store/slices/authSlice';
+import { SidebarProvider } from '../../context/SidebarContext';
+
+// Mock SVG imports
+jest.mock('../../icons', () => ({
+    PlusIcon: () => <div data-testid="plus-icon" />,
+    CloseIcon: () => <div data-testid="close-icon" />,
+    BoxIcon: () => <div data-testid="box-icon" />,
+    CheckCircleIcon: () => <div data-testid="check-circle-icon" />,
+    UserIcon: () => <div data-testid="user-icon" />,
+    SettingsIcon: () => <div data-testid="settings-icon" />,
+    DashboardIcon: () => <div data-testid="dashboard-icon" />,
+    LogoutIcon: () => <div data-testid="logout-icon" />,
+    ChevronRightIcon: () => <div data-testid="chevron-right-icon" />,
+    ChevronLeftIcon: () => <div data-testid="chevron-left-icon" />,
+    MenuIcon: () => <div data-testid="menu-icon" />,
+    CalendarIcon: () => <div data-testid="calendar-icon" />,
+    BellIcon: () => <div data-testid="bell-icon" />,
+    SearchIcon: () => <div data-testid="search-icon" />,
+    SunIcon: () => <div data-testid="sun-icon" />,
+    MoonIcon: () => <div data-testid="moon-icon" />,
+    SystemIcon: () => <div data-testid="system-icon" />,
+    EyeIcon: () => <div data-testid="eye-icon" />,
+    EyeCloseIcon: () => <div data-testid="eye-close-icon" />,
+}));
+
+// Mock SVG file imports
+jest.mock('*.svg?react', () => ({
+    ReactComponent: () => <div data-testid="svg-mock" />
+}), { virtual: true });
 
 const mockUser = {
     _id: '123',
@@ -32,7 +61,9 @@ const renderAppSidebar = (isAuthenticated = true) => {
     return render(
         <Provider store={store}>
             <BrowserRouter>
-                <AppSidebar />
+                <SidebarProvider>
+                    <AppSidebar />
+                </SidebarProvider>
             </BrowserRouter>
         </Provider>
     );
