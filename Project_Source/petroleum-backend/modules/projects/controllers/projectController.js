@@ -1,121 +1,133 @@
 const Project = require('../models/Project');
+const { validationResult } = require('express-validator');
 
-// List all projects
-exports.listProjects = async (req, res) => {
+// Get all projects
+exports.getAllProjects = async (req, res) => {
     try {
-        const projects = await Project.find()
-            .sort({ creationDate: -1 })
-            .populate('createdBy', 'nom prenom');
-
-        res.status(200).json({
-            success: true,
-            data: projects
-        });
+        const projects = await Project.find({ isDeleted: false })
+            .sort({ createdAt: -1 })
+            .populate('createdBy', 'name surname');
+        res.json(projects);
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la récupération des projets',
-            error: error.message
-        });
+        console.error('Error fetching projects:', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération des projets' });
     }
 };
 
-// Get a single project
-exports.getProject = async (req, res) => {
+// Get project by ID
+exports.getProjectById = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
-            .populate('createdBy', 'nom prenom');
+            .populate('createdBy', 'name surname');
 
         if (!project) {
-            return res.status(404).json({
-                success: false,
-                message: 'Projet non trouvé'
-            });
+            return res.status(404).json({ message: 'Projet non trouvé' });
         }
 
-        res.status(200).json({
-            success: true,
-            data: project
-        });
+        res.json(project);
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la récupération du projet',
-            error: error.message
-        });
+        console.error('Error fetching project:', error);
+        res.status(500).json({ message: 'Erreur lors de la récupération du projet' });
     }
 };
 
-// Create a new project
+// Create new project
 exports.createProject = async (req, res) => {
     try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
         const { name, clientName, description, startDate, endDate, status } = req.body;
 
-        // Validate required fields
-        if (!name || !clientName || !description || !startDate || !endDate) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tous les champs requis doivent être remplis',
-                missingFields: {
-                    name: !name,
-                    clientName: !clientName,
-                    description: !description,
-                    startDate: !startDate,
-                    endDate: !endDate
-                }
-            });
+        // Generate project number (PRJ-YYYY-XXXX)
+        const year = new Date().getFullYear();
+        const lastProject = await Project.findOne({
+            projectNumber: new RegExp(`^PRJ-${year}-`)
+        }).sort({ projectNumber: -1 });
+
+        let sequence = 1;
+        if (lastProject) {
+            const lastSequence = parseInt(lastProject.projectNumber.split('-')[2]);
+            sequence = lastSequence + 1;
         }
 
-        // Validate dates
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        if (start > end) {
-            return res.status(400).json({
-                success: false,
-                message: 'La date de début doit être antérieure à la date de fin'
-            });
-        }
+        const projectNumber = `PRJ-${year}-${sequence.toString().padStart(4, '0')}`;
 
-        // Check if user is authenticated
-        if (!req.user || !req.user._id) {
-            console.error('User not found in request:', req.user);
-            return res.status(401).json({
-                success: false,
-                message: 'Utilisateur non authentifié'
-            });
-        }
-
-        // Create new project with all required fields
         const project = new Project({
             name,
             clientName,
             description,
-            startDate: start,
-            endDate: end,
-            status: status || 'En cours',
-            createdBy: req.user._id,
-            projectNumber: `PROJ-${new Date().getFullYear()}-${(await Project.countDocuments() + 1).toString().padStart(3, '0')}`
+            startDate,
+            endDate,
+            status,
+            projectNumber,
+            createdBy: req.user._id
         });
 
-        // Save project
         await project.save();
+        await project.populate('createdBy', 'name surname');
 
-        // Populate the createdBy field
-        await project.populate('createdBy', 'nom prenom');
-
-        console.log('Project created successfully:', project);
-
-        res.status(201).json({
-            success: true,
-            message: 'Projet créé avec succès',
-            data: project
-        });
+        res.status(201).json(project);
     } catch (error) {
         console.error('Error creating project:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur lors de la création du projet',
-            error: error.message
+        res.status(500).json({ message: 'Erreur lors de la création du projet' });
+    }
+};
+
+// Update project
+exports.updateProject = async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const project = await Project.findById(req.params.id);
+        if (!project) {
+            return res.status(404).json({ message: 'Projet non trouvé' });
+        }
+
+        // Check if user has permission to update
+        if (project.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Non autorisé à modifier ce projet' });
+        }
+
+        const updates = req.body;
+        Object.keys(updates).forEach(key => {
+            project[key] = updates[key];
         });
+
+        await project.save();
+        await project.populate('createdBy', 'name surname');
+
+        res.json(project);
+    } catch (error) {
+        console.error('Error updating project:', error);
+        res.status(500).json({ message: 'Erreur lors de la mise à jour du projet' });
+    }
+};
+
+// Delete project (soft delete)
+exports.deleteProject = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) {
+            return res.status(404).json({ message: 'Projet non trouvé' });
+        }
+
+        // Check if user has permission to delete
+        if (project.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Non autorisé à supprimer ce projet' });
+        }
+
+        project.isDeleted = true;
+        await project.save();
+
+        res.json({ message: 'Projet supprimé avec succès' });
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        res.status(500).json({ message: 'Erreur lors de la suppression du projet' });
     }
 }; 

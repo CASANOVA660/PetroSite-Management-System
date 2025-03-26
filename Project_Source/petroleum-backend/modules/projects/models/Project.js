@@ -1,67 +1,60 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const projectSchema = new Schema({
-    projectNumber: {
-        type: String,
-        unique: true,
-    },
+const projectSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Le nom du projet est requis'],
+        trim: true
+    },
+    projectNumber: {
+        type: String,
+        required: true,
+        unique: true
     },
     clientName: {
         type: String,
         required: [true, 'Le nom du client est requis'],
+        trim: true
     },
     description: {
         type: String,
         required: [true, 'La description est requise'],
+        trim: true
     },
     startDate: {
         type: Date,
-        required: [true, 'La date de début est requise'],
+        required: [true, 'La date de début est requise']
     },
     endDate: {
         type: Date,
-        required: [true, 'La date de fin est requise'],
-    },
-    creationDate: {
-        type: Date,
-        required: true,
-        default: Date.now,
+        required: [true, 'La date de fin est requise']
     },
     status: {
         type: String,
         enum: ['En cours', 'Fermé', 'Annulé'],
-        default: 'En cours',
-    },
-    clientRepresentative: {
-        name: String,
-        surname: String,
-        phone: String,
-        email: String,
-    },
-    requirements: {
-        type: String,
+        default: 'En cours'
     },
     createdBy: {
-        type: Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
+        required: [true, 'L\'utilisateur qui a créé le projet est requis']
     },
-    updatedAt: {
-        type: Date,
-    },
+    isDeleted: {
+        type: Boolean,
+        default: false
+    }
+}, {
+    timestamps: true
 });
 
-// Generate project number before saving
-projectSchema.pre('save', async function (next) {
-    if (!this.projectNumber) {
-        const year = new Date().getFullYear();
-        const count = await mongoose.model('Project').countDocuments();
-        const number = (count + 1).toString().padStart(3, '0');
-        this.projectNumber = `PROJ-${year}-${number}`;
+// Index for faster queries
+projectSchema.index({ projectNumber: 1 });
+projectSchema.index({ name: 'text', description: 'text' });
+
+// Validate that end date is after start date
+projectSchema.pre('save', function (next) {
+    if (this.startDate > this.endDate) {
+        next(new Error('La date de fin doit être postérieure à la date de début'));
     }
     next();
 });
