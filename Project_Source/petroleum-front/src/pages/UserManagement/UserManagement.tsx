@@ -7,13 +7,7 @@ import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { createUser, fetchUsers, deleteUser, updateUser, clearMessages } from "../../store/slices/userSlice";
 import { PlusIcon, TrashBinIcon, PencilIcon } from "../../icons";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHeader,
-    TableRow,
-} from "../../components/ui/table";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "../../components/ui/table";
 import { socket } from '../../utils/socket';
 
 interface User {

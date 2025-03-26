@@ -22,6 +22,8 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import UserManagement from "./pages/UserManagement/UserManagement";
 import ActivationPage from './pages/Activation/ActivationPage';
+import ProjectPreparation from './pages/Projects/ProjectPreparation';
+import AddProject from './pages/Projects/AddProject';
 
 
 export default function App() {
@@ -67,6 +69,10 @@ export default function App() {
                 <UserManagement />
               }
             />
+
+            {/* Projects */}
+            <Route path="/projects/preparation" element={<ProjectPreparation />} />
+            <Route path="/projects/add" element={<AddProject />} />
           </Route>
 
           {/* Redirect root to signin */}

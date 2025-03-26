@@ -7,6 +7,7 @@ const { initializeFirebase } = require('./config/firebase');
 const userRoutes = require('./modules/users/routes/userRoutes');
 const authRoutes = require('./modules/auth/routes/authRoutes');
 const notificationRoutes = require('./modules/notifications/routes/notificationRoutes');
+const projectRoutes = require('./modules/projects/routes/projectRoutes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -47,6 +48,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Socket.io connection handling with error handling
 io.on('connection', (socket) => {
