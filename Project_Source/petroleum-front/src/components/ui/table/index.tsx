@@ -1,64 +1,84 @@
 import { ReactNode } from "react";
+import { ChevronLeftIcon, ArrowRightIcon } from "../../../icons";
 
-// Props for Table
-interface TableProps {
-  children: ReactNode; // Table content (thead, tbody, etc.)
-  className?: string; // Optional className for styling
+export interface Column {
+  key: string;
+  title: string;
 }
 
-// Props for TableHeader
-interface TableHeaderProps {
-  children: ReactNode; // Header row(s)
-  className?: string; // Optional className for styling
+export interface TableProps {
+  children?: ReactNode;
+  columns?: Column[];
+  data?: any[];
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
 }
 
-// Props for TableBody
-interface TableBodyProps {
-  children: ReactNode; // Body row(s)
-  className?: string; // Optional className for styling
-}
-
-// Props for TableRow
-interface TableRowProps {
-  children: ReactNode; // Cells (th or td)
-  className?: string; // Optional className for styling
-}
-
-// Props for TableCell
-interface TableCellProps {
-  children: ReactNode; // Cell content
-  isHeader?: boolean; // If true, renders as <th>, otherwise <td>
-  className?: string; // Optional className for styling
-}
-
-// Table Component
-const Table: React.FC<TableProps> = ({ children, className }) => {
-  return <table className={`min-w-full  ${className}`}>{children}</table>;
-};
-
-// TableHeader Component
-const TableHeader: React.FC<TableHeaderProps> = ({ children, className }) => {
-  return <thead className={className}>{children}</thead>;
-};
-
-// TableBody Component
-const TableBody: React.FC<TableBodyProps> = ({ children, className }) => {
-  return <tbody className={className}>{children}</tbody>;
-};
-
-// TableRow Component
-const TableRow: React.FC<TableRowProps> = ({ children, className }) => {
-  return <tr className={className}>{children}</tr>;
-};
-
-// TableCell Component
-const TableCell: React.FC<TableCellProps> = ({
+export function Table({
   children,
-  isHeader = false,
-  className,
-}) => {
-  const CellTag = isHeader ? "th" : "td";
-  return <CellTag className={` ${className}`}>{children}</CellTag>;
-};
+  columns,
+  data,
+  currentPage,
+  totalPages,
+  onPageChange
+}: TableProps) {
+  if (children) {
+    return <table className="w-full">{children}</table>;
+  }
 
-export { Table, TableHeader, TableBody, TableRow, TableCell };
+  return (
+    <table className="w-full">
+      <thead>
+        <tr>
+          {columns?.map((column) => (
+            <th key={column.key}>{column.title}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data?.map((row, index) => (
+          <tr key={index}>
+            {columns?.map((column) => (
+              <td key={`${index}-${column.key}`}>{row[column.key]}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+      {totalPages && totalPages > 1 && (
+        <tfoot>
+          <tr>
+            <td colSpan={columns?.length}>
+              <div className="flex items-center justify-end gap-2 mt-4">
+                <button
+                  onClick={() => onPageChange?.(currentPage! - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                <button
+                  onClick={() => onPageChange?.(currentPage! + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                >
+                  <ArrowRightIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      )}
+    </table>
+  );
+}
+
+export { default as TableBody } from './TableBody';
+export { default as TableCell } from './TableCell';
+export { default as TableHeader } from './TableHeader';
+export { default as TableRow } from './TableRow';
+
+export default Table; 

@@ -33,6 +33,11 @@ const navItems: NavItem[] = [
     subItems: [{ name: "dashbordForTest", path: "/", pro: false }],
   },
   {
+    icon: <ListIcon />,
+    name: "Préparation Projet",
+    path: "/projects/preparation",
+  },
+  {
     icon: <CalenderIcon />,
     name: "Calendar",
     path: "/calendar",
