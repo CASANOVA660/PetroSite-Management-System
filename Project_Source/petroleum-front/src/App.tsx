@@ -24,7 +24,8 @@ import UserManagement from "./pages/UserManagement/UserManagement";
 import ActivationPage from './pages/Activation/ActivationPage';
 import ProjectPreparation from './pages/Projects/ProjectPreparation';
 import AddProject from './pages/Projects/AddProject';
-
+import ProjectDetails from './pages/Projects/ProjectDetails';
+import EditProject from './pages/Projects/EditProject';
 
 export default function App() {
   return (
@@ -73,6 +74,8 @@ export default function App() {
             {/* Projects */}
             <Route path="/projects/preparation" element={<ProjectPreparation />} />
             <Route path="/projects/add" element={<AddProject />} />
+            <Route path="/projects/:id" element={<ProjectDetails />} />
+            <Route path="/projects/:id/edit" element={<EditProject />} />
           </Route>
 
           {/* Redirect root to signin */}

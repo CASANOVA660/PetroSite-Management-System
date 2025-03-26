@@ -1,11 +1,35 @@
 const express = require('express');
 const router = express.Router();
+const { body } = require('express-validator');
 const projectController = require('../controllers/projectController');
 const authMiddleware = require('../../../middleware/auth');
+const actionRoutes = require('./actionRoutes');
+const documentRoutes = require('./documentRoutes');
+
+// Validation middleware
+const projectValidation = [
+    body('name').trim().notEmpty().withMessage('Le nom du projet est requis'),
+    body('clientName').trim().notEmpty().withMessage('Le nom du client est requis'),
+    body('description').trim().notEmpty().withMessage('La description est requise'),
+    body('startDate').isISO8601().withMessage('Date de début invalide'),
+    body('endDate').isISO8601().withMessage('Date de fin invalide'),
+    body('status').isIn(['En cours', 'Fermé', 'Annulé']).withMessage('Statut invalide')
+];
+
+// Apply auth middleware to all routes
+router.use(authMiddleware);
 
 // Project routes
-router.get('/', authMiddleware, projectController.listProjects);
-router.get('/:id', authMiddleware, projectController.getProject);
-router.post('/', authMiddleware, projectController.createProject);
+router.get('/', projectController.getAllProjects);
+router.get('/:id', projectController.getProjectById);
+router.post('/', projectValidation, projectController.createProject);
+router.put('/:id', projectValidation, projectController.updateProject);
+router.delete('/:id', projectController.deleteProject);
+
+// Action routes
+router.use('/:projectId/actions', actionRoutes);
+
+// Document routes
+router.use('/:projectId/documents', documentRoutes);
 
 module.exports = router; 
