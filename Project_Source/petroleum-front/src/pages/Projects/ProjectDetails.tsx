@@ -7,7 +7,13 @@ import ComponentCard from '../../components/common/ComponentCard';
 import { AppDispatch, RootState } from '../../store';
 import { fetchProjectById } from '../../store/slices/projectSlice';
 import { toast } from 'react-toastify';
-import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import DocumentsGlobale from '../../components/documents/DocumentsGlobale';
+import DossierAdministratif from '../../components/documents/DossierAdministratif';
+import DossierTechnique from '../../components/documents/DossierTechnique';
+import DossierRH from '../../components/documents/DossierRH';
+import DossierHSE from '../../components/documents/DossierHSE';
+import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
+
 
 interface SectionProps {
     title: string;
@@ -133,8 +139,8 @@ const ProjectDetails: React.FC = () => {
                         <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Statut</p>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedProject.status === 'En cours' ? 'bg-green-100 text-green-800' :
-                                    selectedProject.status === 'Fermé' ? 'bg-gray-100 text-gray-800' :
-                                        'bg-red-100 text-red-800'
+                                selectedProject.status === 'Fermé' ? 'bg-gray-100 text-gray-800' :
+                                    'bg-red-100 text-red-800'
                                 }`}>
                                 {selectedProject.status}
                             </span>
@@ -144,83 +150,29 @@ const ProjectDetails: React.FC = () => {
 
                 {/* Project Sections */}
                 <div className="space-y-6">
-                    <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-[#F28C38]" />}>
-                        <div className="space-y-4">
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                                <p className="text-gray-500">Glissez-déposez ou cliquez pour ajouter un fichier</p>
-                                <p className="text-sm text-gray-400 mt-1">PDF, images, etc.</p>
-                            </div>
-                            <div className="flex justify-end">
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ouvrir une Action
-                                </button>
-                            </div>
-                        </div>
-                    </Section>
+                    {id && (
+                        <>
+                            <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-[#F28C38]" />}>
+                                <DocumentsGlobale projectId={id} />
+                            </Section>
 
-                    <Section title="Dossier Administratif" icon={<FolderIcon className="h-6 w-6 text-[#F28C38]" />}>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">Documents administratifs</h4>
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ajouter un Document
-                                </button>
-                            </div>
-                            <div className="flex justify-end">
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ouvrir une Action
-                                </button>
-                            </div>
-                        </div>
-                    </Section>
+                            <Section title="Dossier Administratif" icon={<FolderIcon className="h-6 w-6 text-[#F28C38]" />}>
+                                <DossierAdministratif projectId={id} />
+                            </Section>
 
-                    <Section title="Dossier Technique" icon={<ShieldCheckIcon className="h-6 w-6 text-[#F28C38]" />}>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">Équipements</h4>
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Choisir un Équipement
-                                </button>
-                            </div>
-                            <div className="flex justify-end">
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ouvrir une Action
-                                </button>
-                            </div>
-                        </div>
-                    </Section>
+                            <Section title="Dossier Technique" icon={<WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38]" />}>
+                                <DossierTechnique projectId={id} />
+                            </Section>
 
-                    <Section title="Dossier RH" icon={<UserGroupIcon className="h-6 w-6 text-[#F28C38]" />}>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">Personnel</h4>
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Choisir un Personnel
-                                </button>
-                            </div>
-                            <div className="flex justify-end">
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ouvrir une Action
-                                </button>
-                            </div>
-                        </div>
-                    </Section>
+                            <Section title="Dossier RH" icon={<UserGroupIcon className="h-6 w-6 text-[#F28C38]" />}>
+                                <DossierRH projectId={id} />
+                            </Section>
 
-                    <Section title="Dossier HSE" icon={<ShieldCheckIcon className="h-6 w-6 text-[#F28C38]" />}>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-medium text-gray-900 dark:text-white">Documents HSE</h4>
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ajouter un Document
-                                </button>
-                            </div>
-                            <div className="flex justify-end">
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Ouvrir une Action
-                                </button>
-                            </div>
-                        </div>
-                    </Section>
+                            <Section title="Dossier HSE" icon={<ShieldCheckIcon className="h-6 w-6 text-[#F28C38]" />}>
+                                <DossierHSE projectId={id} />
+                            </Section>
+                        </>
+                    )}
 
                     <Section title="Planning" icon={<CalendarIcon className="h-6 w-6 text-[#F28C38]" />}>
                         <div className="space-y-4">

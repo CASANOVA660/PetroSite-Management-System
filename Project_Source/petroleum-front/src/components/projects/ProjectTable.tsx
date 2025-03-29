@@ -13,7 +13,7 @@ interface Project {
     _id: string;
     projectNumber: string;
     clientName: string;
-    creationDate: string;
+    createdAt: string;
     status: 'En cours' | 'Fermé' | 'Annulé';
 }
 
@@ -22,13 +22,23 @@ interface ProjectTableProps {
     onViewProject: (id: string) => void;
 }
 
-const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onViewProject }) => {
+const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProject }) => {
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
+        if (!dateString) return 'Date non définie';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) {
+                return 'Date invalide';
+            }
+            return date.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return 'Date invalide';
+        }
     };
 
     const getStatusColor = (status: string): 'success' | 'warning' | 'error' => {
@@ -100,7 +110,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({ projects, onViewProject }) 
                                             {project.clientName}
                                         </TableCell>
                                         <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
-                                            {formatDate(project.creationDate)}
+                                            {formatDate(project.createdAt)}
                                         </TableCell>
                                         <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
                                             <Badge size="sm" color={getStatusColor(project.status)}>

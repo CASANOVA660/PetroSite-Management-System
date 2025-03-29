@@ -15,7 +15,10 @@ const ProjectPreparation: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const { projects, loading, error } = useSelector((state: RootState) => state.projects);
 
+    console.log('ProjectPreparation projects state:', projects);
+
     useEffect(() => {
+        console.log('Fetching projects...');
         dispatch(fetchProjects());
     }, [dispatch]);
 
@@ -68,6 +71,10 @@ const ProjectPreparation: React.FC = () => {
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F28C38]"></div>
+                        </div>
+                    ) : error ? (
+                        <div className="flex justify-center items-center h-64 text-red-500">
+                            {error}
                         </div>
                     ) : (
                         <ProjectTable

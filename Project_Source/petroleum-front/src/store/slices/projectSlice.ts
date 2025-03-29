@@ -72,8 +72,18 @@ export const fetchProjects = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await api.get('/projects');
-            return response.data.data;
+            console.log('Projects API Response:', response.data);
+            // Check if the response has a data property
+            if (response.data && response.data.data) {
+                return response.data.data;
+            } else if (Array.isArray(response.data)) {
+                return response.data;
+            } else {
+                console.error('Unexpected API response structure:', response.data);
+                return [];
+            }
         } catch (error: any) {
+            console.error('Error fetching projects:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch projects');
         }
     }
@@ -83,9 +93,30 @@ export const fetchProjectById = createAsyncThunk(
     'projects/fetchProjectById',
     async (id: string, { rejectWithValue }) => {
         try {
+            console.log('Fetching project with ID:', id);
             const response = await api.get(`/projects/${id}`);
-            return response.data.data;
+            console.log('Project API Response:', response.data);
+
+            // Handle different response structures
+            const projectData = response.data?.data || response.data;
+
+            if (!projectData) {
+                console.error('No project data in response:', response.data);
+                return rejectWithValue('Projet non trouvé');
+            }
+
+            // Ensure required fields are present
+            if (!projectData._id || !projectData.projectNumber) {
+                console.error('Project missing required fields:', projectData);
+                return rejectWithValue('Données du projet incomplètes');
+            }
+
+            return projectData;
         } catch (error: any) {
+            console.error('Error fetching project:', error);
+            if (error.response?.status === 404) {
+                return rejectWithValue('Projet non trouvé');
+            }
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch project');
         }
     }
@@ -100,7 +131,21 @@ export const createProject = createAsyncThunk(
             console.log('Token:', localStorage.getItem('token'));
 
             const response = await api.post('/projects', projectData);
-            return response.data.data;
+            console.log('Create project response:', response.data);
+
+            if (!response.data || !response.data.data) {
+                console.error('Invalid project creation response:', response.data);
+                return rejectWithValue('Erreur lors de la création du projet');
+            }
+
+            // Ensure the project has all required fields
+            const project = response.data.data;
+            if (!project._id || !project.projectNumber || !project.creationDate) {
+                console.error('Project missing required fields:', project);
+                return rejectWithValue('Données du projet incomplètes');
+            }
+
+            return project;
         } catch (error: any) {
             console.error('Project creation error:', error.response?.data || error.message);
             return rejectWithValue(error.response?.data?.message || 'Failed to create project');
@@ -163,6 +208,9 @@ const projectSlice = createSlice({
             })
             .addCase(createProject.fulfilled, (state, action) => {
                 state.loading = false;
+                if (!state.projects) {
+                    state.projects = [];
+                }
                 state.projects.push(action.payload);
             })
             .addCase(createProject.rejected, (state, action) => {

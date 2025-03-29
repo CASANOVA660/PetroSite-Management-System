@@ -34,7 +34,7 @@ const authMiddleware = (req, res, next) => {
 
       // Set user info in request
       req.user = {
-        _id: decoded.userId,
+        id: decoded.userId,
         email: decoded.email,
         role: decoded.role,
         nom: decoded.nom

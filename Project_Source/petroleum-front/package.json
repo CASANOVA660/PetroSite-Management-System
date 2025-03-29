@@ -14,6 +14,8 @@
     "test:ci": "jest --ci --coverage"
   },
   "dependencies": {
+    "@cloudinary/react": "^1.14.1",
+    "@cloudinary/url-gen": "^1.21.0",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
@@ -38,6 +40,7 @@
     "react-dropzone": "^14.3.5",
     "react-flatpickr": "^3.10.13",
     "react-helmet-async": "^2.0.5",
+    "react-hot-toast": "^2.5.2",
     "react-redux": "^9.2.0",
     "react-router": "^7.1.5",
     "react-router-dom": "^7.2.0",
