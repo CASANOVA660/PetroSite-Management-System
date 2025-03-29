@@ -1,6 +1,8 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const { connectDB } = require('./config/database');
 const { connectRedis } = require('./config/redis');
 const { initializeFirebase } = require('./config/firebase');
@@ -8,6 +10,7 @@ const userRoutes = require('./modules/users/routes/userRoutes');
 const authRoutes = require('./modules/auth/routes/authRoutes');
 const notificationRoutes = require('./modules/notifications/routes/notificationRoutes');
 const projectRoutes = require('./modules/projects/routes/projectRoutes');
+const documentRoutes = require('./modules/documents/routes/document.routes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -44,11 +47,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/documents', documentRoutes);
 
 // Socket.io connection handling with error handling
 io.on('connection', (socket) => {

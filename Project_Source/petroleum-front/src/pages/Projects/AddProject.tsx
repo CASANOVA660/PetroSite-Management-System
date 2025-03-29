@@ -5,7 +5,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
 import { AppDispatch, RootState } from '../../store';
-import { createProject } from '../../store/slices/projectSlice';
+import { createProject, fetchProjects } from '../../store/slices/projectSlice';
 import { toast } from 'react-toastify';
 
 const AddProject: React.FC = () => {
@@ -32,7 +32,8 @@ const AddProject: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const result = await dispatch(createProject(formData)).unwrap();
+            await dispatch(createProject(formData)).unwrap();
+            await dispatch(fetchProjects()).unwrap();
             toast.success('Projet créé avec succès!');
             navigate('/projects/preparation');
         } catch (err) {
