@@ -26,14 +26,16 @@ interface BaseDocumentManagerProps {
     icon: React.ReactNode;
 }
 
+// ... existing code ...
 const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, category, title, icon }) => {
     const dispatch = useDispatch<AppDispatch>();
-    const { documents, loading, error } = useSelector((state: RootState) => state.documents);
+    const { documentsByCategory, loading, error } = useSelector((state: RootState) => state.documents);
     const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
     const [showViewer, setShowViewer] = useState(false);
 
     // Memoize the fetch documents call based on category
     const fetchProjectDocuments = useCallback(() => {
+        console.log(`[DEBUG] Fetching documents for category: ${category}`);
         switch (category) {
             case 'Documents globale':
                 dispatch(fetchDocumentsGlobale(projectId));
@@ -50,6 +52,8 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
             case 'Dossier HSE':
                 dispatch(fetchDossierHSE(projectId));
                 break;
+            default:
+                console.error(`[ERROR] Unknown category for fetch: ${category}`);
         }
     }, [dispatch, projectId, category]);
 
@@ -57,22 +61,48 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
         fetchProjectDocuments();
     }, [fetchProjectDocuments]);
 
-    // BaseDocumentManager.tsx
     const handleUpload = useCallback(async (documentData: CreateDocumentData) => {
         try {
-            console.log('[DEBUG] Actual category:', category); // Check exact value
+            console.log(`[DEBUG] Starting upload for category: ${category}`);
+            console.log(`[DEBUG] Document data:`, documentData);
 
+            // Ensure we use the category from the component props
+            const uploadData = {
+                ...documentData,
+                category // This ensures we use the correct category from the component
+            };
+
+            console.log(`[DEBUG] Final upload data:`, uploadData);
+
+            // Use the correct upload action based on category
             switch (category) {
-                case 'Dossier Administratif':
-                    console.log('[DEBUG] Dispatching uploadDossierAdministratif');
-                    await dispatch(uploadDossierAdministratif(documentData)).unwrap();
+                case 'Documents globale':
+                    await dispatch(uploadDocumentsGlobale(uploadData)).unwrap();
                     break;
-                // ... other cases
+                case 'Dossier Administratif':
+                    await dispatch(uploadDossierAdministratif(uploadData)).unwrap();
+                    break;
+                case 'Dossier Technique':
+                    await dispatch(uploadDossierTechnique(uploadData)).unwrap();
+                    break;
+                case 'Dossier RH':
+                    await dispatch(uploadDossierRH(uploadData)).unwrap();
+                    break;
+                case 'Dossier HSE':
+                    await dispatch(uploadDossierHSE(uploadData)).unwrap();
+                    break;
+                default:
+                    console.error(`[ERROR] Unknown category: ${category}`);
+                    throw new Error(`Unknown category: ${category}`);
             }
+
+            console.log(`[DEBUG] Upload successful for category: ${category}`);
+            fetchProjectDocuments();
         } catch (error) {
-            console.error('Upload error:', error);
+            console.error(`[ERROR] Upload failed for category ${category}:`, error);
+            throw error;
         }
-    }, [dispatch, category, fetchProjectDocuments]);
+    }, [dispatch, fetchProjectDocuments, category]);
 
     const handleViewDocument = useCallback((document: Document) => {
         setSelectedDocument(document);
@@ -84,10 +114,8 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
         setSelectedDocument(null);
     }, []);
 
-    // Memoize filtered documents with strict category matching
-    const filteredDocuments = useMemo(() => {
-        return documents?.filter(doc => doc.category === category) || [];
-    }, [documents, category]);
+    // Get documents for the current category
+    const documents = documentsByCategory[category] || [];
 
     if (loading) {
         return (
@@ -121,7 +149,7 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <DocumentList
-                    documents={filteredDocuments}
+                    documents={documents}
                     onViewDocument={handleViewDocument}
                 />
             </div>
@@ -135,5 +163,6 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
         </div>
     );
 };
+// ... existing code ...
 
 export default React.memo(BaseDocumentManager);

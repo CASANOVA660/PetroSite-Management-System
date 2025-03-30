@@ -12,7 +12,7 @@ const DossierRH: React.FC<DossierRHProps> = ({ projectId }) => {
             projectId={projectId}
             category="Dossier RH"
             title="Dossier RH"
-            icon={<UserGroupIcon className="h-6 w-6 text-[#F28C38]" />}
+            icon={<UserGroupIcon className="w-6 h-6 text-[#F28C38]" />}
         />
     );
 };
