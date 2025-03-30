@@ -1,22 +1,11 @@
 const Document = require('../models/document.model');
 const cloudinary = require('../../../config/cloudinary');
+const redis = require('../../../config/redis');
 
 class DocumentService {
-    async getProjectDocuments({ projectId, category }) {
-        try {
-            const documents = await Document.find({ projectId, category })
-                .populate('uploadedBy', 'nom prenom')
-                .sort({ createdAt: -1 });
-            return documents;
-        } catch (error) {
-            console.error('Error in getProjectDocuments:', error);
-            throw error;
-        }
-    }
-
     async uploadDocument(file, category, projectId, userId) {
         try {
-            console.log('Starting document upload:', {
+            console.log('[DEBUG] Starting document upload:', {
                 fileName: file.originalname,
                 category,
                 projectId,
@@ -28,15 +17,16 @@ class DocumentService {
             const base64File = buffer.toString('base64');
             const uploadStr = `data:${file.mimetype};base64,${base64File}`;
 
-            // Upload to Cloudinary
+            // Upload to Cloudinary with optimized settings
             const uploadResult = await cloudinary.uploader.upload(uploadStr, {
                 resource_type: 'auto',
                 folder: `documents/${category.toLowerCase().replace(/\s+/g, '-')}`,
                 public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
-                overwrite: true
+                overwrite: true,
+                chunk_size: 6000000 // 6MB chunks for large files
             });
 
-            console.log('Cloudinary upload result:', uploadResult);
+            console.log('[DEBUG] Cloudinary upload result:', uploadResult);
 
             // Create document in database
             const document = new Document({
@@ -55,11 +45,16 @@ class DocumentService {
             });
 
             await document.save();
-            console.log('Document saved to database:', document);
+            console.log('[DEBUG] Document saved to database:', document);
+
+            // Invalidate cache for this category
+            const cacheKey = `documents:${projectId}:${category}`;
+            await redis.del(cacheKey);
+            console.log('[DEBUG] Cache invalidated for key:', cacheKey);
 
             return document;
         } catch (error) {
-            console.error('Error in uploadDocument:', {
+            console.error('[ERROR] Error in uploadDocument:', {
                 error: error.message,
                 stack: error.stack,
                 file: {
@@ -72,8 +67,40 @@ class DocumentService {
         }
     }
 
+    async getProjectDocuments({ projectId, category }) {
+        const cacheKey = `documents:${projectId}:${category}`;
+
+        try {
+            console.log('[DEBUG] Checking cache for key:', cacheKey);
+            const cached = await redis.get(cacheKey);
+
+            if (cached) {
+                console.log('[DEBUG] Cache hit for key:', cacheKey);
+                return JSON.parse(cached);
+            }
+
+            console.log('[DEBUG] Cache miss, fetching from database');
+            const documents = await Document.find({ projectId, category })
+                .populate('uploadedBy', 'nom prenom')
+                .sort({ createdAt: -1 })
+                .lean()
+                .exec();
+
+            // Cache the results for 5 minutes
+            await redis.set(cacheKey, JSON.stringify(documents), 'EX', 300);
+            console.log('[DEBUG] Cached documents for key:', cacheKey);
+
+            return documents;
+        } catch (error) {
+            console.error('[ERROR] Error in getProjectDocuments:', error);
+            throw error;
+        }
+    }
+
     async deleteDocument(documentId) {
         try {
+            console.log('[DEBUG] Deleting document:', documentId);
+
             const document = await Document.findById(documentId);
             if (!document) {
                 throw new Error('Document not found');
@@ -81,12 +108,20 @@ class DocumentService {
 
             // Delete from Cloudinary
             await cloudinary.uploader.destroy(document.publicId);
+            console.log('[DEBUG] Document deleted from Cloudinary');
 
             // Delete from database
             await document.remove();
+            console.log('[DEBUG] Document deleted from database');
+
+            // Invalidate cache for this category
+            const cacheKey = `documents:${document.projectId}:${document.category}`;
+            await redis.del(cacheKey);
+            console.log('[DEBUG] Cache invalidated for key:', cacheKey);
+
             return document;
         } catch (error) {
-            console.error('Error in deleteDocument:', error);
+            console.error('[ERROR] Error in deleteDocument:', error);
             throw error;
         }
     }

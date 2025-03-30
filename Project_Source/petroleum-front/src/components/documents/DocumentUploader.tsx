@@ -17,21 +17,24 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ projectId, category
 
         setIsUploading(true);
         try {
-            for (const file of files) {
-                console.log('Uploading file with category:', category);
+            // Parallel upload for multiple files
+            await Promise.all(files.map(async (file) => {
+                console.log('[DEBUG] Uploading file with category:', category);
                 await onUpload({
                     file,
                     projectId,
                     category,
                     name: file.name
                 });
-                toast.success('Document uploadé avec succès');
-            }
+            }));
+            toast.success(`${files.length} document(s) uploadés avec succès`);
         } catch (error) {
-            console.error('Error uploading document:', error);
+            console.error('[ERROR] Error uploading document:', error);
             toast.error('Erreur lors de l\'upload du document');
         } finally {
             setIsUploading(false);
+            // Reset input to allow same file re-upload
+            e.target.value = '';
         }
     }, [onUpload, projectId, category]);
 
@@ -48,7 +51,10 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({ projectId, category
                 />
                 <label
                     htmlFor={`file-upload-${category}`}
-                    className="inline-flex items-center px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#F28C38]/90 cursor-pointer"
+                    className={`inline-flex items-center px-4 py-2 rounded-md transition-colors ${isUploading
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-[#F28C38] hover:bg-[#F28C38]/90 cursor-pointer text-white'
+                        }`}
                 >
                     {isUploading ? (
                         <span className="flex items-center">

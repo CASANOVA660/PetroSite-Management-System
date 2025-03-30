@@ -12,7 +12,7 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
             projectId={projectId}
             category="Dossier Technique"
             title="Dossier Technique"
-            icon={<WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38]" />}
+            icon={<WrenchScrewdriverIcon className="w-6 h-6 text-[#F28C38]" />}
         />
     );
 };

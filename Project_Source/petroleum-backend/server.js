@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { connectDB } = require('./config/database');
-const { connectRedis } = require('./config/redis');
+const redis = require('./config/redis'); // Updated Redis import
 const { initializeFirebase } = require('./config/firebase');
 const userRoutes = require('./modules/users/routes/userRoutes');
 const authRoutes = require('./modules/auth/routes/authRoutes');
@@ -15,42 +15,47 @@ const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
 const socketIo = require('socket.io');
+const logger = require('./utils/logger');
 
 dotenv.config();
-connectDB();
-connectRedis();
-initializeFirebase();
+
+// Initialize core services
+connectDB(); // MongoDB
+initializeFirebase(); // Firebase
+
+// Redis connection events
+redis.on('connect', () => logger.info('Redis connected'));
+redis.on('error', (err) => logger.error('Redis connection error:', err));
 
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io setup with proper configuration
+// Socket.io configuration
 const io = socketIo(server, {
     cors: {
-        origin: "http://localhost5173:", // Your frontend URL
+        origin: "http://localhost:5173", // Fixed URL
         methods: ["GET", "POST", "PUT"],
         credentials: true,
         transports: ['websocket', 'polling']
     },
-    allowEIO3: true,
     pingTimeout: 60000
 });
 
-// Make io available globally
 global.io = io;
 
 // Middleware
 app.use(cors({
-    origin: "http://localhost:5173", // Your frontend URL
+    origin: "http://localhost:5173",
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Create uploads directory if it doesn't exist
+// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir);
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 // Routes
@@ -60,22 +65,24 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/documents', documentRoutes);
 
-// Socket.io connection handling with error handling
+// Socket.io events
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+    logger.info(`Client connected: ${socket.id}`);
 
     socket.on('error', (error) => {
-        console.error('Socket error:', error);
+        logger.error(`Socket error (${socket.id}):`, error);
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('Client disconnected:', reason);
+        logger.info(`Client disconnected (${socket.id}): ${reason}`);
     });
 });
 
+// Error handling
 app.use(errorHandler);
 
-const PORT = 5000; // Keep backend on 5000
+// Server start
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });

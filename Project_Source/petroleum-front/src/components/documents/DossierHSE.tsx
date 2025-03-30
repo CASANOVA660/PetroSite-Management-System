@@ -12,7 +12,7 @@ const DossierHSE: React.FC<DossierHSEProps> = ({ projectId }) => {
             projectId={projectId}
             category="Dossier HSE"
             title="Dossier HSE"
-            icon={<ShieldCheckIcon className="h-6 w-6 text-[#F28C38]" />}
+            icon={<ShieldCheckIcon className="w-6 h-6 text-[#F28C38]" />}
         />
     );
 };
