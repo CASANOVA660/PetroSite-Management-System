@@ -11,6 +11,7 @@ const authRoutes = require('./modules/auth/routes/authRoutes');
 const notificationRoutes = require('./modules/notifications/routes/notificationRoutes');
 const projectRoutes = require('./modules/projects/routes/projectRoutes');
 const documentRoutes = require('./modules/documents/routes/document.routes');
+const actionRoutes = require('./modules/actions/routes/action.routes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -64,6 +65,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/actions', actionRoutes);
 
 // Socket.io events
 io.on('connection', (socket) => {

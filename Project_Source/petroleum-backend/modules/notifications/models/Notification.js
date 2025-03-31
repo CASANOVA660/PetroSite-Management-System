@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['ACCOUNT_ACTIVATION', 'USER_CREATED', 'OTHER']
+        enum: ['ACCOUNT_ACTIVATION', 'USER_CREATED', 'ACTION_ASSIGNED', 'ACTION_STATUS_CHANGED', 'ACTION_DELETED']
     },
     message: {
         type: String,
