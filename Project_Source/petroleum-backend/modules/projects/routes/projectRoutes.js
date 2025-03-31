@@ -3,7 +3,6 @@ const router = express.Router();
 const { body } = require('express-validator');
 const projectController = require('../controllers/projectController');
 const authMiddleware = require('../../../middleware/auth');
-const actionRoutes = require('./actionRoutes');
 
 // Validation middleware
 const projectValidation = [
@@ -24,9 +23,6 @@ router.get('/:id', projectController.getProjectById);
 router.post('/', projectValidation, projectController.createProject);
 router.put('/:id', projectValidation, projectController.updateProject);
 router.delete('/:id', projectController.deleteProject);
-
-// Action routes
-router.use('/:projectId/actions', actionRoutes);
 
 // Document routes
 

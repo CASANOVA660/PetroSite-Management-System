@@ -6,12 +6,14 @@ import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
 import { AppDispatch, RootState } from '../../store';
 import { fetchProjectById } from '../../store/slices/projectSlice';
+import { fetchUsers } from '../../store/slices/userSlice';
 import { toast } from 'react-toastify';
 import DocumentsGlobale from '../../components/documents/DocumentsGlobale';
 import DossierAdministratif from '../../components/documents/DossierAdministratif';
 import DossierTechnique from '../../components/documents/DossierTechnique';
 import DossierRH from '../../components/documents/DossierRH';
 import DossierHSE from '../../components/documents/DossierHSE';
+import Actions from '../../components/actions/Actions';
 import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
 
 
@@ -54,6 +56,7 @@ const ProjectDetails: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch<AppDispatch>();
     const { loading, error, selectedProject } = useSelector((state: RootState) => state.projects);
+    const { users } = useSelector((state: RootState) => state.users);
 
     useEffect(() => {
         if (id) {
@@ -63,6 +66,7 @@ const ProjectDetails: React.FC = () => {
                     toast.error('Erreur lors du chargement du projet');
                     console.error('Error fetching project:', err);
                 });
+            dispatch(fetchUsers());
         }
     }, [dispatch, id]);
 
@@ -154,22 +158,37 @@ const ProjectDetails: React.FC = () => {
                         <>
                             <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-[#F28C38]" />}>
                                 <DocumentsGlobale projectId={id} />
+                                <div className="mt-4">
+                                    <Actions projectId={id} category="Documents globale" users={users} />
+                                </div>
                             </Section>
 
                             <Section title="Dossier Administratif" icon={<FolderIcon className="h-6 w-6 text-[#F28C38]" />}>
                                 <DossierAdministratif projectId={id} />
+                                <div className="mt-4">
+                                    <Actions projectId={id} category="Dossier Administratif" users={users} />
+                                </div>
                             </Section>
 
                             <Section title="Dossier Technique" icon={<WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38]" />}>
                                 <DossierTechnique projectId={id} />
+                                <div className="mt-4">
+                                    <Actions projectId={id} category="Dossier Technique" users={users} />
+                                </div>
                             </Section>
 
                             <Section title="Dossier RH" icon={<UserGroupIcon className="h-6 w-6 text-[#F28C38]" />}>
                                 <DossierRH projectId={id} />
+                                <div className="mt-4">
+                                    <Actions projectId={id} category="Dossier RH" users={users} />
+                                </div>
                             </Section>
 
                             <Section title="Dossier HSE" icon={<ShieldCheckIcon className="h-6 w-6 text-[#F28C38]" />}>
                                 <DossierHSE projectId={id} />
+                                <div className="mt-4">
+                                    <Actions projectId={id} category="Dossier HSE" users={users} />
+                                </div>
                             </Section>
                         </>
                     )}

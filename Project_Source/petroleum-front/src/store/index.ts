@@ -4,6 +4,7 @@ import userReducer from './slices/userSlice';
 import notificationReducer from './slices/notificationSlice';
 import projectReducer from './slices/projectSlice';
 import documentReducer from './slices/documentSlice';
+import actionReducer from './slices/actionSlice';
 
 export const store = configureStore({
     reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
         notification: notificationReducer,
         projects: projectReducer,
         documents: documentReducer,
+        actions: actionReducer
     },
 });
 
