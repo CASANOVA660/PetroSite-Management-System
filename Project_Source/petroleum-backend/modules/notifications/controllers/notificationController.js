@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../../users/models/User');
+const mongoose = require('mongoose');
 
 const createNotification = async ({ type, message, userId, isRead = false, targetRole = null }) => {
   try {
@@ -14,7 +15,8 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
             type,
             message,
             userId: manager._id,
-            isRead
+            isRead,
+            createdAt: new Date()
           })
         )
       );
@@ -36,7 +38,8 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
         type,
         message,
         userId,
-        isRead
+        isRead,
+        createdAt: new Date()
       });
 
       // Emit socket event for real-time updates
@@ -56,35 +59,24 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
 
 const getNotifications = async (req, res) => {
   try {
-    // Get the requesting user's role
-    const requestingUser = req.user;
+    const userId = req.user.userId;
+    console.log('Fetching notifications for user:', userId); // Debug log
+    console.log('User object from request:', req.user); // Debug log
 
-    if (!requestingUser) {
-      return res.status(401).json({
-        error: 'Non authentifié',
-        message: 'Veuillez vous connecter pour accéder aux notifications'
-      });
-    }
+    // Convert userId to ObjectId if it's a string
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    console.log('Converted user ID to ObjectId:', userObjectId); // Debug log
 
-    let notifications;
+    // Get notifications specific to this user
+    const query = { userId: userObjectId };
+    console.log('MongoDB query:', JSON.stringify(query)); // Debug log
 
-    // If user is Manager, they can see all notifications
-    if (requestingUser.role === 'Manager') {
-      notifications = await Notification.find()
-        .sort({ createdAt: -1 })
-        .populate('userId', 'nom email');
-    } else {
-      // For other roles, only show notifications where they are the userId
-      // and exclude ACCOUNT_ACTIVATION type notifications
-      notifications = await Notification.find({
-        $and: [
-          { userId: requestingUser._id },
-          { type: { $ne: 'ACCOUNT_ACTIVATION' } } // Exclude account activation notifications
-        ]
-      })
-        .sort({ createdAt: -1 })
-        .populate('userId', 'nom email');
-    }
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .populate('userId', 'nom email');
+
+    console.log('Found notifications:', notifications); // Debug log
+    console.log('Number of notifications found:', notifications.length); // Debug log
 
     res.json(notifications);
   } catch (error) {
@@ -98,8 +90,9 @@ const getNotifications = async (req, res) => {
 
 const markAsRead = async (req, res) => {
   try {
+    const notificationId = new mongoose.Types.ObjectId(req.params.id);
     const notification = await Notification.findByIdAndUpdate(
-      req.params.id,
+      notificationId,
       { isRead: true },
       { new: true }
     );
@@ -109,8 +102,25 @@ const markAsRead = async (req, res) => {
   }
 };
 
+const markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    await Notification.updateMany(
+      { userId: userObjectId, isRead: false },
+      { isRead: true }
+    );
+
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error marking all notifications as read' });
+  }
+};
+
 module.exports = {
   getNotifications,
   markAsRead,
-  createNotification
+  createNotification,
+  markAllAsRead
 };

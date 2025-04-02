@@ -128,8 +128,8 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({
                                 value={formData.content}
                                 onChange={handleChange}
                                 className={`mt-1 block w-full rounded-md shadow-sm ${errors.content
-                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                        : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
+                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
                                     }`}
                                 rows={3}
                             />
@@ -147,8 +147,8 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({
                                 value={formData.responsible}
                                 onChange={handleChange}
                                 className={`mt-1 block w-full rounded-md shadow-sm ${errors.responsible
-                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                        : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
+                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
                                     }`}
                             >
                                 <option value="">Sélectionner un responsable</option>
@@ -173,8 +173,8 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({
                                 value={formData.startDate}
                                 onChange={handleChange}
                                 className={`mt-1 block w-full rounded-md shadow-sm ${errors.startDate
-                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                        : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
+                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
                                     }`}
                             />
                             {errors.startDate && (
@@ -192,8 +192,8 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({
                                 value={formData.endDate}
                                 onChange={handleChange}
                                 className={`mt-1 block w-full rounded-md shadow-sm ${errors.endDate
-                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                                        : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
+                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                    : 'border-gray-300 focus:border-[#F28C38] focus:ring-[#F28C38]'
                                     }`}
                             />
                             {errors.endDate && (
