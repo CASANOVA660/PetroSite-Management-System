@@ -72,7 +72,20 @@ export const deleteAction = createAsyncThunk(
 const actionSlice = createSlice({
     name: 'actions',
     initialState,
-    reducers: {},
+    reducers: {
+        addAction: (state, action) => {
+            state.actions.push(action.payload);
+        },
+        updateAction: (state, action) => {
+            const index = state.actions.findIndex(a => a._id === action.payload._id);
+            if (index !== -1) {
+                state.actions[index] = action.payload;
+            }
+        },
+        removeAction: (state, action) => {
+            state.actions = state.actions.filter(a => a._id !== action.payload);
+        },
+    },
     extraReducers: (builder) => {
         builder
             // Fetch Project Actions
@@ -95,7 +108,13 @@ const actionSlice = createSlice({
             })
             .addCase(fetchCategoryActions.fulfilled, (state, action) => {
                 state.loading = false;
-                state.actions = action.payload;
+                // Merge new actions with existing ones, avoiding duplicates
+                const newActions = action.payload;
+                const existingActions = state.actions.filter(
+                    (existing: Action) => !newActions.some((newAction: Action) => newAction._id === existing._id)
+                );
+                state.actions = [...existingActions, ...newActions];
+                state.error = null;
             })
             .addCase(fetchCategoryActions.rejected, (state, action) => {
                 state.loading = false;
@@ -108,6 +127,7 @@ const actionSlice = createSlice({
             })
             .addCase(createAction.fulfilled, (state, action) => {
                 state.loading = false;
+                // Add new action to the beginning of the array
                 state.actions.unshift(action.payload);
             })
             .addCase(createAction.rejected, (state, action) => {
@@ -146,4 +166,5 @@ const actionSlice = createSlice({
     }
 });
 
+export const { addAction, updateAction, removeAction } = actionSlice.actions;
 export default actionSlice.reducer;

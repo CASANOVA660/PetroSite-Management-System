@@ -1,6 +1,7 @@
 const actionService = require('../services/action.service');
 const { validationResult } = require('express-validator');
 const { createNotification } = require('../../notifications/controllers/notificationController');
+const Action = require('../models/action.model');
 
 
 class ActionController {
@@ -17,21 +18,30 @@ class ActionController {
                 });
             }
 
-            // Get the user ID from the authenticated user
-
-
             const actionData = {
                 ...req.body
             };
 
             const action = await actionService.createAction(actionData);
+            console.log('Action created:', action); // Debug log
 
             // Create notification for the responsible user
-            await createNotification({
+            const notification = await createNotification({
                 type: 'ACTION_ASSIGNED',
-                message: `Une nouvelle action "${action.title}" vous a été assignée.`,
-                userId: action.responsible,
+                message: `Une nouvelle action "${action.content}" vous a été assignée`,
+                userId: action.responsible._id,
                 isRead: false
+            });
+            console.log('Notification created:', notification); // Debug log
+
+            // Emit socket notification
+            global.io.emit('notification', {
+                type: 'NEW_NOTIFICATION',
+                payload: {
+                    type: 'ACTION_ASSIGNED',
+                    message: `Une nouvelle action "${action.content}" vous a été assignée`,
+                    userId: action.responsible._id
+                }
             });
 
             res.status(201).json({
@@ -89,6 +99,25 @@ class ActionController {
             const { actionId } = req.params;
             const { status } = req.body;
             const action = await actionService.updateActionStatus(actionId, status);
+
+            // Create notification with correct type
+            await createNotification({
+                type: 'ACTION_STATUS_CHANGED',
+                message: `Le statut de l'action "${action.content}" a été changé en ${status}`,
+                userId: action.responsible,
+                isRead: false
+            });
+
+            // Emit socket notification
+            global.io.emit('notification', {
+                type: 'NEW_NOTIFICATION',
+                payload: {
+                    type: 'ACTION_STATUS_CHANGED',
+                    message: `Le statut de l'action "${action.content}" a été changé en ${status}`,
+                    userId: action.responsible
+                }
+            });
+
             res.json({
                 success: true,
                 data: action
@@ -106,6 +135,32 @@ class ActionController {
     async deleteAction(req, res) {
         try {
             const { actionId } = req.params;
+            const action = await Action.findById(actionId);
+            if (!action) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Action non trouvée'
+                });
+            }
+
+            // Create notification before deleting
+            await createNotification({
+                type: 'ACTION_DELETED',
+                message: `L'action "${action.content}" a été supprimée`,
+                userId: action.responsible,
+                isRead: false
+            });
+
+            // Emit socket notification
+            global.io.emit('notification', {
+                type: 'NEW_NOTIFICATION',
+                payload: {
+                    type: 'ACTION_DELETED',
+                    message: `L'action "${action.content}" a été supprimée`,
+                    userId: action.responsible
+                }
+            });
+
             await actionService.deleteAction(actionId);
             res.json({
                 success: true,

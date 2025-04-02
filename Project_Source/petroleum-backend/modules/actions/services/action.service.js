@@ -3,24 +3,9 @@ const { createNotification } = require('../../../modules/notifications/controlle
 
 class ActionService {
     async createAction(actionData) {
-        try {
-
-            const action = new Action(actionData);
-            await action.save();
-
-            // Create notification for the responsible user
-            await createNotification({
-                recipient: actionData.responsible,
-                type: 'action_assigned',
-                content: `Une nouvelle action vous a été assignée: ${actionData.content}`,
-                relatedId: action._id
-            });
-
-            return action;
-        } catch (error) {
-            console.error('Error in createAction service:', error);
-            throw error;
-        }
+        const action = await new Action(actionData).save();
+        return Action.findById(action._id)
+            .populate('responsible', 'nom prenom');
     }
 
     async getProjectActions(projectId) {
@@ -56,7 +41,7 @@ class ActionService {
 
             // Create notification for status change
             await createNotification({
-                userId: action.responsible,
+                userId: action.responsible._id,
                 type: 'action_status_changed',
                 title: 'Statut de l\'action mis à jour',
                 message: `Le statut de l'action "${action.content}" a été mis à jour: ${status}`,
@@ -74,23 +59,22 @@ class ActionService {
 
     async deleteAction(actionId) {
         try {
-            const action = await Action.findById(actionId);
+            const action = await Action.findById(actionId).populate('responsible', '_id');
             if (!action) {
                 throw new Error('Action non trouvée');
             }
 
-            await action.remove();
-
             // Create notification for action deletion
             await createNotification({
-                userId: action.responsible,
-                type: 'action_deleted',
-                title: 'Action supprimée',
+                userId: action.responsible._id,
+                type: 'ACTION_DELETED',
                 message: `L'action "${action.content}" a été supprimée`,
-                data: {
-                    projectId: action.projectId
-                }
+                isRead: false,
+                createdAt: new Date()
             });
+
+            // Delete the action
+            await Action.findByIdAndDelete(actionId);
 
             return true;
         } catch (error) {

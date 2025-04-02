@@ -9,6 +9,7 @@ import { fetchNotifications, markAsRead, addNotification } from '../../store/sli
 
 interface Notification {
   _id: string;
+  id?: string;
   type: string;
   message: string;
   isRead: boolean;
@@ -55,8 +56,8 @@ export default function NotificationDropdown() {
         onClick={toggleDropdown}
       >
         {unreadCount > 0 && (
-          <span className="absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400">
-            <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
+          <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full shadow-lg">
+            {unreadCount}
           </span>
         )}
         <svg
@@ -105,7 +106,7 @@ export default function NotificationDropdown() {
         </div>
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
           {notifications.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+            <li key="no-notifications" className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
               Aucune notification
             </li>
           ) : (

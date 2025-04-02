@@ -26,10 +26,7 @@ export const fetchNotifications = createAsyncThunk(
     'notifications/fetchAll',
     async (_, { rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5000/api/notifications', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await axios.get('/notifications');
             return response.data;
         } catch (error: any) {
             return rejectWithValue(
@@ -42,9 +39,17 @@ export const fetchNotifications = createAsyncThunk(
 
 export const markAsRead = createAsyncThunk(
     'notifications/markAsRead',
-    async (notificationId: string) => {
-        const response = await axios.put(`/notifications/${notificationId}/read`);
-        return response.data as Notification;
+    async (notificationId: string, { rejectWithValue }) => {
+        try {
+            if (!notificationId) {
+                throw new Error('Notification ID is required');
+            }
+            const response = await axios.put(`/notifications/${notificationId}/read`);
+            return response.data;
+        } catch (error: any) {
+            console.error('Error marking notification as read:', error);
+            return rejectWithValue(error.response?.data?.error || 'Failed to mark notification as read');
+        }
     }
 );
 
@@ -53,24 +58,39 @@ const notificationSlice = createSlice({
     initialState,
     reducers: {
         addNotification: (state, action: PayloadAction<Notification>) => {
-            state.notifications.unshift(action.payload);
+            // Only add if it's not already present
+            if (!state.notifications.some(n => n._id === action.payload._id)) {
+                state.notifications.unshift(action.payload);
+            }
         },
+        clearNotifications: (state) => {
+            state.notifications = [];
+            state.error = null;
+        }
     },
     extraReducers: (builder) => {
         builder
+            .addCase(fetchNotifications.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
             .addCase(fetchNotifications.fulfilled, (state, action: PayloadAction<Notification[]>) => {
-                state.notifications = action.payload;
                 state.loading = false;
+                state.notifications = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchNotifications.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             })
             .addCase(markAsRead.fulfilled, (state, action: PayloadAction<Notification>) => {
-                state.notifications = state.notifications.map(notification =>
-                    notification._id === action.payload._id
-                        ? { ...notification, isRead: true }
-                        : notification
-                );
+                const notification = state.notifications.find(n => n._id === action.payload._id);
+                if (notification) {
+                    notification.isRead = true;
+                }
             });
     }
 });
 
-export const { addNotification } = notificationSlice.actions;
+export const { addNotification, clearNotifications } = notificationSlice.actions;
 export default notificationSlice.reducer; 
