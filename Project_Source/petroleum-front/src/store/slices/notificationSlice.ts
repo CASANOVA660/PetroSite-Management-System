@@ -58,9 +58,16 @@ const notificationSlice = createSlice({
     initialState,
     reducers: {
         addNotification: (state, action: PayloadAction<Notification>) => {
-            // Only add if it's not already present
-            if (!state.notifications.some(n => n._id === action.payload._id)) {
-                state.notifications.unshift(action.payload);
+            // Check if notification already exists
+            const existingIndex = state.notifications.findIndex(n => n._id === action.payload._id);
+
+            if (existingIndex === -1) {
+                // Format the date before adding
+                const formattedNotification = {
+                    ...action.payload,
+                    createdAt: new Date(action.payload.createdAt).toISOString()
+                };
+                state.notifications.unshift(formattedNotification);
             }
         },
         clearNotifications: (state) => {
@@ -76,7 +83,11 @@ const notificationSlice = createSlice({
             })
             .addCase(fetchNotifications.fulfilled, (state, action: PayloadAction<Notification[]>) => {
                 state.loading = false;
-                state.notifications = action.payload;
+                // Format dates for all notifications
+                state.notifications = action.payload.map(notification => ({
+                    ...notification,
+                    createdAt: new Date(notification.createdAt).toISOString()
+                }));
                 state.error = null;
             })
             .addCase(fetchNotifications.rejected, (state, action) => {

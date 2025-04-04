@@ -1,85 +1,109 @@
 const Action = require('../models/action.model');
+const Task = require('../../tasks/models/task.model');
 const { createNotification } = require('../../../modules/notifications/controllers/notificationController');
+const taskService = require('../../tasks/services/task.service');
 
 class ActionService {
-    async createAction(actionData) {
-        const action = await new Action(actionData).save();
-        return Action.findById(action._id)
-            .populate('responsible', 'nom prenom');
+    async getAllActions() {
+        return await Action.find()
+            .populate('responsible', 'nom prenom')
+            .populate('manager', 'nom prenom')
+            .sort({ createdAt: -1 });
     }
 
     async getProjectActions(projectId) {
-        try {
-            return await Action.find({ projectId })
-                .populate('responsible', 'nom prenom')
-                .sort({ createdAt: -1 });
-        } catch (error) {
-            throw error;
-        }
+        return await Action.find({ projectId })
+            .populate('responsible', 'nom prenom')
+            .populate('manager', 'nom prenom')
+            .sort({ createdAt: -1 });
     }
 
     async getCategoryActions(projectId, category) {
-        try {
-            return await Action.find({ projectId, category })
-                .populate('responsible', 'nom prenom')
+        return await Action.find({ projectId, category })
+            .populate('responsible', 'nom prenom')
+            .populate('manager', 'nom prenom')
+            .sort({ createdAt: -1 });
+    }
 
-                .sort({ createdAt: -1 });
+    async createAction(actionData) {
+        try {
+            const action = await new Action(actionData).save();
+            const populatedAction = await action.populate(['responsible', 'manager']);
+
+            // Create corresponding task
+            const task = await taskService.createTask({
+                title: action.title,
+                description: action.content,
+                assignee: action.responsible,
+                creator: action.manager,
+                startDate: action.startDate,
+                endDate: action.endDate,
+                status: 'todo',
+                actionId: action._id,
+                tags: ['Action']
+            });
+
+            // Create notification for the responsible user if they are different from the manager
+            if (action.responsible && action.responsible._id &&
+                action.responsible._id.toString() !== action.manager.toString()) {
+
+                // Create notification in database
+                await createNotification({
+                    type: 'ACTION_ASSIGNED',
+                    message: `Une nouvelle action "${action.title}" vous a été assignée`,
+                    userId: action.responsible._id,
+                    isRead: false
+                });
+
+                // Emit socket event for new task
+                global.io.to(String(action.responsible._id)).emit('newTask', task);
+            }
+
+            return populatedAction;
         } catch (error) {
             throw error;
         }
     }
 
     async updateActionStatus(actionId, status) {
-        try {
-            const action = await Action.findById(actionId);
-            if (!action) {
-                throw new Error('Action non trouvée');
-            }
+        const action = await Action.findByIdAndUpdate(
+            actionId,
+            { status },
+            { new: true }
+        ).populate('responsible', 'nom prenom')
+            .populate('manager', 'nom prenom');
 
-            action.status = status;
-            await action.save();
-
-            // Create notification for status change
-            await createNotification({
-                userId: action.responsible._id,
-                type: 'action_status_changed',
-                title: 'Statut de l\'action mis à jour',
-                message: `Le statut de l'action "${action.content}" a été mis à jour: ${status}`,
-                data: {
-                    actionId: action._id,
-                    projectId: action.projectId
-                }
-            });
-
-            return action;
-        } catch (error) {
-            throw error;
+        if (!action) {
+            throw new Error('Action not found');
         }
+
+        // Update associated task if action is completed
+        if (status === 'completed') {
+            await Task.findOneAndUpdate(
+                { actionId: action._id },
+                { status: 'completed' }
+            );
+        }
+
+        return action;
     }
 
     async deleteAction(actionId) {
-        try {
-            const action = await Action.findById(actionId).populate('responsible', '_id');
-            if (!action) {
-                throw new Error('Action non trouvée');
-            }
+        const action = await Action.findById(actionId)
+            .populate('responsible', 'nom prenom')
+            .populate('manager', 'nom prenom');
 
-            // Create notification for action deletion
-            await createNotification({
-                userId: action.responsible._id,
-                type: 'ACTION_DELETED',
-                message: `L'action "${action.content}" a été supprimée`,
-                isRead: false,
-                createdAt: new Date()
-            });
-
-            // Delete the action
-            await Action.findByIdAndDelete(actionId);
-
-            return true;
-        } catch (error) {
-            throw error;
+        if (!action) {
+            throw new Error('Action not found');
         }
+
+        // Delete associated task
+        await Task.deleteOne({ actionId: action._id });
+
+        // Delete the action
+        await Action.deleteOne({ _id: actionId });
+
+        return action;
     }
 }
 

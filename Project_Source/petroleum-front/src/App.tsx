@@ -26,6 +26,8 @@ import ProjectPreparation from './pages/Projects/ProjectPreparation';
 import AddProject from './pages/Projects/AddProject';
 import ProjectDetails from './pages/Projects/ProjectDetails';
 import EditProject from './pages/Projects/EditProject';
+import Tasks from './pages/Tasks';
+import GlobalActions from './pages/GlobalActions';
 
 export default function App() {
   return (
@@ -76,7 +78,15 @@ export default function App() {
             <Route path="/projects/add" element={<AddProject />} />
             <Route path="/projects/:id" element={<ProjectDetails />} />
             <Route path="/projects/:id/edit" element={<EditProject />} />
+
+            {/* Tasks */}
+            <Route path="/tasks" element={
+              <Tasks />
+            } />
           </Route>
+
+          {/* Global Actions */}
+          <Route path="/global-actions" element={<GlobalActions />} />
 
           {/* Redirect root to signin */}
           <Route path="/" element={<Navigate to="/signin" replace />} />

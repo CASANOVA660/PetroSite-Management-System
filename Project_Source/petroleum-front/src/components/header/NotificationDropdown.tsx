@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Link } from "react-router";
-import { socket } from '../../utils/socket';
+import socket from '../../utils/socket';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { useAppSelector } from '../../hooks/useAppSelector';
 import { fetchNotifications, markAsRead, addNotification } from '../../store/slices/notificationSlice';

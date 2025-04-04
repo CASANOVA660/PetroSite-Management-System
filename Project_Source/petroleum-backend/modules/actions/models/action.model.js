@@ -1,13 +1,26 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const actionSchema = new mongoose.Schema({
+const actionSchema = new Schema({
+    title: {
+        type: String,
+        required: true
+    },
     content: {
         type: String,
-        required: true,
-        trim: true
+        required: true
+    },
+    source: {
+        type: String,
+        required: true
     },
     responsible: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    manager: {
+        type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
@@ -21,32 +34,26 @@ const actionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'completed', 'cancelled'],
+        enum: ['pending', 'in_progress', 'completed', 'cancelled'],
         default: 'pending'
-    },
-    projectId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Project',
-        required: true
     },
     category: {
         type: String,
-        enum: [
-            'Documents globale',
-            'Dossier Administratif',
-            'Dossier Technique',
-            'Dossier RH',
-            'Dossier HSE'
-        ],
         required: true
     },
+    projectId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Project',
+        required: false
+    }
 }, {
     timestamps: true
 });
 
-// Indexes for better query performance
-actionSchema.index({ projectId: 1, category: 1 });
+// Add index for faster queries
+actionSchema.index({ projectId: 1 });
 actionSchema.index({ responsible: 1 });
+actionSchema.index({ manager: 1 });
 actionSchema.index({ status: 1 });
 
 // Add validation for endDate to be after startDate

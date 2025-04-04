@@ -5,6 +5,7 @@ import notificationReducer from './slices/notificationSlice';
 import projectReducer from './slices/projectSlice';
 import documentReducer from './slices/documentSlice';
 import actionReducer from './slices/actionSlice';
+import taskReducer from './slices/taskSlice';
 
 export const store = configureStore({
     reducer: {
@@ -13,7 +14,8 @@ export const store = configureStore({
         notification: notificationReducer,
         projects: projectReducer,
         documents: documentReducer,
-        actions: actionReducer
+        actions: actionReducer,
+        tasks: taskReducer
     },
 });
 

@@ -1,15 +1,31 @@
 import { io } from 'socket.io-client';
+import { API_URL } from '../config';
 
-// Create socket instance connecting to your backend
-export const socket = io('http://localhost:5000', {
+// Create socket instance with autoConnect disabled
+const socket = io(API_URL, {
     transports: ['websocket', 'polling'],
     withCredentials: true,
-    autoConnect: true,
+    autoConnect: false,
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     timeout: 60000
 });
+
+// Function to connect socket with user authentication
+export const connectSocket = (userId: string) => {
+    if (!socket.connected) {
+        socket.connect();
+        socket.emit('authenticate', userId);
+    }
+};
+
+// Function to disconnect socket
+export const disconnectSocket = () => {
+    if (socket.connected) {
+        socket.disconnect();
+    }
+};
 
 // Add event listeners for connection status
 socket.on('connect', () => {
@@ -22,6 +38,16 @@ socket.on('connect_error', (error) => {
 
 socket.on('disconnect', (reason) => {
     console.log('Socket disconnected:', reason);
+});
+
+// Handle reconnection
+socket.on('reconnect', (attemptNumber) => {
+    console.log('Socket reconnected after', attemptNumber, 'attempts');
+    // Re-authenticate if we have a stored userId
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+        socket.emit('authenticate', userId);
+    }
 });
 
 export default socket; 
