@@ -3,57 +3,18 @@ const { validationResult } = require('express-validator');
 const { createNotification } = require('../../notifications/controllers/notificationController');
 const Action = require('../models/action.model');
 
-
 class ActionController {
-    async createAction(req, res) {
+    async getAllActions(req, res) {
         try {
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({
-                    success: false,
-                    errors: errors.array().map(err => ({
-                        field: err.param,
-                        message: err.msg
-                    }))
-                });
-            }
-
-            const actionData = {
-                ...req.body
-            };
-
-            const action = await actionService.createAction(actionData);
-            console.log('Action created:', action); // Debug log
-
-            // Create notification for the responsible user
-            const notification = await createNotification({
-                type: 'ACTION_ASSIGNED',
-                message: `Une nouvelle action "${action.content}" vous a été assignée`,
-                userId: action.responsible._id,
-                isRead: false
-            });
-            console.log('Notification created:', notification); // Debug log
-
-            // Emit socket notification
-            global.io.emit('notification', {
-                type: 'NEW_NOTIFICATION',
-                payload: {
-                    type: 'ACTION_ASSIGNED',
-                    message: `Une nouvelle action "${action.content}" vous a été assignée`,
-                    userId: action.responsible._id
-                }
-            });
-
-            res.status(201).json({
+            const actions = await actionService.getAllActions();
+            res.json({
                 success: true,
-                data: action
+                data: actions
             });
         } catch (error) {
-            console.error('Error in createAction:', error);
             res.status(500).json({
                 success: false,
-                message: 'Erreur lors de la création de l\'action',
-                error: error.message
+                message: error.message
             });
         }
     }
@@ -67,11 +28,9 @@ class ActionController {
                 data: actions
             });
         } catch (error) {
-            console.error('Error in getProjectActions:', error);
             res.status(500).json({
                 success: false,
-                message: 'Erreur lors de la récupération des actions',
-                error: error.message
+                message: error.message
             });
         }
     }
@@ -94,40 +53,94 @@ class ActionController {
         }
     }
 
+    async createAction(req, res) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                errors: errors.array().map(err => ({
+                    field: err.param,
+                    message: err.msg
+                }))
+            });
+        }
+
+        try {
+            const actionData = {
+                ...req.body,
+                manager: req.user.id // Auto-set the manager to the current user
+            };
+
+            // Validate required fields
+            if (!actionData.title || !actionData.content || !actionData.responsible ||
+                !actionData.startDate || !actionData.endDate || !actionData.category ||
+                !actionData.source) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tous les champs requis doivent être remplis'
+                });
+            }
+
+            const action = await actionService.createAction(actionData);
+            console.log('Action created:', action); // Debug log
+
+            // Emit socket notification ONLY to responsible user if they are different from the manager
+            if (action.responsible && action.responsible._id &&
+                action.responsible._id.toString() !== action.manager.toString()) {
+
+                // Emit socket notification
+                global.io.to(String(action.responsible._id)).emit('notification', {
+                    type: 'NEW_NOTIFICATION',
+                    payload: {
+                        type: 'ACTION_ASSIGNED',
+                        message: `Une nouvelle action "${action.title}" vous a été assignée`,
+                        userId: action.responsible._id
+                    }
+                });
+            }
+
+            return res.status(201).json({
+                success: true,
+                data: action
+            });
+        } catch (error) {
+            console.error('Error in createAction:', error);
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Erreur lors de la création de l\'action'
+            });
+        }
+    }
+
     async updateActionStatus(req, res) {
         try {
             const { actionId } = req.params;
             const { status } = req.body;
             const action = await actionService.updateActionStatus(actionId, status);
 
-            // Create notification with correct type
-            await createNotification({
-                type: 'ACTION_STATUS_CHANGED',
-                message: `Le statut de l'action "${action.content}" a été changé en ${status}`,
-                userId: action.responsible,
-                isRead: false
-            });
-
-            // Emit socket notification
-            global.io.emit('notification', {
-                type: 'NEW_NOTIFICATION',
-                payload: {
-                    type: 'ACTION_STATUS_CHANGED',
-                    message: `Le statut de l'action "${action.content}" a été changé en ${status}`,
-                    userId: action.responsible
+            // Send notification only to the responsible user
+            if (action.responsible?._id && action.responsible._id !== action.manager._id) {
+                const socketId = global.userSockets.get(action.responsible._id);
+                if (socketId) {
+                    global.io.to(socketId).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'action_status_changed',
+                            message: `Le statut de l'action "${action.title}" a été mis à jour: ${status}`,
+                            userId: action.responsible._id
+                        }
+                    });
                 }
-            });
+            }
 
             res.json({
                 success: true,
                 data: action
             });
         } catch (error) {
-            console.error('Error in updateActionStatus:', error);
-            res.status(500).json({
+            res.status(400).json({
                 success: false,
-                message: 'Erreur lors de la mise à jour du statut',
-                error: error.message
+                message: error.message
             });
         }
     }
@@ -135,43 +148,31 @@ class ActionController {
     async deleteAction(req, res) {
         try {
             const { actionId } = req.params;
-            const action = await Action.findById(actionId);
-            if (!action) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Action non trouvée'
-                });
+            const action = await actionService.deleteAction(actionId);
+
+            // Send notification only to the responsible user
+            if (action.responsible?._id && action.responsible._id !== action.manager._id) {
+                const socketId = global.userSockets.get(action.responsible._id);
+                if (socketId) {
+                    global.io.to(socketId).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'ACTION_DELETED',
+                            message: `L'action "${action.title}" a été supprimée`,
+                            userId: action.responsible._id
+                        }
+                    });
+                }
             }
 
-            // Create notification before deleting
-            await createNotification({
-                type: 'ACTION_DELETED',
-                message: `L'action "${action.content}" a été supprimée`,
-                userId: action.responsible,
-                isRead: false
-            });
-
-            // Emit socket notification
-            global.io.emit('notification', {
-                type: 'NEW_NOTIFICATION',
-                payload: {
-                    type: 'ACTION_DELETED',
-                    message: `L'action "${action.content}" a été supprimée`,
-                    userId: action.responsible
-                }
-            });
-
-            await actionService.deleteAction(actionId);
             res.json({
                 success: true,
                 message: 'Action supprimée avec succès'
             });
         } catch (error) {
-            console.error('Error in deleteAction:', error);
-            res.status(500).json({
+            res.status(400).json({
                 success: false,
-                message: 'Erreur lors de la suppression de l\'action',
-                error: error.message
+                message: error.message
             });
         }
     }

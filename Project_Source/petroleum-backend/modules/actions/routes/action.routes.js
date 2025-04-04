@@ -7,13 +7,13 @@ const authMiddleware = require('../../../middleware/auth');
 
 // Validation middleware
 const createActionValidation = [
+    body('title').notEmpty().withMessage('Le titre est requis'),
     body('content').notEmpty().withMessage('Le contenu est requis'),
-    body('responsible').isMongoId().withMessage('ID de responsable invalide'),
-    body('startDate').isISO8601().withMessage('Date de début invalide'),
-    body('endDate').isISO8601().withMessage('Date de fin invalide'),
-    body('projectId').isMongoId().withMessage('ID de projet invalide'),
-    body('category').isIn(['Documents globale', 'Dossier Administratif', 'Dossier Technique', 'Dossier RH', 'Dossier HSE'])
-        .withMessage('Catégorie invalide'),
+    body('responsible').notEmpty().withMessage('Le responsable est requis'),
+    body('startDate').notEmpty().withMessage('La date de début est requise'),
+    body('endDate').notEmpty().withMessage('La date de fin est requise'),
+    body('category').notEmpty().withMessage('La catégorie est requise'),
+    body('source').notEmpty().withMessage('La source est requise'),
     validateRequest
 ];
 
@@ -32,5 +32,8 @@ router.get('/project/:projectId', actionController.getProjectActions);
 router.get('/project/:projectId/category/:category', actionController.getCategoryActions);
 router.patch('/:actionId/status', updateStatusValidation, actionController.updateActionStatus);
 router.delete('/:actionId', actionController.deleteAction);
+
+// Get all actions (global view)
+router.get('/', actionController.getAllActions);
 
 module.exports = router;

@@ -3,7 +3,14 @@ import axios from '../../utils/axios';
 
 export interface Action {
     _id: string;
+    title: string;
     content: string;
+    source: string;
+    manager: {
+        _id: string;
+        nom: string;
+        prenom: string;
+    };
     responsible: {
         _id: string;
         nom: string;
@@ -23,11 +30,31 @@ interface ActionState {
     error: string | null;
 }
 
+export interface CreateActionPayload {
+    title: string;
+    content: string;
+    source: string;
+    manager: string;
+    responsible: string;
+    startDate: string;
+    endDate: string;
+    category: string;
+    projectId?: string;
+}
+
 const initialState: ActionState = {
     actions: [],
     loading: false,
     error: null
 };
+
+export const fetchAllActions = createAsyncThunk(
+    'actions/fetchAllActions',
+    async () => {
+        const response = await axios.get('/actions');
+        return response.data.data;
+    }
+);
 
 export const fetchProjectActions = createAsyncThunk(
     'actions/fetchProjectActions',
@@ -47,7 +74,7 @@ export const fetchCategoryActions = createAsyncThunk(
 
 export const createAction = createAsyncThunk(
     'actions/createAction',
-    async (actionData: Omit<Action, '_id' | 'createdAt'>) => {
+    async (actionData: CreateActionPayload) => {
         const response = await axios.post('/actions', actionData);
         return response.data.data;
     }
@@ -74,7 +101,7 @@ const actionSlice = createSlice({
     initialState,
     reducers: {
         addAction: (state, action) => {
-            state.actions.push(action.payload);
+            state.actions.unshift(action.payload);
         },
         updateAction: (state, action) => {
             const index = state.actions.findIndex(a => a._id === action.payload._id);
@@ -88,6 +115,20 @@ const actionSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // Fetch All Actions
+            .addCase(fetchAllActions.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchAllActions.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actions = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchAllActions.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Une erreur est survenue';
+            })
             // Fetch Project Actions
             .addCase(fetchProjectActions.pending, (state) => {
                 state.loading = true;
@@ -96,6 +137,7 @@ const actionSlice = createSlice({
             .addCase(fetchProjectActions.fulfilled, (state, action) => {
                 state.loading = false;
                 state.actions = action.payload;
+                state.error = null;
             })
             .addCase(fetchProjectActions.rejected, (state, action) => {
                 state.loading = false;
@@ -127,8 +169,8 @@ const actionSlice = createSlice({
             })
             .addCase(createAction.fulfilled, (state, action) => {
                 state.loading = false;
-                // Add new action to the beginning of the array
                 state.actions.unshift(action.payload);
+                state.error = null;
             })
             .addCase(createAction.rejected, (state, action) => {
                 state.loading = false;

@@ -45,19 +45,43 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 throw new Error('User not authenticated');
             }
 
+            // Ensure we're sending the exact structure the server expects
             const actionWithUser = {
-                ...actionData,
+                title: actionData.title,
+                content: actionData.content,
+                source: actionData.source || 'Project',
+                startDate: actionData.startDate,
+                endDate: actionData.endDate,
                 projectId,
-                category,
-
+                category: actionData.category || category,
+                manager: user._id,
+                responsible: actionData.responsible,
+                status: 'pending'
             };
 
-            await dispatch(createAction(actionWithUser)).unwrap();
+            // Validate required fields
+            if (!actionWithUser.title || !actionWithUser.content || !actionWithUser.responsible ||
+                !actionWithUser.startDate || !actionWithUser.endDate || !actionWithUser.category ||
+                !actionWithUser.source) {
+                throw new Error('Tous les champs requis doivent être remplis');
+            }
+
+            console.log('Sending action data:', actionWithUser); // Debug log
+            const result = await dispatch(createAction(actionWithUser)).unwrap();
+            console.log('Action created:', result); // Debug log
             toast.success('Action créée avec succès');
             setIsFormModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating action:', error);
-            toast.error('Erreur lors de la création de l\'action');
+            if (error.response?.data?.errors) {
+                // Handle validation errors
+                const errorMessages = error.response.data.errors.map((err: any) => err.message).join(', ');
+                toast.error(`Erreur: ${errorMessages}`);
+            } else if (error.message) {
+                toast.error(error.message);
+            } else {
+                toast.error('Erreur lors de la création de l\'action');
+            }
         }
     };
 
@@ -167,9 +191,9 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
                 onSubmit={handleCreateAction}
-                projectId={projectId}
-                category={category}
                 users={users}
+                projects={[{ _id: projectId, name: 'test' }]}
+                categories={[category]}
             />
         </div>
     );

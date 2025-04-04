@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 
-// Assume these icons are imported from an icon library
+// Import icons
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -15,8 +17,10 @@ import {
   TableIcon,
   UserCircleIcon,
   GroupIcon,
+  FolderIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { ClipboardIcon } from "@heroicons/react/24/outline";
 
 
 type NavItem = {
@@ -26,86 +30,11 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "dashbordForTest", path: "/", pro: false }],
-  },
-  {
-    icon: <ListIcon />,
-    name: "Préparation Projet",
-    path: "/projects/preparation",
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <GroupIcon />,
-    name: "Gestion des Utilisateurs",
-    path: "/user-management",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  },
-  {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
-  },
-];
-
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
-
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { user } = useSelector((state: RootState) => state.auth);
+  const isManager = user?.role === 'Manager';
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -284,6 +213,79 @@ const AppSidebar: React.FC = () => {
       ))}
     </ul>
   );
+
+  const navItems: NavItem[] = [
+    {
+      icon: <GridIcon />,
+      name: "Tableau de bord",
+      path: "/dashboard"
+    },
+    {
+      icon: <UserCircleIcon />,
+      name: "User Profile",
+      path: "/profile",
+    },
+    {
+      icon: <FolderIcon />,
+      name: "Préparation Projet",
+      path: "/projects/preparation"
+    },
+    {
+      icon: <ListIcon />,
+      name: "Mes Tâches",
+      path: "/tasks"
+    },
+
+    {
+      icon: <PageIcon />,
+      name: "Documents",
+      path: "/documents"
+    },
+
+    // Add Global Actions for managers
+    ...(isManager ? [{
+      icon: <ClipboardIcon />,
+      name: "Actions Globales",
+      path: "/global-actions"
+    }] : []),
+    ...(isManager ? [{
+      icon: <GroupIcon />,
+      name: "Gestion des Utilisateurs",
+      path: "/user-management"
+    }] : [])
+  ];
+
+
+  const othersItems: NavItem[] = [
+    {
+      icon: <PieChartIcon />,
+      name: "Charts",
+      subItems: [
+        { name: "Line Chart", path: "/line-chart", pro: false },
+        { name: "Bar Chart", path: "/bar-chart", pro: false },
+      ],
+    },
+    {
+      icon: <BoxCubeIcon />,
+      name: "UI Elements",
+      subItems: [
+        { name: "Alerts", path: "/alerts", pro: false },
+        { name: "Avatar", path: "/avatars", pro: false },
+        { name: "Badge", path: "/badge", pro: false },
+        { name: "Buttons", path: "/buttons", pro: false },
+        { name: "Images", path: "/images", pro: false },
+        { name: "Videos", path: "/videos", pro: false },
+      ],
+    },
+    {
+      icon: <PlugInIcon />,
+      name: "Authentication",
+      subItems: [
+        { name: "Sign In", path: "/signin", pro: false },
+        { name: "Sign Up", path: "/signup", pro: false },
+      ],
+    },
+  ];
 
   return (
     <aside

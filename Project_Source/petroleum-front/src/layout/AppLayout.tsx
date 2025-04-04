@@ -3,11 +3,21 @@ import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import { connectSocket } from "../utils/socket";
+import { useEffect } from "react";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useAppSelector } from "../hooks/useAppSelector";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { user } = useAppSelector(state => state.auth);
+
+  useEffect(() => {
+    if (user?._id) {
+      connectSocket(user._id);
+    }
+  }, [user?._id]);
 
   return (
     <div className="min-h-screen xl:flex">

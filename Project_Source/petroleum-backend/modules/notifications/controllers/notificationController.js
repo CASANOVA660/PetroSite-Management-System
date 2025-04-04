@@ -23,11 +23,13 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
 
       // Emit socket events for each manager
       notifications.forEach(notification => {
-        global.io.emit('notification', {
-          type: 'NEW_NOTIFICATION',
-          payload: notification,
-          targetRole: 'Manager'
-        });
+        const socketId = global.userSockets.get(String(notification.userId));
+        if (socketId) {
+          global.io.to(socketId).emit('notification', {
+            type: 'NEW_NOTIFICATION',
+            payload: notification
+          });
+        }
       });
 
       console.log('Manager notifications created:', notifications);
@@ -42,11 +44,16 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
         createdAt: new Date()
       });
 
-      // Emit socket event for real-time updates
-      global.io.emit('notification', {
-        type: 'NEW_NOTIFICATION',
-        payload: notification
-      });
+      // Get the socket ID for this user
+      const socketId = global.userSockets.get(String(userId));
+
+      // Emit socket event for real-time updates if user is connected
+      if (socketId) {
+        global.io.to(socketId).emit('notification', {
+          type: 'NEW_NOTIFICATION',
+          payload: notification
+        });
+      }
 
       console.log('Notification created:', notification);
       return notification;

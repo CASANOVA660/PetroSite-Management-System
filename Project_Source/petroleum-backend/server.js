@@ -12,6 +12,7 @@ const notificationRoutes = require('./modules/notifications/routes/notificationR
 const projectRoutes = require('./modules/projects/routes/projectRoutes');
 const documentRoutes = require('./modules/documents/routes/document.routes');
 const actionRoutes = require('./modules/actions/routes/action.routes');
+const taskRoutes = require('./modules/tasks/routes/task.routes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -34,7 +35,7 @@ const server = http.createServer(app);
 // Socket.io configuration
 const io = socketIo(server, {
     cors: {
-        origin: "http://localhost:5173", // Fixed URL
+        origin: "http://localhost:5173",
         methods: ["GET", "POST", "PUT"],
         credentials: true,
         transports: ['websocket', 'polling']
@@ -42,8 +43,44 @@ const io = socketIo(server, {
     pingTimeout: 60000
 });
 
-global.io = io;
+// Store active user connections
+const userSockets = new Map();
 
+// Socket.io events
+io.on('connection', (socket) => {
+    logger.info(`Client connected: ${socket.id}`);
+
+    // Handle user authentication and join their personal room
+    socket.on('authenticate', (userId) => {
+        if (userId) {
+            // Store the socket ID for this user
+            userSockets.set(String(userId), socket.id);
+
+            // Join user's personal room
+            socket.join(String(userId));
+            logger.info(`User ${userId} joined their room`);
+        }
+    });
+
+    socket.on('error', (error) => {
+        logger.error(`Socket error (${socket.id}):`, error);
+    });
+
+    socket.on('disconnect', (reason) => {
+        // Remove user from userSockets when they disconnect
+        for (const [userId, socketId] of userSockets.entries()) {
+            if (socketId === socket.id) {
+                userSockets.delete(userId);
+                break;
+            }
+        }
+        logger.info(`Client disconnected (${socket.id}): ${reason}`);
+    });
+});
+
+// Make io and userSockets globally available
+global.io = io;
+global.userSockets = userSockets;
 // Middleware
 app.use(cors({
     origin: "http://localhost:5173",
@@ -67,6 +104,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/actions', actionRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Socket.io events
 io.on('connection', (socket) => {
