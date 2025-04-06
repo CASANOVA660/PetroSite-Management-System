@@ -6,6 +6,7 @@ import projectReducer from './slices/projectSlice';
 import documentReducer from './slices/documentSlice';
 import actionReducer from './slices/actionSlice';
 import taskReducer from './slices/taskSlice';
+import globalActionReducer from './slices/globalActionSlice';
 
 export const store = configureStore({
     reducer: {
@@ -15,9 +16,14 @@ export const store = configureStore({
         projects: projectReducer,
         documents: documentReducer,
         actions: actionReducer,
-        tasks: taskReducer
+        tasks: taskReducer,
+        globalActions: globalActionReducer
     },
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware({
+            serializableCheck: false
+        })
 });
 
 export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch; 
+export type AppDispatch = typeof store.dispatch;

@@ -2,15 +2,114 @@ const GlobalAction = require('../models/globalAction.model');
 const { createNotification } = require('../../notifications/controllers/notificationController');
 const taskService = require('../../tasks/services/task.service');
 const Project = require('../../projects/models/Project');
+const redis = require('../../../config/redis');
 
 class GlobalActionService {
+    // Cache TTL in seconds
+    static CACHE_TTL = 1800; // 30 minutes
+
+    // Generate cache key
+    static generateCacheKey(type, params = '') {
+        return `global_actions:${type}:${params}`;
+    }
+
+    // Clear cache for a specific type
+    static async clearCache(type) {
+        const pattern = `global_actions:${type}:*`;
+        const keys = await redis.keys(pattern);
+        if (keys.length > 0) {
+            await redis.del(keys);
+        }
+    }
+
     async getAllGlobalActions(filters = {}) {
-        return GlobalAction.find(filters)
+        const cacheKey = this.constructor.generateCacheKey('all', JSON.stringify(filters));
+
+        // Try to get from cache first
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+
+        // If not in cache, get from database
+        const actions = await GlobalAction.find(filters)
             .populate('responsibleForRealization', 'nom prenom')
             .populate('responsibleForFollowUp', 'nom prenom')
             .populate('manager', 'nom prenom')
             .populate('projectId', 'name')
             .sort({ createdAt: -1 });
+
+        // Cache the results
+        await redis.setex(cacheKey, this.constructor.CACHE_TTL, JSON.stringify(actions));
+
+        return actions;
+    }
+
+    async searchGlobalActions(searchParams) {
+        const { searchTerm, responsible, category, projectId, page = 1, limit = 10 } = searchParams;
+        const cacheKey = this.constructor.generateCacheKey('search', JSON.stringify(searchParams));
+
+        // Try to get from cache first
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+
+        // Build search query
+        const query = {};
+
+        if (searchTerm) {
+            query.$or = [
+                { title: { $regex: searchTerm, $options: 'i' } },
+                { content: { $regex: searchTerm, $options: 'i' } }
+            ];
+        }
+
+        if (responsible) {
+            query.$or = [
+                { responsibleForRealization: responsible },
+                { responsibleForFollowUp: responsible }
+            ];
+        }
+
+        if (category) {
+            query.category = category;
+        }
+
+        if (projectId) {
+            query.projectId = projectId;
+        }
+
+        // Calculate skip for pagination
+        const skip = (page - 1) * limit;
+
+        // Execute search with pagination
+        const [actions, total] = await Promise.all([
+            GlobalAction.find(query)
+                .populate('responsibleForRealization', 'nom prenom')
+                .populate('responsibleForFollowUp', 'nom prenom')
+                .populate('manager', 'nom prenom')
+                .populate('projectId', 'name')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            GlobalAction.countDocuments(query)
+        ]);
+
+        const result = {
+            actions,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
+
+        // Cache the results
+        await redis.setex(cacheKey, this.constructor.CACHE_TTL, JSON.stringify(result));
+
+        return result;
     }
 
     async createGlobalAction(actionData) {
@@ -31,7 +130,6 @@ class GlobalActionService {
 
         const globalAction = new GlobalAction({
             ...actionData,
-            // If project is selected, add project-specific details
             source: projectDetails ? projectDetails.name : 'Global'
         });
 
@@ -94,6 +192,10 @@ class GlobalActionService {
 
         await Promise.all(taskData.map(task => taskService.createTask(task)));
 
+        // Clear relevant caches
+        await this.constructor.clearCache('all');
+        await this.constructor.clearCache('search');
+
         // Return populated action
         return GlobalAction.findById(savedAction._id)
             .populate('responsibleForRealization', 'nom prenom')
@@ -129,6 +231,10 @@ class GlobalActionService {
             })
         ]);
 
+        // Clear relevant caches
+        await this.constructor.clearCache('all');
+        await this.constructor.clearCache('search');
+
         return action;
     }
 
@@ -157,6 +263,11 @@ class GlobalActionService {
         ]);
 
         await GlobalAction.deleteOne({ _id: actionId });
+
+        // Clear relevant caches
+        await this.constructor.clearCache('all');
+        await this.constructor.clearCache('search');
+
         return action;
     }
 }

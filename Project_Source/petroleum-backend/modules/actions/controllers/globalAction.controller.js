@@ -4,24 +4,29 @@ const { validationResult } = require('express-validator');
 class GlobalActionController {
     async getAllGlobalActions(req, res) {
         try {
-            const filters = {};
-
-            // Add filters based on query parameters
-            if (req.query.status) filters.status = req.query.status;
-            if (req.query.category) filters.category = req.query.category;
-            if (req.query.project) filters.projectId = req.query.project;
-
-            const actions = await globalActionService.getAllGlobalActions(filters);
-
-            res.json({
-                success: true,
-                data: actions
-            });
+            const actions = await globalActionService.getAllGlobalActions(req.query);
+            res.json(actions);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: error.message
-            });
+            res.status(500).json({ message: error.message });
+        }
+    }
+
+    async searchGlobalActions(req, res) {
+        try {
+            const { searchTerm, responsible, category, projectId, page, limit } = req.query;
+            const searchParams = {
+                searchTerm,
+                responsible,
+                category,
+                projectId,
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10
+            };
+
+            const result = await globalActionService.searchGlobalActions(searchParams);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
     }
 

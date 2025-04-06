@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { fetchAllActions } from '../store/slices/actionSlice';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import Timeline from '../components/actions/Timeline';
-import ActionFormModal from '../components/actions/ActionFormModal';
+import { fetchGlobalActions, createGlobalAction } from '../store/slices/globalActionSlice';
+import { fetchProjects } from '../store/slices/projectSlice';
+import { fetchUsers } from '../store/slices/userSlice';
+import { debounce } from 'lodash';
+import { GlobalAction } from '../store/slices/globalActionSlice';
+import PlusIcon from '../components/icons/PlusIcon';
+
+// Import components
+import {
+    GlobalActionsTable,
+    GlobalActionForm,
+    GlobalActionView,
+    SearchBar,
+    FilterBar,
+    GlobalActionsTimeline
+} from '../components/global-actions';
+import { Modal } from '../components/ui/modal';
+import Button from '../components/ui/button/Button';
+import PageMeta from '../components/common/PageMeta';
 
 const GlobalActions: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -13,14 +27,34 @@ const GlobalActions: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [filterStatus, setFilterStatus] = useState<'all' | 'opened' | 'closed'>('all');
     const [filterType, setFilterType] = useState<'all' | 'global' | 'project'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [selectedAction, setSelectedAction] = useState<GlobalAction | null>(null);
+    const [formData, setFormData] = useState({
+        title: '',
+        content: '',
+        category: '',
+        projectId: '',
+        projectCategory: '',
+        responsibleForRealization: '',
+        responsibleForFollowUp: '',
+        startDate: '',
+        endDate: ''
+    });
 
-    const { actions, loading, error } = useSelector((state: RootState) => state.actions);
+    const { actions, loading, error } = useSelector((state: RootState) => state.globalActions);
+    const { projects } = useSelector((state: RootState) => state.projects);
+    const { users } = useSelector((state: RootState) => state.users);
 
     useEffect(() => {
-        dispatch(fetchAllActions());
+        dispatch(fetchGlobalActions({}));
+        dispatch(fetchProjects());
+        dispatch(fetchUsers());
     }, [dispatch]);
 
-    const filteredActions = actions.filter(action => {
+    // Ensure actions is an array before filtering
+    const filteredActions = Array.isArray(actions) ? actions.filter(action => {
         if (filterStatus !== 'all') {
             if (filterStatus === 'opened' && action.status === 'completed') return false;
             if (filterStatus === 'closed' && action.status !== 'completed') return false;
@@ -30,7 +64,94 @@ const GlobalActions: React.FC = () => {
             if (filterType === 'project' && !action.projectId) return false;
         }
         return true;
-    });
+    }) : [];
+
+    // Debounced search function
+    const debouncedSearch = debounce((term) => {
+        dispatch(fetchGlobalActions({ searchTerm: term }));
+    }, 500);
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        debouncedSearch(value);
+    };
+
+    const handleCreateAction = () => {
+        // Log all form data for debugging
+        console.log('All form data:', formData);
+
+        // Check each required field individually and log which ones are missing
+        const missingFields = [];
+
+        if (!formData.title) missingFields.push('title');
+        if (!formData.content) missingFields.push('content');
+        if (!formData.category) missingFields.push('category');
+        if (!formData.responsibleForRealization) missingFields.push('responsibleForRealization');
+        if (!formData.responsibleForFollowUp) missingFields.push('responsibleForFollowUp');
+        if (!formData.startDate) missingFields.push('startDate');
+        if (!formData.endDate) missingFields.push('endDate');
+
+        if (missingFields.length > 0) {
+            console.error('Missing required fields:', missingFields);
+            alert(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`);
+            return;
+        }
+
+        // Format dates for backend
+        const formattedData: {
+            title: string;
+            content: string;
+            category: string;
+            responsibleForRealization: string;
+            responsibleForFollowUp: string;
+            startDate: string;
+            endDate: string;
+            status: string;
+            projectId?: string;
+            projectCategory?: string;
+        } = {
+            title: formData.title.trim(),
+            content: formData.content.trim(),
+            category: formData.category,
+            responsibleForRealization: formData.responsibleForRealization,
+            responsibleForFollowUp: formData.responsibleForFollowUp,
+            startDate: new Date(formData.startDate).toISOString(),
+            endDate: new Date(formData.endDate).toISOString(),
+            status: 'pending'
+        };
+
+        // Only add optional fields if they have values
+        if (formData.projectId) {
+            formattedData.projectId = formData.projectId;
+
+            if (formData.projectCategory) {
+                formattedData.projectCategory = formData.projectCategory;
+            }
+        }
+
+        console.log('Form data before submission:', formData);
+        console.log('Formatted data for submission:', formattedData);
+
+        dispatch(createGlobalAction(formattedData));
+        setIsCreateModalOpen(false);
+        setFormData({
+            title: '',
+            content: '',
+            category: '',
+            projectId: '',
+            projectCategory: '',
+            responsibleForRealization: '',
+            responsibleForFollowUp: '',
+            startDate: '',
+            endDate: ''
+        });
+    };
+
+    const handleViewAction = (action: GlobalAction) => {
+        setSelectedAction(action);
+        setIsViewModalOpen(true);
+    };
 
     if (loading) {
         return (
@@ -49,136 +170,90 @@ const GlobalActions: React.FC = () => {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Actions Globales</h1>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark"
+        <>
+            <PageMeta title="Actions Globales" description="Gestion des actions globales" />
+            <div className="container mx-auto px-4 py-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold">Actions Globales</h1>
+                    <Button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center gap-2"
+                    >
+                        <PlusIcon size={16} />
+                        Créer une action
+                    </Button>
+                </div>
+
+                <FilterBar
+                    filterStatus={filterStatus}
+                    setFilterStatus={setFilterStatus}
+                    filterType={filterType}
+                    setFilterType={setFilterType}
+                    view={view}
+                    setView={setView}
+                />
+
+                <SearchBar
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                />
+
+                {view === 'table' ? (
+                    <GlobalActionsTable
+                        actions={filteredActions}
+                        onViewAction={handleViewAction}
+                    />
+                ) : (
+                    <GlobalActionsTimeline actions={filteredActions.filter(action => action.status !== 'completed')} />
+                )}
+
+                {/* Create Action Modal */}
+                <Modal
+                    isOpen={isCreateModalOpen}
+                    onClose={() => setIsCreateModalOpen(false)}
+                    className="max-w-2xl mx-auto"
                 >
-                    Nouvelle Action
-                </button>
+                    <div className="p-4">
+                        <h2 className="text-lg font-bold mb-3">Créer une action globale</h2>
+                        <div className="max-h-[60vh] overflow-y-auto pr-2">
+                            <GlobalActionForm
+                                formData={formData}
+                                setFormData={setFormData}
+                                projects={projects}
+                                users={users}
+                            />
+                        </div>
+                        <div className="flex justify-end space-x-2 mt-4">
+                            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                                Annuler
+                            </Button>
+                            <Button onClick={handleCreateAction}>
+                                Créer
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+
+                {/* View Action Modal */}
+                <Modal
+                    isOpen={isViewModalOpen}
+                    onClose={() => setIsViewModalOpen(false)}
+                    className="max-w-2xl mx-auto"
+                >
+                    <div className="p-4">
+                        <h2 className="text-lg font-bold mb-3">Détails de l'action</h2>
+                        <div className="max-h-[60vh] overflow-y-auto pr-2">
+                            {selectedAction && <GlobalActionView action={selectedAction} />}
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <Button onClick={() => setIsViewModalOpen(false)}>
+                                Fermer
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
-
-            <div className="flex gap-4 mb-6">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setView('table')}
-                        className={`px-4 py-2 rounded-md ${view === 'table' ? 'bg-primary text-white' : 'bg-gray-100'
-                            }`}
-                    >
-                        Vue Tableau
-                    </button>
-                    <button
-                        onClick={() => setView('timeline')}
-                        className={`px-4 py-2 rounded-md ${view === 'timeline' ? 'bg-primary text-white' : 'bg-gray-100'
-                            }`}
-                    >
-                        Vue Timeline
-                    </button>
-                </div>
-
-                <div className="flex gap-4">
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                        className="border rounded-md px-3 py-2"
-                    >
-                        <option value="all">Tous les statuts</option>
-                        <option value="opened">En cours</option>
-                        <option value="closed">Terminées</option>
-                    </select>
-
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value as any)}
-                        className="border rounded-md px-3 py-2"
-                    >
-                        <option value="all">Tous les types</option>
-                        <option value="global">Actions globales</option>
-                        <option value="project">Actions projet</option>
-                    </select>
-                </div>
-            </div>
-
-            {view === 'table' ? (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="min-w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Titre
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Source
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Catégorie
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Projet
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Responsable
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Suivi
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Dates
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Statut
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredActions.map((action) => (
-                                <tr key={action._id}>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {action.title}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {action.source || '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {action.category}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {action.projectId ? 'Projet spécifique' : 'Global'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {`${action.responsible.prenom} ${action.responsible.nom}`}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {action.manager ? `${action.manager.prenom} ${action.manager.nom}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        {`${format(new Date(action.startDate), 'dd/MM/yyyy', { locale: fr })} - ${format(new Date(action.endDate), 'dd/MM/yyyy', { locale: fr })}`}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${action.status === 'completed'
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-yellow-100 text-yellow-800'
-                                            }`}>
-                                            {action.status === 'completed' ? 'Terminée' : 'En cours'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <Timeline actions={filteredActions.filter(action => action.status !== 'completed')} />
-            )}
-
-            <ActionFormModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                isGlobal={true}
-            />
-        </div>
+        </>
     );
 };
 

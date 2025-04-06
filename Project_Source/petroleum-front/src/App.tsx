@@ -83,10 +83,10 @@ export default function App() {
             <Route path="/tasks" element={
               <Tasks />
             } />
-          </Route>
 
-          {/* Global Actions */}
-          <Route path="/global-actions" element={<GlobalActions />} />
+            {/* Global Actions */}
+            <Route path="/global-actions" element={<GlobalActions />} />
+          </Route>
 
           {/* Redirect root to signin */}
           <Route path="/" element={<Navigate to="/signin" replace />} />
