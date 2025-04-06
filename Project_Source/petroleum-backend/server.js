@@ -18,6 +18,7 @@ const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
 const socketIo = require('socket.io');
 const logger = require('./utils/logger');
+const globalActionRoutes = require('./modules/actions/routes/globalAction.routes');
 
 dotenv.config();
 
@@ -105,7 +106,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/tasks', taskRoutes);
-
+app.use('/api/global-actions', globalActionRoutes);
 // Socket.io events
 io.on('connection', (socket) => {
     logger.info(`Client connected: ${socket.id}`);
