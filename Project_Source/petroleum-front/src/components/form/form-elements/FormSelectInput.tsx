@@ -13,6 +13,7 @@ interface FormSelectInputProps {
     required?: boolean;
     className?: string;
     placeholder?: string;
+    disabled?: boolean;
 }
 
 const FormSelectInput: React.FC<FormSelectInputProps> = ({
@@ -22,7 +23,8 @@ const FormSelectInput: React.FC<FormSelectInputProps> = ({
     options,
     required = false,
     className = '',
-    placeholder = 'Sélectionner une option'
+    placeholder = 'Sélectionner une option',
+    disabled = false
 }) => {
     return (
         <div className="space-y-2">
@@ -34,7 +36,8 @@ const FormSelectInput: React.FC<FormSelectInputProps> = ({
                 value={value}
                 onChange={onChange}
                 required={required}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${className}`}
+                disabled={disabled}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${className} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             >
                 <option value="" disabled>
                     {placeholder}

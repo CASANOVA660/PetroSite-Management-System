@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import FormDefaultInput from '../form/form-elements/FormDefaultInput';
 import FormSelectInput from '../form/form-elements/FormSelectInput';
 import FormTextAreaInput from '../form/form-elements/FormTextAreaInput';
@@ -29,6 +29,15 @@ interface GlobalActionFormProps {
     projects: any[];
     users: any[];
 }
+
+// Predefined document categories based on the document model
+const DOCUMENT_CATEGORIES = [
+    'Documents globale',
+    'Dossier Administratif',
+    'Dossier Technique',
+    'Dossier RH',
+    'Dossier HSE'
+];
 
 const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormData, projects, users }) => {
     return (
@@ -68,7 +77,15 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                 <FormSelectInput
                     label="Projet (optionnel)"
                     value={formData.projectId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, projectId: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        const newProjectId = e.target.value;
+                        setFormData({
+                            ...formData,
+                            projectId: newProjectId,
+                            // Reset project category when project changes
+                            projectCategory: ''
+                        });
+                    }}
                     options={[
                         { value: '', label: 'Aucun' },
                         ...projects.map((project) => ({
@@ -83,9 +100,11 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                         label="Catégorie du projet"
                         value={formData.projectCategory}
                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, projectCategory: e.target.value })}
-                        options={projects
-                            .find((p) => p._id === formData.projectId)
-                            ?.categories.map((cat: string) => ({ value: cat, label: cat })) || []}
+                        options={DOCUMENT_CATEGORIES.map(category => ({
+                            value: category,
+                            label: category
+                        }))}
+                        placeholder="Sélectionner une catégorie de projet"
                     />
                 )}
             </div>

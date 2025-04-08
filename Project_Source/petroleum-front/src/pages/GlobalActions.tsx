@@ -8,6 +8,19 @@ import { debounce } from 'lodash';
 import { GlobalAction } from '../store/slices/globalActionSlice';
 import PlusIcon from '../components/icons/PlusIcon';
 
+// Define the form data interface
+interface GlobalActionFormData {
+    title: string;
+    content: string;
+    category: string;
+    projectId: string;
+    projectCategory: string;
+    responsibleForRealization: string;
+    responsibleForFollowUp: string;
+    startDate: string;
+    endDate: string;
+}
+
 // Import components
 import {
     GlobalActionsTable,
@@ -31,7 +44,12 @@ const GlobalActions: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedAction, setSelectedAction] = useState<GlobalAction | null>(null);
-    const [formData, setFormData] = useState({
+    const { actions, loading, error } = useSelector((state: RootState) => state.globalActions);
+    const { projects } = useSelector((state: RootState) => state.projects);
+    const { users } = useSelector((state: RootState) => state.users);
+    const { user } = useSelector((state: RootState) => state.auth);
+    const isManager = user?.role === 'manager';
+    const [formData, setFormData] = useState<GlobalActionFormData>({
         title: '',
         content: '',
         category: '',
@@ -43,12 +61,19 @@ const GlobalActions: React.FC = () => {
         endDate: ''
     });
 
-    const { actions, loading, error } = useSelector((state: RootState) => state.globalActions);
-    const { projects } = useSelector((state: RootState) => state.projects);
-    const { users } = useSelector((state: RootState) => state.users);
+    // Fetch global actions when component mounts
+    useEffect(() => {
+        console.log('Fetching global actions...');
+        dispatch(fetchGlobalActions({}));
+    }, [dispatch]);
 
     useEffect(() => {
-        dispatch(fetchGlobalActions({}));
+        console.log('Current actions state:', actions);
+        console.log('Is actions an array?', Array.isArray(actions));
+        console.log('Actions length:', actions?.length);
+    }, [actions]);
+
+    useEffect(() => {
         dispatch(fetchProjects());
         dispatch(fetchUsers());
     }, [dispatch]);
@@ -109,7 +134,6 @@ const GlobalActions: React.FC = () => {
             endDate: string;
             status: string;
             projectId?: string;
-            projectCategory?: string;
         } = {
             title: formData.title.trim(),
             content: formData.content.trim(),
@@ -121,13 +145,9 @@ const GlobalActions: React.FC = () => {
             status: 'pending'
         };
 
-        // Only add optional fields if they have values
+        // Only add projectId if it has a value
         if (formData.projectId) {
             formattedData.projectId = formData.projectId;
-
-            if (formData.projectCategory) {
-                formattedData.projectCategory = formData.projectCategory;
-            }
         }
 
         console.log('Form data before submission:', formData);
