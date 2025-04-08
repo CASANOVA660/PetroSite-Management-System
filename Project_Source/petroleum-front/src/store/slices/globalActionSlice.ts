@@ -113,9 +113,11 @@ const globalActionSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(fetchGlobalActions.fulfilled, (state, action: PayloadAction<GlobalAction[]>) => {
+            .addCase(fetchGlobalActions.fulfilled, (state, action) => {
                 state.loading = false;
-                state.actions = action.payload;
+                console.log('Fetched actions response:', action.payload);
+                // The backend returns data in a nested structure
+                state.actions = action.payload.data || [];
             })
             .addCase(fetchGlobalActions.rejected, (state, action) => {
                 state.loading = false;
@@ -127,13 +129,17 @@ const globalActionSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(createGlobalAction.fulfilled, (state, action: PayloadAction<GlobalAction>) => {
+            .addCase(createGlobalAction.fulfilled, (state, action) => {
                 state.loading = false;
-                state.actions.unshift(action.payload);
+                // Ensure actions is an array before using unshift
+                if (!Array.isArray(state.actions)) {
+                    state.actions = [];
+                }
+                state.actions.unshift(action.payload.data);
             })
             .addCase(createGlobalAction.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.payload as string;
+                state.error = action.error.message || 'Une erreur est survenue lors de la création de l\'action';
             })
 
             // Update action status
