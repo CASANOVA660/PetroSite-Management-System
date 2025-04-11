@@ -35,6 +35,15 @@ export interface GlobalAction {
     updatedAt: string;
 }
 
+// Search params interface
+export interface SearchParams {
+    title?: string;
+    responsible?: string;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+}
+
 // Define the state interface
 interface GlobalActionState {
     actions: GlobalAction[];
@@ -58,6 +67,30 @@ export const fetchGlobalActions = createAsyncThunk(
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Erreur lors de la récupération des actions');
+        }
+    }
+);
+
+export const searchGlobalActions = createAsyncThunk(
+    'globalActions/searchGlobalActions',
+    async (searchParams: SearchParams, { rejectWithValue }) => {
+        try {
+            console.log('Searching with params:', searchParams);
+            const response = await axios.get('/global-actions/search', { params: searchParams });
+            console.log('Search response:', response.data);
+
+            // Handle different response formats
+            if (response.data && response.data.actions) {
+                return response.data.actions;
+            } else if (Array.isArray(response.data)) {
+                return response.data;
+            } else {
+                console.warn('Unexpected response format:', response.data);
+                return [];
+            }
+        } catch (error: any) {
+            console.error('Search API error:', error.response?.data || error.message);
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la recherche des actions');
         }
     }
 );
@@ -116,10 +149,24 @@ const globalActionSlice = createSlice({
             .addCase(fetchGlobalActions.fulfilled, (state, action) => {
                 state.loading = false;
                 console.log('Fetched actions response:', action.payload);
-                // The backend returns data in a nested structure
-                state.actions = action.payload.data || [];
+                // The backend returns data in a nested structure with actions array
+                state.actions = action.payload.actions || [];
             })
             .addCase(fetchGlobalActions.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // Search actions
+            .addCase(searchGlobalActions.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(searchGlobalActions.fulfilled, (state, action) => {
+                state.loading = false;
+                // No need to update state.actions here as we handle it in the component
+            })
+            .addCase(searchGlobalActions.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })

@@ -171,7 +171,7 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                             </div>
                         ) : (
                             <ActionList
-                                actions={categoryActions}
+                                actions={categoryActions as any}
                                 onEdit={() => { }}
                                 onDelete={handleDeleteAction}
                                 onStatusChange={handleStatusChange}

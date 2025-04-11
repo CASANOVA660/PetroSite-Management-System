@@ -6,12 +6,22 @@ export interface User {
 
 export interface Action {
     _id: string;
+    title: string;
     content: string;
-    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'pending' | 'in_progress' | 'completed';
     startDate: string;
     endDate: string;
-    responsible: User;
-
-    projectId: string;
+    responsibleForRealization: string;
+    responsibleForFollowUp: string;
     category: string;
+    project: string | null;
+    projectId?: string | null;
+    manager: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface GlobalAction extends Action {
+    isProjectAction: boolean;
+    projectId: string | null;
 } 

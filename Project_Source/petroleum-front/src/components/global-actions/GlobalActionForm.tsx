@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FormDefaultInput from '../form/form-elements/FormDefaultInput';
 import FormSelectInput from '../form/form-elements/FormSelectInput';
 import FormTextAreaInput from '../form/form-elements/FormTextAreaInput';
+import { jwtDecode, JwtPayload } from 'jwt-decode';
 
 interface GlobalActionFormProps {
     formData: {
@@ -29,6 +30,14 @@ interface GlobalActionFormProps {
     projects: any[];
     users: any[];
 }
+interface User {
+    userId: string;
+    email: string;
+    role: string;
+    nom: string;
+    iat: number;
+    exp: number;
+}
 
 // Predefined document categories based on the document model
 const DOCUMENT_CATEGORIES = [
@@ -40,6 +49,21 @@ const DOCUMENT_CATEGORIES = [
 ];
 
 const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormData, projects, users }) => {
+    // Assuming currentUser is the logged-in manager
+    const token = localStorage.getItem('token');
+    let currentUser: User | null = null;
+
+    if (token) {
+        try {
+            const decodedToken = jwtDecode<User>(token);
+            console.log(decodedToken);
+            currentUser = decodedToken; // The user data is directly in the decoded token
+            console.log(currentUser);
+        } catch (error) {
+            console.error('Failed to decode token:', error);
+        }
+    }
+
     return (
         <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -79,12 +103,15 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                     value={formData.projectId}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         const newProjectId = e.target.value;
-                        setFormData({
-                            ...formData,
+                        const selectedProject = projects.find(project => project._id === newProjectId);
+                        setFormData(prevFormData => ({
+                            ...prevFormData,
                             projectId: newProjectId,
                             // Reset project category when project changes
-                            projectCategory: ''
-                        });
+                            projectCategory: '',
+                            // Set the current manager's name as responsible for follow-up
+                            responsibleForFollowUp: currentUser ? currentUser.nom : ''
+                        }));
                     }}
                     options={[
                         { value: '', label: 'Aucun' },
@@ -116,23 +143,31 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, responsibleForRealization: e.target.value })}
                     options={users.map((user) => ({
                         value: user._id,
-                        label: `${user.nom} ${user.prenom}`
+                        label: user.nom
                     }))}
                     required
                     placeholder="Sélectionner un responsable"
                 />
 
-                <FormSelectInput
-                    label="Responsable de suivi"
-                    value={formData.responsibleForFollowUp}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, responsibleForFollowUp: e.target.value })}
-                    options={users.map((user) => ({
-                        value: user._id,
-                        label: `${user.nom} ${user.prenom}`
-                    }))}
-                    required
-                    placeholder="Sélectionner un responsable"
-                />
+                {formData.projectId ? (
+                    <FormDefaultInput
+                        label="Responsable de suivi"
+                        value={formData.responsibleForFollowUp}
+                        readOnly
+                    />
+                ) : (
+                    <FormSelectInput
+                        label="Responsable de suivi"
+                        value={formData.responsibleForFollowUp}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, responsibleForFollowUp: e.target.value })}
+                        options={users.map((user) => ({
+                            value: user._id,
+                            label: user.nom
+                        }))}
+                        required
+                        placeholder="Sélectionner un responsable"
+                    />
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
