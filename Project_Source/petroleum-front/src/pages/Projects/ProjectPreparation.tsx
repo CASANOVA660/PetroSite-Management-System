@@ -78,7 +78,7 @@ const ProjectPreparation: React.FC = () => {
                         </div>
                     ) : (
                         <ProjectTable
-                            projects={projects}
+                            projects={projects as any}
                             onViewProject={handleViewProject}
                         />
                     )}

@@ -3,11 +3,12 @@ import React from 'react';
 interface FormDefaultInputProps {
     label: string;
     value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
     type?: string;
     required?: boolean;
     placeholder?: string;
     className?: string;
+    readOnly?: boolean;
 }
 
 const FormDefaultInput: React.FC<FormDefaultInputProps> = ({
@@ -17,7 +18,8 @@ const FormDefaultInput: React.FC<FormDefaultInputProps> = ({
     type = 'text',
     required = false,
     placeholder = '',
-    className = ''
+    className = '',
+    readOnly = false
 }) => {
     return (
         <div className="space-y-2">
@@ -32,6 +34,7 @@ const FormDefaultInput: React.FC<FormDefaultInputProps> = ({
                 required={required}
                 placeholder={placeholder}
                 className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${className}`}
+                readOnly={readOnly}
             />
         </div>
     );

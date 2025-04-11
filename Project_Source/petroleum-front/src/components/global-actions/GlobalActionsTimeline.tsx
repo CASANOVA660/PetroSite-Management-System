@@ -1,10 +1,12 @@
 import React from 'react';
-import { GlobalAction } from '../../store/slices/globalActionSlice';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { GlobalAction } from '../../types/globalAction';
+import { Action } from '../../types/action';
+import { CombinedAction } from './GlobalActionsTable';
 
 interface GlobalActionsTimelineProps {
-    actions: GlobalAction[];
+    actions: any[];
 }
 
 const GlobalActionsTimeline: React.FC<GlobalActionsTimelineProps> = ({ actions }) => {

@@ -13,12 +13,24 @@ class GlobalActionController {
 
     async searchGlobalActions(req, res) {
         try {
-            const { searchTerm, responsible, category, projectId, page, limit } = req.query;
-            const searchParams = {
-                searchTerm,
+            const {
+                title,
                 responsible,
                 category,
                 projectId,
+                startDate,
+                endDate,
+                page,
+                limit
+            } = req.query;
+
+            const searchParams = {
+                title,
+                responsible,
+                category,
+                projectId,
+                startDate,
+                endDate,
                 page: parseInt(page) || 1,
                 limit: parseInt(limit) || 10
             };
@@ -26,6 +38,7 @@ class GlobalActionController {
             const result = await globalActionService.searchGlobalActions(searchParams);
             res.json(result);
         } catch (error) {
+            console.error('Search error:', error);
             res.status(500).json({ message: error.message });
         }
     }

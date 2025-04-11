@@ -46,7 +46,17 @@ class GlobalActionService {
     }
 
     async searchGlobalActions(searchParams) {
-        const { searchTerm, responsible, category, projectId, page = 1, limit = 10 } = searchParams;
+        const {
+            title,
+            responsible,
+            category,
+            projectId,
+            startDate,
+            endDate,
+            page = 1,
+            limit = 10
+        } = searchParams;
+
         const cacheKey = this.constructor.generateCacheKey('search', JSON.stringify(searchParams));
 
         // Try to get from cache first
@@ -58,17 +68,21 @@ class GlobalActionService {
         // Build search query
         const query = {};
 
-        if (searchTerm) {
-            query.$or = [
-                { title: { $regex: searchTerm, $options: 'i' } },
-                { content: { $regex: searchTerm, $options: 'i' } }
-            ];
+        if (title) {
+            query.title = { $regex: title, $options: 'i' };
         }
 
         if (responsible) {
+            // Search for responsible in both fields
+            // Use $or to find in either responsibleForRealization or responsibleForFollowUp
+            // Need to search by name within the populated fields
+            const responsibleRegex = new RegExp(responsible, 'i');
+
             query.$or = [
-                { responsibleForRealization: responsible },
-                { responsibleForFollowUp: responsible }
+                { 'responsibleForRealization.nom': responsibleRegex },
+                { 'responsibleForRealization.prenom': responsibleRegex },
+                { 'responsibleForFollowUp.nom': responsibleRegex },
+                { 'responsibleForFollowUp.prenom': responsibleRegex }
             ];
         }
 
@@ -78,6 +92,20 @@ class GlobalActionService {
 
         if (projectId) {
             query.projectId = projectId;
+        }
+
+        // Date range filtering
+        if (startDate || endDate) {
+            query.startDate = {};
+            query.endDate = {};
+
+            if (startDate) {
+                query.startDate.$gte = new Date(startDate);
+            }
+
+            if (endDate) {
+                query.endDate.$lte = new Date(endDate);
+            }
         }
 
         // Calculate skip for pagination
