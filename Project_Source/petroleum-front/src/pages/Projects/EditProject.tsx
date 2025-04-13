@@ -13,6 +13,7 @@ const EditProject: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch<AppDispatch>();
     const { loading, error, selectedProject } = useSelector((state: RootState) => state.projects);
+    const authState = useSelector((state: RootState) => state.auth);
     const [formData, setFormData] = useState({
         name: '',
         clientName: '',
@@ -21,12 +22,24 @@ const EditProject: React.FC = () => {
         endDate: '',
         status: 'En cours' as const
     });
+    const [loadingUpdate, setLoadingUpdate] = useState(false);
+
+    // Check authentication
+    useEffect(() => {
+        if (!authState.isAuthenticated || !authState.user) {
+            console.error('EditProject: User not authenticated');
+            toast.error('Vous devez être connecté pour modifier un projet');
+            navigate('/login', { state: { from: `/projects/edit/${id}` } });
+        }
+    }, [authState, id, navigate]);
 
     useEffect(() => {
         if (id) {
+            console.log('EditProject: Fetching project with ID:', id);
             dispatch(fetchProjectById(id))
                 .unwrap()
                 .then((project) => {
+                    console.log('EditProject: Successfully fetched project:', project);
                     setFormData({
                         name: project.name,
                         clientName: project.clientName,
@@ -37,11 +50,23 @@ const EditProject: React.FC = () => {
                     });
                 })
                 .catch((err) => {
-                    toast.error('Erreur lors du chargement du projet');
-                    console.error('Error fetching project:', err);
+                    console.error('EditProject: Error fetching project with detailed info:', err);
+                    console.error('EditProject: Error type:', typeof err);
+                    if (typeof err === 'object') {
+                        console.error('EditProject: Error keys:', Object.keys(err));
+                        // If the error message contains an authentication error
+                        if (err.toString().includes('autorisé') || err.toString().includes('auth')) {
+                            toast.error('Vous n\'êtes pas autorisé à modifier ce projet');
+                            navigate('/projects/preparation');
+                        } else {
+                            toast.error('Erreur lors du chargement du projet');
+                        }
+                    }
                 });
+        } else {
+            console.error('EditProject: No project ID in URL parameters');
         }
-    }, [dispatch, id]);
+    }, [dispatch, id, navigate]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -54,14 +79,31 @@ const EditProject: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!id) return;
+        if (!authState.isAuthenticated || !authState.user) {
+            toast.error('Vous devez être connecté pour modifier un projet');
+            navigate('/login');
+            return;
+        }
 
+        setLoadingUpdate(true);
         try {
             await dispatch(updateProject({ id, data: formData })).unwrap();
             toast.success('Projet mis à jour avec succès!');
             navigate(`/projects/${id}`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error updating project:', err);
-            toast.error('Erreur lors de la mise à jour du projet');
+            // Check if it's an authorization error
+            if (err.toString().includes('autorisé') || err.toString().includes('Non autorisé')) {
+                toast.error('Vous n\'êtes pas autorisé à modifier ce projet');
+            } else if (err.toString().includes('TypeError')) {
+                toast.error('Erreur d\'authentification. Veuillez vous reconnecter.');
+                // Force user to re-login
+                navigate('/login', { state: { from: `/projects/edit/${id}` } });
+            } else {
+                toast.error('Erreur lors de la mise à jour du projet');
+            }
+        } finally {
+            setLoadingUpdate(false);
         }
     };
 
@@ -78,6 +120,26 @@ const EditProject: React.FC = () => {
             <div className="text-center py-12">
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                     Projet non trouvé
+                </h2>
+                <button
+                    onClick={() => navigate('/projects/preparation')}
+                    className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]"
+                >
+                    Retour à la liste
+                </button>
+            </div>
+        );
+    }
+
+    // Check if this user is authorized to edit this project
+    const canEdit = authState.user && selectedProject.createdBy &&
+        authState.user._id === selectedProject.createdBy._id;
+
+    if (!canEdit) {
+        return (
+            <div className="text-center py-12">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Vous n'êtes pas autorisé à modifier ce projet
                 </h2>
                 <button
                     onClick={() => navigate('/projects/preparation')}
@@ -217,10 +279,10 @@ const EditProject: React.FC = () => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loadingUpdate}
                                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#F28C38] hover:bg-[#E67E2E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F28C38] disabled:opacity-50"
                             >
-                                {loading ? 'Mise à jour en cours...' : 'Mettre à jour'}
+                                {loadingUpdate ? 'Mise à jour en cours...' : 'Mettre à jour'}
                             </button>
                         </div>
                     </form>

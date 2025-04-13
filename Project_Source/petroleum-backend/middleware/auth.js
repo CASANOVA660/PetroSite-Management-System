@@ -35,10 +35,14 @@ const authMiddleware = (req, res, next) => {
       // Set user info in request
       req.user = {
         id: decoded.userId,
+        _id: decoded.userId,
         email: decoded.email,
         role: decoded.role,
+        name: decoded.nom,
         nom: decoded.nom
       };
+
+      console.log('User object set in request:', req.user);
 
       // Check if the route is for creating users and user is not a Manager
       if (req.path === '/api/users' && req.method === 'POST' && decoded.role !== 'Manager') {

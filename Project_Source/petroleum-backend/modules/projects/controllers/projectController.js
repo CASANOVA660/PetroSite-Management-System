@@ -24,22 +24,51 @@ exports.getAllProjects = async (req, res) => {
 // Get project by ID
 exports.getProjectById = async (req, res) => {
     try {
+        console.log(`[getProjectById] Request to fetch project with ID: ${req.params.id}`);
+        console.log(`[getProjectById] Request params:`, req.params);
+
+        // Check if ID is valid MongoDB ObjectId
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            console.log(`[getProjectById] Invalid MongoDB ObjectId format: ${req.params.id}`);
+            return res.status(400).json({
+                success: false,
+                message: 'ID de projet invalide'
+            });
+        }
+
         const project = await Project.findById(req.params.id)
             .populate('createdBy', 'name surname');
 
         if (!project) {
+            console.log(`[getProjectById] Project not found with ID: ${req.params.id}`);
             return res.status(404).json({
                 success: false,
                 message: 'Projet non trouvé'
             });
         }
 
+        console.log(`[getProjectById] Project found:`, {
+            id: project._id,
+            name: project.name,
+            clientName: project.clientName,
+            createdBy: project.createdBy
+        });
+
         res.json({
             success: true,
             data: project
         });
     } catch (error) {
-        console.error('Error fetching project:', error);
+        console.error('[getProjectById] Error fetching project:', error);
+
+        // Check if error is related to invalid ID format
+        if (error.name === 'CastError' && error.kind === 'ObjectId') {
+            return res.status(400).json({
+                success: false,
+                message: 'Format d\'ID de projet invalide'
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération du projet'
@@ -116,24 +145,57 @@ exports.createProject = async (req, res) => {
 // Update project
 exports.updateProject = async (req, res) => {
     try {
+        console.log(`[updateProject] Request to update project with ID: ${req.params.id}`);
+        console.log(`[updateProject] Request body:`, req.body);
+        console.log(`[updateProject] User:`, req.user ? { id: req.user._id, name: req.user.name } : 'Not authenticated');
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log(`[updateProject] Validation errors:`, errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
             });
         }
 
+        // Verify authentication first
+        if (!req.user || !req.user._id) {
+            console.log(`[updateProject] Authentication required`);
+            return res.status(401).json({
+                success: false,
+                message: 'Authentification requise'
+            });
+        }
+
+        // Check if ID is valid MongoDB ObjectId
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            console.log(`[updateProject] Invalid MongoDB ObjectId format: ${req.params.id}`);
+            return res.status(400).json({
+                success: false,
+                message: 'ID de projet invalide'
+            });
+        }
+
         const project = await Project.findById(req.params.id);
+
         if (!project) {
+            console.log(`[updateProject] Project not found with ID: ${req.params.id}`);
             return res.status(404).json({
                 success: false,
                 message: 'Projet non trouvé'
             });
         }
 
+        console.log(`[updateProject] Project found:`, {
+            id: project._id,
+            name: project.name,
+            createdBy: project.createdBy
+        });
+
         // Check if user has permission to update
-        if (project.createdBy.toString() !== req.user._id.toString()) {
+        if (project.createdBy && req.user._id && project.createdBy.toString() !== req.user._id.toString()) {
+            console.log(`[updateProject] User ${req.user._id} not authorized to update project ${project._id}`);
+            console.log(`[updateProject] Project createdBy: ${project.createdBy}`);
             return res.status(403).json({
                 success: false,
                 message: 'Non autorisé à modifier ce projet'
@@ -141,6 +203,8 @@ exports.updateProject = async (req, res) => {
         }
 
         const updates = req.body;
+        console.log(`[updateProject] Applying updates:`, updates);
+
         Object.keys(updates).forEach(key => {
             project[key] = updates[key];
         });
@@ -148,12 +212,26 @@ exports.updateProject = async (req, res) => {
         await project.save();
         await project.populate('createdBy', 'name surname');
 
+        console.log(`[updateProject] Project updated successfully:`, {
+            id: project._id,
+            name: project.name
+        });
+
         res.json({
             success: true,
             data: project
         });
     } catch (error) {
-        console.error('Error updating project:', error);
+        console.error('[updateProject] Error updating project:', error);
+
+        // Check if error is related to invalid ID format
+        if (error.name === 'CastError' && error.kind === 'ObjectId') {
+            return res.status(400).json({
+                success: false,
+                message: 'Format d\'ID de projet invalide'
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la mise à jour du projet'
@@ -164,16 +242,33 @@ exports.updateProject = async (req, res) => {
 // Delete project (soft delete)
 exports.deleteProject = async (req, res) => {
     try {
+        // Verify authentication first
+        if (!req.user || !req.user._id) {
+            console.log('Authentication required for delete operation');
+            return res.status(401).json({
+                success: false,
+                message: 'Authentification requise'
+            });
+        }
+
+        console.log(`Attempting to delete project ${req.params.id} by user ${req.user._id}`);
+
         const project = await Project.findById(req.params.id);
         if (!project) {
+            console.log(`Project with ID ${req.params.id} not found`);
             return res.status(404).json({
                 success: false,
                 message: 'Projet non trouvé'
             });
         }
 
+        console.log(`Project found: ${project._id}`);
+        console.log(`Project creator: ${project.createdBy}`);
+        console.log(`Current user: ${req.user._id}`);
+
         // Check if user has permission to delete
-        if (project.createdBy.toString() !== req.user._id.toString()) {
+        if (project.createdBy && req.user._id && project.createdBy.toString() !== req.user._id.toString()) {
+            console.log('User not authorized to delete project');
             return res.status(403).json({
                 success: false,
                 message: 'Non autorisé à supprimer ce projet'
@@ -182,6 +277,7 @@ exports.deleteProject = async (req, res) => {
 
         project.isDeleted = true;
         await project.save();
+        console.log(`Project ${project._id} marked as deleted`);
 
         res.json({
             success: true,

@@ -55,10 +55,8 @@ api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
         if (token && config.headers) {
-            // Make sure to add 'Bearer ' prefix
             config.headers.Authorization = `Bearer ${token}`;
             console.log('Token being sent:', token);
-            console.log('Headers:', config.headers);
         }
         return config;
     },
@@ -75,12 +73,10 @@ export const fetchProjects = createAsyncThunk(
             const response = await api.get('/projects');
             console.log('Projects API Response:', response.data);
 
-            // Handle the standardized response format
+            // Handle different response formats
             if (response.data?.success && response.data?.data) {
-                // New format with success and data
                 return response.data.data;
             } else if (Array.isArray(response.data)) {
-                // Old format, direct array response
                 return response.data;
             } else {
                 console.error('Unexpected API response structure:', response.data);
@@ -88,7 +84,10 @@ export const fetchProjects = createAsyncThunk(
             }
         } catch (error: any) {
             console.error('Error fetching projects:', error);
-            return rejectWithValue(error.response?.data?.message || 'Failed to fetch projects');
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la récupération des projets');
         }
     }
 );
@@ -124,8 +123,12 @@ export const fetchProjectById = createAsyncThunk(
             console.error('Error fetching project:', error);
             if (error.response?.status === 404) {
                 return rejectWithValue('Projet non trouvé');
+            } else if (error.response?.status === 403) {
+                return rejectWithValue('Vous n\'êtes pas autorisé à accéder à ce projet');
+            } else if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
             }
-            return rejectWithValue(error.response?.data?.message || 'Failed to fetch project');
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la récupération du projet');
         }
     }
 );
@@ -160,15 +163,15 @@ export const createProject = createAsyncThunk(
             // Handle the standardized response format
             if (response.data?.success && response.data?.data) {
                 // New format with success and data
-                const projectData = response.data.data;
+                const project = response.data.data;
 
                 // Validate the project data
-                if (!projectData._id || !projectData.projectNumber) {
-                    console.error('Project missing required fields:', projectData);
+                if (!project._id || !project.projectNumber) {
+                    console.error('Project missing required fields:', project);
                     return rejectWithValue('Données du projet incomplètes');
                 }
 
-                return projectData;
+                return project;
             } else if (response.data && response.data._id) {
                 // Fallback for direct project data
                 return response.data;
@@ -178,16 +181,35 @@ export const createProject = createAsyncThunk(
             }
         } catch (error: any) {
             console.error('Project creation error:', error.response?.data || error.message);
-            return rejectWithValue(error.response?.data?.message || 'Failed to create project');
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            } else if (error.response?.status === 400) {
+                return rejectWithValue(error.response.data?.message || 'Données de projet invalides');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la création du projet');
         }
     }
 );
 
 export const updateProject = createAsyncThunk(
     'projects/updateProject',
-    async ({ id, data }: { id: string; data: CreateProjectData }, { rejectWithValue }) => {
+    async ({ id, data }: { id: string; data: CreateProjectData }, { rejectWithValue, getState }) => {
         try {
+            // Check if user is authenticated
+            const state = getState() as RootState;
+            const currentUser = state.auth.user;
+
+            if (!currentUser || !currentUser._id) {
+                console.error('Update project: No authenticated user found');
+                return rejectWithValue('Vous devez être connecté pour modifier un projet');
+            }
+
+            console.log('Updating project with ID:', id);
+            console.log('Update data:', data);
+            console.log('Current user:', currentUser);
+
             const response = await api.put(`/projects/${id}`, data);
+            console.log('Update project response:', response.data);
 
             // Handle the standardized response format
             if (response.data?.success && response.data?.data) {
@@ -196,10 +218,32 @@ export const updateProject = createAsyncThunk(
                 // Fallback for direct project data
                 return response.data;
             } else {
-                return rejectWithValue('Invalid response format');
+                console.error('Invalid update response format:', response.data);
+                return rejectWithValue('Format de réponse invalide');
             }
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || 'Failed to update project');
+            console.error('Project update error:', error);
+
+            if (error.response) {
+                console.error('Response status:', error.response.status);
+                console.error('Response data:', error.response.data);
+
+                // Handle specific error status codes
+                if (error.response.status === 401) {
+                    return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+                } else if (error.response.status === 403) {
+                    return rejectWithValue('Vous n\'êtes pas autorisé à modifier ce projet');
+                } else if (error.response.status === 404) {
+                    return rejectWithValue('Projet non trouvé');
+                }
+            }
+
+            // Handle TypeError that might occur with authentication issues
+            if (error instanceof TypeError && error.message.includes('undefined')) {
+                return rejectWithValue('Erreur d\'authentification. Veuillez vous reconnecter.');
+            }
+
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la mise à jour du projet');
         }
     }
 );
