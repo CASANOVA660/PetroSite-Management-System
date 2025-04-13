@@ -67,7 +67,9 @@ const ActionList: React.FC<ActionListProps> = ({
                             <p className="text-gray-900">{action.content}</p>
                             <div className="mt-2 flex items-center text-sm text-gray-500">
                                 <span className="mr-4">
-                                    Responsable: {action.responsible.prenom} {action.responsible.nom}
+                                    Responsable: {action.responsible ?
+                                        `${action.responsible.prenom} ${action.responsible.nom}` :
+                                        action.responsibleForRealization}
                                 </span>
 
                                 <span>

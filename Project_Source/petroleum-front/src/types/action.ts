@@ -8,7 +8,7 @@ export interface Action {
     _id: string;
     title: string;
     content: string;
-    status: 'pending' | 'in_progress' | 'completed';
+    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
     startDate: string;
     endDate: string;
     responsibleForRealization: string;
@@ -19,6 +19,7 @@ export interface Action {
     manager: string;
     createdAt: string;
     updatedAt: string;
+    responsible: User;
 }
 
 export interface GlobalAction extends Action {

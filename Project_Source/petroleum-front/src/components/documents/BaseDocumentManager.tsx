@@ -151,6 +151,11 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
                 <DocumentList
                     documents={documents}
                     onViewDocument={handleViewDocument}
+                    onAddDocument={() => {
+                        // This will open the document uploader or show a form
+                        console.log("Add document clicked for category:", category);
+                        // You can implement the logic to show the document uploader here
+                    }}
                 />
             </div>
 
