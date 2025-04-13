@@ -91,6 +91,33 @@ class GlobalActionController {
         }
     }
 
+    async updateGlobalAction(req, res) {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    errors: errors.array()
+                });
+            }
+
+            const { actionId } = req.params;
+            const actionData = req.body;
+
+            const action = await globalActionService.updateGlobalAction(actionId, actionData);
+
+            res.json({
+                success: true,
+                data: action
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
     async deleteGlobalAction(req, res) {
         try {
             const { actionId } = req.params;

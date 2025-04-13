@@ -32,6 +32,7 @@ router.get('/', globalActionController.getAllGlobalActions);
 router.get('/search', globalActionController.searchGlobalActions);
 router.post('/', createGlobalActionValidation, globalActionController.createGlobalAction);
 router.patch('/:actionId/status', updateStatusValidation, globalActionController.updateGlobalActionStatus);
+router.put('/:actionId', createGlobalActionValidation, globalActionController.updateGlobalAction);
 router.delete('/:actionId', globalActionController.deleteGlobalAction);
 
 module.exports = router;

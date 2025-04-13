@@ -90,6 +90,17 @@ const GlobalActions: React.FC = () => {
         console.log('Current project actions:', projectActions);
     }, [globalActions, projectActions]);
 
+    // Update selectedAction when globalActions changes
+    useEffect(() => {
+        if (selectedAction && isViewModalOpen) {
+            // Find the updated version of the selected action
+            const updatedAction = globalActions.find(action => action._id === selectedAction._id);
+            if (updatedAction) {
+                setSelectedAction(updatedAction);
+            }
+        }
+    }, [globalActions, selectedAction, isViewModalOpen]);
+
     useEffect(() => {
         dispatch(fetchProjects());
         dispatch(fetchUsers());
@@ -354,6 +365,7 @@ const GlobalActions: React.FC = () => {
                             <GlobalActionsTable
                                 actions={filteredActions as any}
                                 projects={projects}
+                                users={users}
                                 onViewAction={handleViewAction}
                             />
                         ) : view === 'gantt' ? (

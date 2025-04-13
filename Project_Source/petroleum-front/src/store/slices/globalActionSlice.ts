@@ -122,6 +122,21 @@ export const updateGlobalActionStatus = createAsyncThunk(
     }
 );
 
+export const updateGlobalAction = createAsyncThunk(
+    'globalActions/updateGlobalAction',
+    async ({ actionId, actionData }: { actionId: string; actionData: any }, { rejectWithValue }) => {
+        try {
+            console.log('Updating global action with data:', { actionId, actionData });
+            const response = await axios.put(`/global-actions/${actionId}`, actionData);
+            console.log('Update response:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('Error updating action:', error.response?.data || error.message);
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la mise à jour de l\'action');
+        }
+    }
+);
+
 export const deleteGlobalAction = createAsyncThunk(
     'globalActions/deleteGlobalAction',
     async (actionId: string, { rejectWithValue }) => {
@@ -202,6 +217,23 @@ const globalActionSlice = createSlice({
                 }
             })
             .addCase(updateGlobalActionStatus.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // Update action
+            .addCase(updateGlobalAction.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateGlobalAction.fulfilled, (state, action) => {
+                state.loading = false;
+                const index = state.actions.findIndex(item => item._id === action.payload.data._id);
+                if (index !== -1) {
+                    state.actions[index] = action.payload.data;
+                }
+            })
+            .addCase(updateGlobalAction.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })

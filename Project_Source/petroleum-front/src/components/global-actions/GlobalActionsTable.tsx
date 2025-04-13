@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store';
-import { updateGlobalActionStatus, deleteGlobalAction, fetchGlobalActions } from '../../store/slices/globalActionSlice';
+import { updateGlobalActionStatus, deleteGlobalAction, fetchGlobalActions, GlobalAction, updateGlobalAction } from '../../store/slices/globalActionSlice';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -13,7 +13,9 @@ import {
 } from '../ui/table';
 
 import Badge from "../ui/badge/Badge";
-import { Eye, Trash, Edit, CheckCircle, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Eye, Trash, Edit, CheckCircle, ChevronLeft, ChevronRight, Search, X, Calendar } from 'lucide-react';
+import { Modal } from '../ui/modal';
+import GlobalActionUpdateForm from './GlobalActionUpdateForm';
 
 // Define a more flexible CombinedAction type
 export type CombinedAction = any;
@@ -21,15 +23,30 @@ export type CombinedAction = any;
 interface GlobalActionsTableProps {
     actions: any[];
     projects: any[];
+    users?: any[];
     onViewAction: (action: any) => void;
 }
 
-const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projects, onViewAction }) => {
+const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initialActions, projects, users = [], onViewAction }) => {
     const dispatch = useDispatch<AppDispatch>();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isLoading, setIsLoading] = useState(false);
     const [allActions, setAllActions] = useState<any[]>([]);
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+    const [selectedActionForUpdate, setSelectedActionForUpdate] = useState<GlobalAction | null>(null);
+    const [updateFormData, setUpdateFormData] = useState({
+        title: '',
+        content: '',
+        category: '',
+        projectId: '',
+        projectCategory: '',
+        responsibleForRealization: '',
+        responsibleForFollowUp: '',
+        startDate: '',
+        endDate: '',
+        status: ''
+    });
 
     // Filter state
     const [filterQuery, setFilterQuery] = useState({
@@ -157,14 +174,14 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projec
 
     // Initialize actions when they change
     useEffect(() => {
-        if (Array.isArray(actions)) {
-            console.log("Setting all actions:", actions.length);
-            setAllActions(actions);
+        if (Array.isArray(initialActions)) {
+            console.log("Setting all actions:", initialActions.length);
+            setAllActions(initialActions);
         } else {
-            console.warn("Actions prop is not an array:", actions);
+            console.warn("Actions prop is not an array:", initialActions);
             setAllActions([]);
         }
-    }, [actions]);
+    }, [initialActions]);
 
     // Fetch global actions on component mount if not provided
     useEffect(() => {
@@ -185,10 +202,10 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projec
             }
         };
 
-        if (!actions || actions.length === 0) {
+        if (!initialActions || initialActions.length === 0) {
             loadActions();
         }
-    }, [dispatch, actions]);
+    }, [dispatch, initialActions]);
 
     // Handle filter input changes - real-time filtering
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -304,6 +321,79 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projec
 
     const handleUpdateStatus = (actionId: string, status: string) => {
         dispatch(updateGlobalActionStatus({ actionId, status }));
+    };
+
+    const handleOpenUpdateModal = (action: any) => {
+        setSelectedActionForUpdate(action);
+
+        // Format dates for input fields (YYYY-MM-DD)
+        const formatDateForInput = (dateString: string) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        };
+
+        // Initialize form data with action values
+        setUpdateFormData({
+            title: action.title || '',
+            content: action.content || '',
+            category: action.category || '',
+            projectId: action.projectId?._id || '',
+            projectCategory: action.projectCategory || '',
+            responsibleForRealization: action.responsibleForRealization?._id || '',
+            responsibleForFollowUp: action.responsibleForFollowUp?._id || '',
+            startDate: formatDateForInput(action.startDate),
+            endDate: formatDateForInput(action.endDate),
+            status: action.status || 'pending'
+        });
+
+        setIsUpdateModalOpen(true);
+    };
+
+    const handleUpdateAction = () => {
+        if (!selectedActionForUpdate) return;
+
+        // Check for required fields
+        const missingFields = [];
+        if (!updateFormData.title) missingFields.push('titre');
+        if (!updateFormData.content) missingFields.push('contenu');
+        if (!updateFormData.category) missingFields.push('catégorie');
+        if (!updateFormData.responsibleForRealization) missingFields.push('responsable de réalisation');
+        if (!updateFormData.responsibleForFollowUp) missingFields.push('responsable de suivi');
+        if (!updateFormData.startDate) missingFields.push('date de début');
+        if (!updateFormData.endDate) missingFields.push('date de fin');
+        if (!updateFormData.status) missingFields.push('statut');
+
+        if (missingFields.length > 0) {
+            alert(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`);
+            return;
+        }
+
+        const actionData = {
+            title: updateFormData.title,
+            content: updateFormData.content,
+            category: updateFormData.category,
+            responsibleForRealization: updateFormData.responsibleForRealization,
+            responsibleForFollowUp: updateFormData.responsibleForFollowUp,
+            startDate: new Date(updateFormData.startDate).toISOString(),
+            endDate: new Date(updateFormData.endDate).toISOString(),
+            status: updateFormData.status
+        };
+
+        // Add projectId only if it exists
+        if (updateFormData.projectId) {
+            Object.assign(actionData, {
+                projectId: updateFormData.projectId,
+                projectCategory: updateFormData.projectCategory
+            });
+        }
+
+        dispatch(updateGlobalAction({
+            actionId: selectedActionForUpdate._id,
+            actionData
+        }));
+
+        setIsUpdateModalOpen(false);
     };
 
     const handleDeleteAction = (actionId: string) => {
@@ -561,10 +651,17 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projec
                                                             title={action.status === 'pending' ? 'Démarrer' : 'Terminer'}
                                                         >
                                                             {action.status === 'pending' ? (
-                                                                <Edit className="size-4" />
+                                                                <Calendar className="size-4" />
                                                             ) : (
                                                                 <CheckCircle className="size-4" />
                                                             )}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenUpdateModal(action)}
+                                                            className="p-1 hover:bg-blue-50 rounded-full transition-colors text-blue-600"
+                                                            title="Modifier"
+                                                        >
+                                                            <Edit className="size-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteAction(action._id)}
@@ -701,6 +798,42 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions, projec
                     )}
                 </div>
             </div>
+
+            {/* Update Modal */}
+            <Modal
+                isOpen={isUpdateModalOpen}
+                onClose={() => setIsUpdateModalOpen(false)}
+                className="max-w-2xl mx-auto"
+            >
+                <div className="p-4">
+                    <h2 className="text-lg font-bold mb-3">Modifier l'action</h2>
+                    <div className="max-h-[60vh] overflow-y-auto pr-2">
+                        {selectedActionForUpdate && (
+                            <GlobalActionUpdateForm
+                                action={selectedActionForUpdate}
+                                formData={updateFormData}
+                                setFormData={setUpdateFormData}
+                                projects={projects}
+                                users={users}
+                            />
+                        )}
+                    </div>
+                    <div className="flex justify-end space-x-2 mt-4">
+                        <button
+                            onClick={() => setIsUpdateModalOpen(false)}
+                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            onClick={handleUpdateAction}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

@@ -266,6 +266,98 @@ class GlobalActionService {
         return action;
     }
 
+    async updateGlobalAction(actionId, actionData) {
+        // Find the existing action first
+        const existingAction = await GlobalAction.findById(actionId)
+            .populate(['responsibleForRealization', 'responsibleForFollowUp', 'manager']);
+
+        if (!existingAction) {
+            throw new Error('Action not found');
+        }
+
+        // If projectId is provided, verify project exists and get its details
+        let projectDetails = null;
+        if (actionData.projectId) {
+            projectDetails = await Project.findById(actionData.projectId);
+            if (!projectDetails) {
+                throw new Error('Project not found');
+            }
+
+            // Validate project category if provided
+            if (actionData.projectCategory &&
+                !projectDetails.categories.includes(actionData.projectCategory)) {
+                throw new Error('Invalid project category');
+            }
+        }
+
+        // Check if responsible users have changed
+        const realPersonChanged = existingAction.responsibleForRealization._id.toString() !== actionData.responsibleForRealization;
+        const followUpPersonChanged = existingAction.responsibleForFollowUp._id.toString() !== actionData.responsibleForFollowUp;
+        const statusChanged = existingAction.status !== actionData.status;
+
+        // Update the action
+        const updatedAction = await GlobalAction.findByIdAndUpdate(
+            actionId,
+            { ...actionData, source: projectDetails ? projectDetails.name : 'Global' },
+            { new: true }
+        ).populate(['responsibleForRealization', 'responsibleForFollowUp', 'manager', 'projectId']);
+
+        // Send notifications based on what changed
+        const notifications = [];
+
+        // Notify about responsible person changes
+        if (realPersonChanged) {
+            notifications.push(
+                createNotification({
+                    type: 'ACTION_ASSIGNED',
+                    message: `L'action "${updatedAction.title}" vous a été assignée pour réalisation`,
+                    userId: updatedAction.responsibleForRealization._id,
+                    isRead: false
+                })
+            );
+        }
+
+        if (followUpPersonChanged) {
+            notifications.push(
+                createNotification({
+                    type: 'ACTION_ASSIGNED_FOLLOWUP',
+                    message: `L'action "${updatedAction.title}" vous a été assignée pour suivi`,
+                    userId: updatedAction.responsibleForFollowUp._id,
+                    isRead: false
+                })
+            );
+        }
+
+        // Notify about status change
+        if (statusChanged) {
+            notifications.push(
+                createNotification({
+                    type: 'ACTION_STATUS_CHANGED',
+                    message: `Le statut de l'action "${updatedAction.title}" a été mis à jour: ${updatedAction.status}`,
+                    userId: updatedAction.responsibleForRealization._id,
+                    isRead: false
+                }),
+                createNotification({
+                    type: 'ACTION_STATUS_CHANGED',
+                    message: `Le statut de l'action "${updatedAction.title}" a été mis à jour: ${updatedAction.status}`,
+                    userId: updatedAction.responsibleForFollowUp._id,
+                    isRead: false
+                })
+            );
+        }
+
+        // Process all notifications
+        if (notifications.length > 0) {
+            await Promise.all(notifications);
+        }
+
+        // Clear relevant caches
+        await this.constructor.clearCache('all');
+        await this.constructor.clearCache('search');
+
+        return updatedAction;
+    }
+
     async deleteGlobalAction(actionId) {
         const action = await GlobalAction.findById(actionId)
             .populate(['responsibleForRealization', 'responsibleForFollowUp']);

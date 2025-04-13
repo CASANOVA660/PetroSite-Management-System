@@ -4,6 +4,7 @@ import GlobalActionView from './GlobalActionView';
 import SearchBar from './SearchBar';
 import FilterBar from './FilterBar';
 import GlobalActionsTimeline from './GlobalActionsTimeline';
+import GlobalActionUpdateForm from './GlobalActionUpdateForm';
 
 export {
     GlobalActionsTable,
@@ -11,5 +12,6 @@ export {
     GlobalActionView,
     SearchBar,
     FilterBar,
-    GlobalActionsTimeline
+    GlobalActionsTimeline,
+    GlobalActionUpdateForm
 }; 
