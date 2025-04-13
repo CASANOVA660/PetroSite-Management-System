@@ -17,6 +17,16 @@ const createActionValidation = [
     validateRequest
 ];
 
+// Less strict validation for updates
+const updateActionValidation = [
+    body('title').notEmpty().withMessage('Le titre est requis'),
+    body('content').notEmpty().withMessage('Le contenu est requis'),
+    body('responsible').notEmpty().withMessage('Le responsable est requis'),
+    body('startDate').notEmpty().withMessage('La date de début est requise'),
+    body('endDate').notEmpty().withMessage('La date de fin est requise'),
+    validateRequest
+];
+
 const updateStatusValidation = [
     body('status').isIn(['pending', 'in_progress', 'completed', 'cancelled'])
         .withMessage('Statut invalide'),
@@ -31,6 +41,7 @@ router.post('/', createActionValidation, actionController.createAction);
 router.get('/project/:projectId', actionController.getProjectActions);
 router.get('/project/:projectId/category/:category', actionController.getCategoryActions);
 router.patch('/:actionId/status', updateStatusValidation, actionController.updateActionStatus);
+router.put('/:actionId', updateActionValidation, actionController.updateAction);
 router.delete('/:actionId', actionController.deleteAction);
 
 // Get all actions (global view)

@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface GlobalActionViewProps {
-    action: GlobalAction;
+    action: GlobalAction | any; // Accept any action type
 }
 
 const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
@@ -38,6 +38,26 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         }
     };
 
+    // Helper function to get user name from either responsible or responsibleForRealization
+    const getResponsibleName = () => {
+        if (action.source === 'Project' && action.responsible) {
+            return `${action.responsible.nom || ''} ${action.responsible.prenom || ''}`.trim();
+        } else if (action.responsibleForRealization) {
+            return `${action.responsibleForRealization.nom || ''} ${action.responsibleForRealization.prenom || ''}`.trim();
+        }
+        return 'Non assigné';
+    };
+
+    // Helper function to get follow-up name from either manager or responsibleForFollowUp
+    const getFollowUpName = () => {
+        if (action.source === 'Project' && action.manager) {
+            return `${action.manager.nom || ''} ${action.manager.prenom || ''}`.trim();
+        } else if (action.responsibleForFollowUp) {
+            return `${action.responsibleForFollowUp.nom || ''} ${action.responsibleForFollowUp.prenom || ''}`.trim();
+        }
+        return 'Non assigné';
+    };
+
     return (
         <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -58,7 +78,7 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {action.projectId && (
+                {(action.projectId && typeof action.projectId === 'object') && (
                     <div>
                         <h3 className="text-sm font-medium text-gray-700">Projet</h3>
                         <p className="text-sm">{action.projectId.name}</p>
@@ -76,16 +96,12 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <h3 className="text-sm font-medium text-gray-700">Responsable de réalisation</h3>
-                    <p className="text-sm">
-                        {action.responsibleForRealization.nom} {action.responsibleForRealization.prenom}
-                    </p>
+                    <p className="text-sm">{getResponsibleName()}</p>
                 </div>
 
                 <div>
                     <h3 className="text-sm font-medium text-gray-700">Responsable de suivi</h3>
-                    <p className="text-sm">
-                        {action.responsibleForFollowUp.nom} {action.responsibleForFollowUp.prenom}
-                    </p>
+                    <p className="text-sm">{getFollowUpName()}</p>
                 </div>
             </div>
 

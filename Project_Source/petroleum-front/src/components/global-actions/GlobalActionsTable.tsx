@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store';
 import { updateGlobalActionStatus, deleteGlobalAction, fetchGlobalActions, GlobalAction, updateGlobalAction } from '../../store/slices/globalActionSlice';
+import { updateActionStatus, deleteAction } from '../../store/slices/actionSlice';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -16,6 +17,7 @@ import Badge from "../ui/badge/Badge";
 import { Eye, Trash, Edit, CheckCircle, ChevronLeft, ChevronRight, Search, X, Calendar } from 'lucide-react';
 import { Modal } from '../ui/modal';
 import GlobalActionUpdateForm from './GlobalActionUpdateForm';
+import axios from '../../utils/axios';
 
 // Define a more flexible CombinedAction type
 export type CombinedAction = any;
@@ -25,9 +27,10 @@ interface GlobalActionsTableProps {
     projects: any[];
     users?: any[];
     onViewAction: (action: any) => void;
+    onRefresh?: () => void; // Optional callback for refreshing parent component
 }
 
-const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initialActions, projects, users = [], onViewAction }) => {
+const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initialActions, projects, users = [], onViewAction, onRefresh }) => {
     const dispatch = useDispatch<AppDispatch>();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -56,6 +59,11 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         startDate: '',
         endDate: ''
     });
+
+    // Add polling interval and last update tracking
+    const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const POLLING_INTERVAL = 300000; // 30 seconds
 
     // Helper functions - moved to the top before they are used in hooks
 
@@ -177,35 +185,49 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         if (Array.isArray(initialActions)) {
             console.log("Setting all actions:", initialActions.length);
             setAllActions(initialActions);
+            // Update last refresh time when initialActions change
+            setLastUpdateTime(new Date());
         } else {
             console.warn("Actions prop is not an array:", initialActions);
             setAllActions([]);
         }
     }, [initialActions]);
 
-    // Fetch global actions on component mount if not provided
+    // Set up polling for automatic refresh
     useEffect(() => {
-        const loadActions = async () => {
-            try {
-                console.log("Fetching initial global actions...");
-                setIsLoading(true);
-                const result = await dispatch(fetchGlobalActions({})).unwrap();
-                console.log("Initial global actions fetched:", result);
-
-                if (result && result.actions && Array.isArray(result.actions)) {
-                    setAllActions(result.actions);
-                }
-            } catch (error) {
-                console.error("Error fetching initial global actions:", error);
-            } finally {
-                setIsLoading(false);
+        const startPolling = () => {
+            // Clear any existing interval first
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
             }
+
+            // Set new polling interval
+            pollingIntervalRef.current = setInterval(async () => {
+                try {
+                    console.log("Auto-refreshing global actions...");
+                    const result = await dispatch(fetchGlobalActions({})).unwrap();
+                    console.log("Auto-refresh completed:", result);
+
+                    if (result && result.actions && Array.isArray(result.actions)) {
+                        setAllActions(result.actions);
+                        setLastUpdateTime(new Date());
+                    }
+                } catch (error) {
+                    console.error("Error during auto-refresh:", error);
+                }
+            }, POLLING_INTERVAL);
         };
 
-        if (!initialActions || initialActions.length === 0) {
-            loadActions();
-        }
-    }, [dispatch, initialActions]);
+        // Start polling
+        startPolling();
+
+        // Clean up on component unmount
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+            }
+        };
+    }, [dispatch]);
 
     // Handle filter input changes - real-time filtering
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -319,8 +341,50 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         setCurrentPage(Math.max(1, Math.min(pageNumber, totalPages)));
     };
 
-    const handleUpdateStatus = (actionId: string, status: string) => {
-        dispatch(updateGlobalActionStatus({ actionId, status }));
+    // Handle update status with parent refresh
+    const handleUpdateStatus = (actionId: string, status: string, isProjectAction: boolean) => {
+        const typedStatus = status as 'pending' | 'in_progress' | 'completed' | 'cancelled';
+        if (isProjectAction) {
+            dispatch(updateActionStatus({ actionId, status: typedStatus }))
+                .then(() => {
+                    // Update the local state immediately
+                    const newActions = [...allActions];
+                    const index = newActions.findIndex(a => a._id === actionId);
+                    if (index !== -1) {
+                        newActions[index] = { ...newActions[index], status: typedStatus };
+                        setAllActions(newActions);
+                    }
+                    // Update last refresh time
+                    setLastUpdateTime(new Date());
+                    // Refresh all actions to ensure we have fresh data
+                    dispatch(fetchGlobalActions({}));
+
+                    // Notify parent component to refresh
+                    if (onRefresh) {
+                        onRefresh();
+                    }
+                });
+        } else {
+            dispatch(updateGlobalActionStatus({ actionId, status: typedStatus }))
+                .then(() => {
+                    // Update the local state immediately
+                    const newActions = [...allActions];
+                    const index = newActions.findIndex(a => a._id === actionId);
+                    if (index !== -1) {
+                        newActions[index] = { ...newActions[index], status: typedStatus };
+                        setAllActions(newActions);
+                    }
+                    // Update last refresh time
+                    setLastUpdateTime(new Date());
+                    // Refresh all actions to ensure we have fresh data
+                    dispatch(fetchGlobalActions({}));
+
+                    // Notify parent component to refresh
+                    if (onRefresh) {
+                        onRefresh();
+                    }
+                });
+        }
     };
 
     const handleOpenUpdateModal = (action: any) => {
@@ -333,19 +397,37 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
             return date.toISOString().split('T')[0];
         };
 
-        // Initialize form data with action values
-        setUpdateFormData({
-            title: action.title || '',
-            content: action.content || '',
-            category: action.category || '',
-            projectId: action.projectId?._id || '',
-            projectCategory: action.projectCategory || '',
-            responsibleForRealization: action.responsibleForRealization?._id || '',
-            responsibleForFollowUp: action.responsibleForFollowUp?._id || '',
-            startDate: formatDateForInput(action.startDate),
-            endDate: formatDateForInput(action.endDate),
-            status: action.status || 'pending'
-        });
+        // For project-specific actions, handle different field structure
+        if (action.source === 'Project') {
+            setUpdateFormData({
+                title: action.title || '',
+                content: action.content || '',
+                category: action.category || '',
+                projectId: action.projectId || '',
+                projectCategory: '',
+                // For project actions, responsible is in a different field
+                responsibleForRealization: action.responsible?._id || '',
+                // For project actions, manager is always responsibleForFollowUp
+                responsibleForFollowUp: action.manager?._id || '',
+                startDate: formatDateForInput(action.startDate),
+                endDate: formatDateForInput(action.endDate),
+                status: action.status || 'pending'
+            });
+        } else {
+            // Standard global action
+            setUpdateFormData({
+                title: action.title || '',
+                content: action.content || '',
+                category: action.category || '',
+                projectId: action.projectId?._id || '',
+                projectCategory: action.projectCategory || '',
+                responsibleForRealization: action.responsibleForRealization?._id || '',
+                responsibleForFollowUp: action.responsibleForFollowUp?._id || '',
+                startDate: formatDateForInput(action.startDate),
+                endDate: formatDateForInput(action.endDate),
+                status: action.status || 'pending'
+            });
+        }
 
         setIsUpdateModalOpen(true);
     };
@@ -359,7 +441,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         if (!updateFormData.content) missingFields.push('contenu');
         if (!updateFormData.category) missingFields.push('catégorie');
         if (!updateFormData.responsibleForRealization) missingFields.push('responsable de réalisation');
-        if (!updateFormData.responsibleForFollowUp) missingFields.push('responsable de suivi');
         if (!updateFormData.startDate) missingFields.push('date de début');
         if (!updateFormData.endDate) missingFields.push('date de fin');
         if (!updateFormData.status) missingFields.push('statut');
@@ -369,36 +450,215 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
             return;
         }
 
-        const actionData = {
-            title: updateFormData.title,
-            content: updateFormData.content,
-            category: updateFormData.category,
-            responsibleForRealization: updateFormData.responsibleForRealization,
-            responsibleForFollowUp: updateFormData.responsibleForFollowUp,
-            startDate: new Date(updateFormData.startDate).toISOString(),
-            endDate: new Date(updateFormData.endDate).toISOString(),
-            status: updateFormData.status
-        };
+        // Track if responsible persons changed for notification
+        const originalRealizationId = selectedActionForUpdate.responsibleForRealization?._id || '';
+        const originalFollowUpId = selectedActionForUpdate.responsibleForFollowUp?._id || '';
+        const newRealizationId = updateFormData.responsibleForRealization;
+        const newFollowUpId = updateFormData.responsibleForFollowUp;
 
-        // Add projectId only if it exists
-        if (updateFormData.projectId) {
-            Object.assign(actionData, {
-                projectId: updateFormData.projectId,
-                projectCategory: updateFormData.projectCategory
+        // Check if assignment changed
+        const responsibleChanged = originalRealizationId !== newRealizationId || originalFollowUpId !== newFollowUpId;
+
+        const isProjectAction = selectedActionForUpdate.source === 'Project';
+
+        if (isProjectAction) {
+            // For project action, we need to use a different structure and endpoint
+            const actionData = {
+                title: updateFormData.title,
+                content: updateFormData.content,
+                category: updateFormData.category,
+                // For project actions, responsible is the field name
+                responsible: updateFormData.responsibleForRealization,
+                startDate: new Date(updateFormData.startDate).toISOString(),
+                endDate: new Date(updateFormData.endDate).toISOString(),
+                status: updateFormData.status,
+                // Keep the existing source and projectId
+                source: selectedActionForUpdate.source || 'Project',
+                projectId: selectedActionForUpdate.projectId,
+                // Add flag for notification
+                sendNotification: responsibleChanged
+            };
+
+            console.log('Sending project action update with data:', actionData);
+            console.log('Action ID:', selectedActionForUpdate._id);
+
+            // Close the modal first for better UX
+            setIsUpdateModalOpen(false);
+
+            // Use the correct URL format with the base URL from axios instance
+            axios.put(`/actions/${selectedActionForUpdate._id}`, actionData)
+                .then(response => {
+                    console.log('Project action updated:', response.data);
+
+                    // Update the local state immediately with the updated action
+                    const updatedAction = response.data.data;
+                    const newActions = [...allActions];
+                    const index = newActions.findIndex(a => a._id === updatedAction._id);
+                    if (index !== -1) {
+                        newActions[index] = updatedAction;
+                        setAllActions(newActions);
+                    }
+
+                    // Then fetch all actions to ensure we have fresh data
+                    dispatch(fetchGlobalActions({}));
+
+                    // Update last refresh time
+                    setLastUpdateTime(new Date());
+
+                    // Notify parent component to refresh
+                    if (onRefresh) {
+                        onRefresh();
+                    }
+
+                    // Show notification feedback if responsible changed
+                    if (responsibleChanged) {
+                        alert('Action mise à jour et notification envoyée au(x) nouveau(x) responsable(s)');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating project action:', error);
+                    console.error('Error details:', error.response?.data || error.message);
+                    alert('Erreur lors de la mise à jour de l\'action: ' + (error.response?.data?.message || error.message));
+                });
+        } else {
+            // Standard global action
+            const actionData = {
+                title: updateFormData.title,
+                content: updateFormData.content,
+                category: updateFormData.category,
+                responsibleForRealization: updateFormData.responsibleForRealization,
+                responsibleForFollowUp: updateFormData.responsibleForFollowUp,
+                startDate: new Date(updateFormData.startDate).toISOString(),
+                endDate: new Date(updateFormData.endDate).toISOString(),
+                status: updateFormData.status,
+                // Add flag for notification
+                sendNotification: responsibleChanged
+            };
+
+            // Add projectId only if it exists
+            if (updateFormData.projectId) {
+                Object.assign(actionData, {
+                    projectId: updateFormData.projectId,
+                    projectCategory: updateFormData.projectCategory
+                });
+            }
+
+            // Close the modal first for better UX
+            setIsUpdateModalOpen(false);
+
+            // Dispatch the update action
+            dispatch(updateGlobalAction({
+                actionId: selectedActionForUpdate._id,
+                actionData
+            })).then((response: any) => {
+                if (response.payload && response.payload.data) {
+                    // Update the local state immediately with the updated action
+                    const updatedAction = response.payload.data;
+                    const newActions = [...allActions];
+                    const index = newActions.findIndex(a => a._id === updatedAction._id);
+                    if (index !== -1) {
+                        newActions[index] = updatedAction;
+                        setAllActions(newActions);
+                    }
+                }
+
+                // Then fetch all actions to ensure we have fresh data
+                dispatch(fetchGlobalActions({}));
+
+                // Update last refresh time
+                setLastUpdateTime(new Date());
+
+                // Notify parent component to refresh
+                if (onRefresh) {
+                    onRefresh();
+                }
+
+                // Show notification feedback if responsible changed
+                if (responsibleChanged) {
+                    alert('Action mise à jour et notification envoyée au(x) nouveau(x) responsable(s)');
+                }
+            }).catch((error: any) => {
+                console.error('Error updating global action:', error);
             });
         }
 
-        dispatch(updateGlobalAction({
-            actionId: selectedActionForUpdate._id,
-            actionData
-        }));
-
-        setIsUpdateModalOpen(false);
+        // The setIsUpdateModalOpen(false) is now called earlier for better UX
     };
 
-    const handleDeleteAction = (actionId: string) => {
+    // Force refresh function
+    const handleForceRefresh = useCallback(async () => {
+        try {
+            setIsLoading(true);
+
+            // Add visual feedback for the user
+            const loadingMessage = 'Actualisation des données en cours...';
+            console.log(loadingMessage);
+
+            const result = await dispatch(fetchGlobalActions({})).unwrap();
+
+            if (result && result.actions && Array.isArray(result.actions)) {
+                setAllActions(result.actions);
+                setLastUpdateTime(new Date());
+                console.log('Données actualisées avec succès:', result.actions.length, 'actions');
+            }
+
+            // Also call the parent refresh if available
+            if (onRefresh) {
+                onRefresh();
+            }
+
+            // Add a small delay before clearing the loading state to ensure the user sees the loading indicator
+            setTimeout(() => {
+                setIsLoading(false);
+            }, 500);
+        } catch (error) {
+            console.error("Error during manual refresh:", error);
+            setIsLoading(false);
+            // Provide feedback to the user about the error
+            alert('Erreur lors de l\'actualisation des données. Veuillez réessayer.');
+        }
+    }, [dispatch, onRefresh]);
+
+    const handleDeleteAction = (actionId: string, isProjectAction: boolean) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cette action ?')) {
-            dispatch(deleteGlobalAction(actionId));
+            if (isProjectAction) {
+                // Delete project-specific action
+                axios.delete(`/actions/${actionId}`)
+                    .then(response => {
+                        console.log('Project action deleted:', response.data);
+                        // Refresh the actions list
+                        dispatch(fetchGlobalActions({})).then(() => {
+                            // Remove the deleted action from local state immediately for better UX
+                            setAllActions(prev => prev.filter(a => a._id !== actionId));
+                            // Update last refresh time
+                            setLastUpdateTime(new Date());
+
+                            // Notify parent component to refresh
+                            if (onRefresh) {
+                                onRefresh();
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error deleting project action:', error);
+                        alert('Erreur lors de la suppression de l\'action: ' + (error.response?.data?.message || error.message));
+                    });
+            } else {
+                // Delete global action
+                dispatch(deleteGlobalAction(actionId)).then(() => {
+                    // Remove the deleted action from local state immediately for better UX
+                    setAllActions(prev => prev.filter(a => a._id !== actionId));
+                    // Update last refresh time
+                    setLastUpdateTime(new Date());
+                    // Refresh the actions list to ensure we have fresh data
+                    dispatch(fetchGlobalActions({}));
+
+                    // Notify parent component to refresh
+                    if (onRefresh) {
+                        onRefresh();
+                    }
+                });
+            }
         }
     };
 
@@ -409,6 +669,25 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         <div className="overflow-hidden">
             {/* Filter Form */}
             <div className="mb-6 bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-medium">Filtres</h3>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={handleForceRefresh}
+                            className="inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                            disabled={isLoading}
+                        >
+                            <svg className="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Actualiser
+                        </button>
+                        <span className="text-xs text-gray-500">
+                            Dernière mise à jour: {format(lastUpdateTime, 'HH:mm:ss', { locale: fr })}
+                        </span>
+                    </div>
+                </div>
+
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
@@ -646,7 +925,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                                 {(action.status === 'pending' || action.status === 'in_progress') && (
                                                     <>
                                                         <button
-                                                            onClick={() => handleUpdateStatus(action._id, action.status === 'pending' ? 'in_progress' : 'completed')}
+                                                            onClick={() => handleUpdateStatus(action._id, action.status === 'pending' ? 'in_progress' : 'completed', action.source === 'Project')}
                                                             className="p-1 hover:bg-green-50 rounded-full transition-colors text-green-600"
                                                             title={action.status === 'pending' ? 'Démarrer' : 'Terminer'}
                                                         >
@@ -664,7 +943,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                                             <Edit className="size-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteAction(action._id)}
+                                                            onClick={() => handleDeleteAction(action._id, action.source === 'Project')}
                                                             className="p-1 hover:bg-red-50 rounded-full transition-colors text-red-600"
                                                             title="Supprimer"
                                                         >

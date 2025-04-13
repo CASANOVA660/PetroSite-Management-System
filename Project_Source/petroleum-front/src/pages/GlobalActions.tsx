@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { fetchGlobalActions, createGlobalAction } from '../store/slices/globalActionSlice';
@@ -46,6 +46,15 @@ type CombinedAction = (GlobalAction | Action) & {
     project?: { _id: string; name: string };
 };
 
+// Define the interface for GlobalActionsTable props
+interface GlobalActionsTableImplProps {
+    actions: any[];
+    projects: any[];
+    users?: any[];
+    onViewAction: (action: any) => void;
+    onRefresh?: () => Promise<void> | void;
+}
+
 const GlobalActions: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const [view, setView] = useState<'table' | 'timeline' | 'gantt'>('table');
@@ -56,6 +65,8 @@ const GlobalActions: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedAction, setSelectedAction] = useState<GlobalAction | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
     const { actions: projectActions } = useSelector((state: RootState) => state.actions);
     const { actions: globalActions, loading, error } = useSelector((state: RootState) => state.globalActions);
     const { projects } = useSelector((state: RootState) => state.projects);
@@ -78,12 +89,37 @@ const GlobalActions: React.FC = () => {
         endDate: ''
     });
 
+    // Refresh function to be passed to the table component
+    const refreshAllActions = useCallback(async () => {
+        try {
+            setIsRefreshing(true);
+            console.log('Refreshing all actions from parent component...');
+
+            // Fetch both global and project actions
+            await Promise.all([
+                dispatch(fetchGlobalActions({})),
+                dispatch(fetchAllActions())
+            ]);
+
+            setLastRefreshTime(new Date());
+
+            // Add a small delay before clearing the loading state
+            setTimeout(() => {
+                setIsRefreshing(false);
+            }, 500);
+
+            console.log('All actions refreshed successfully');
+        } catch (error) {
+            console.error('Error refreshing actions:', error);
+            setIsRefreshing(false);
+        }
+    }, [dispatch]);
+
     // Fetch both global and project actions when component mounts
     useEffect(() => {
         console.log('Fetching all actions...');
-        dispatch(fetchGlobalActions({}));
-        dispatch(fetchAllActions());
-    }, [dispatch]);
+        refreshAllActions();
+    }, [refreshAllActions]);
 
     useEffect(() => {
         console.log('Current global actions:', globalActions);
@@ -140,6 +176,7 @@ const GlobalActions: React.FC = () => {
         debouncedSearch(value);
     };
 
+    // Handle create action with refresh
     const handleCreateAction = () => {
         // Log all form data for debugging
         console.log('All form data:', formData);
@@ -191,7 +228,15 @@ const GlobalActions: React.FC = () => {
         console.log('Form data before submission:', formData);
         console.log('Formatted data for submission:', formattedData);
 
-        dispatch(createGlobalAction(formattedData));
+        dispatch(createGlobalAction(formattedData))
+            .then(() => {
+                // Refresh the actions list after creating a new action
+                refreshAllActions();
+            })
+            .catch(error => {
+                console.error('Error creating global action:', error);
+            });
+
         setIsCreateModalOpen(false);
         setFormData({
             title: '',
@@ -264,13 +309,28 @@ const GlobalActions: React.FC = () => {
             <div className="container mx-auto px-4 py-8">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">Actions Globales</h1>
-                    <Button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90"
-                    >
-                        <PlusIcon size={16} />
-                        Créer une action
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={refreshAllActions}
+                            disabled={isRefreshing}
+                            variant="outline"
+                            className="flex items-center gap-2"
+                        >
+                            {isRefreshing ? (
+                                <span className="animate-spin">⟳</span>
+                            ) : (
+                                <span>⟳</span>
+                            )}
+                            Actualiser
+                        </Button>
+                        <Button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90"
+                        >
+                            <PlusIcon size={16} />
+                            Créer une action
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Metrics Section */}
@@ -367,6 +427,7 @@ const GlobalActions: React.FC = () => {
                                 projects={projects}
                                 users={users}
                                 onViewAction={handleViewAction}
+                                onRefresh={refreshAllActions}
                             />
                         ) : view === 'gantt' ? (
                             <div className="px-2 pb-4 overflow-hidden">

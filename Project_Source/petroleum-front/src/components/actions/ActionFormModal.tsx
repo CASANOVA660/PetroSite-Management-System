@@ -21,13 +21,13 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
     const dispatch = useDispatch<AppDispatch>();
     const { user } = useSelector((state: RootState) => state.auth);
 
-    // Find project name for source
-    const projectName = projects.find(p => p._id === projectId)?.name || 'Project';
+    // Find project name for display only
+    const projectName = projects.find(p => p._id === projectId)?.name || '';
 
     const [formData, setFormData] = useState<CreateActionPayload>({
         title: '',
         content: '',
-        source: isGlobal ? '' : projectName,
+        source: isGlobal ? '' : 'Project', // Always use 'Project' string for project-specific actions
         responsible: '',
         manager: user?._id || '',
         startDate: format(new Date(), 'yyyy-MM-dd'),
@@ -41,15 +41,17 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
         if (!isGlobal) {
             setFormData(prev => ({
                 ...prev,
-                source: projectName,
+                source: 'Project', // Always use 'Project' string
                 category: categories[0]
             }));
         }
-    }, [projectId, projectName, categories, isGlobal]);
+    }, [projectId, categories, isGlobal]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Log form data before submission for debugging
+            console.log('Submitting form data:', formData);
             await onSubmit(formData);
             onClose();
         } catch (error) {
@@ -176,6 +178,16 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                             />
                         </div>
                     </>
+                )}
+
+                {!isGlobal && (
+                    <div className="bg-gray-50 p-3 rounded">
+                        <p className="text-sm text-gray-600">
+                            <strong>Projet:</strong> {projectName}<br />
+                            <strong>Catégorie:</strong> {formData.category}<br />
+                            <strong>Source:</strong> {formData.source}
+                        </p>
+                    </div>
                 )}
 
                 <div className="flex justify-end gap-4 mt-6">

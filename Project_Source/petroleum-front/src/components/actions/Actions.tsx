@@ -49,7 +49,7 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
             const actionWithUser = {
                 title: actionData.title,
                 content: actionData.content,
-                source: actionData.source || 'Project',
+                source: 'Project',
                 startDate: actionData.startDate,
                 endDate: actionData.endDate,
                 projectId,
@@ -59,6 +59,9 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 status: 'pending'
             };
 
+            // Debug logs
+            console.log('Sending action data:', actionWithUser);
+
             // Validate required fields
             if (!actionWithUser.title || !actionWithUser.content || !actionWithUser.responsible ||
                 !actionWithUser.startDate || !actionWithUser.endDate || !actionWithUser.category ||
@@ -66,9 +69,8 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 throw new Error('Tous les champs requis doivent être remplis');
             }
 
-            console.log('Sending action data:', actionWithUser); // Debug log
             const result = await dispatch(createAction(actionWithUser)).unwrap();
-            console.log('Action created:', result); // Debug log
+            console.log('Action created:', result);
             toast.success('Action créée avec succès');
             setIsFormModalOpen(false);
         } catch (error: any) {

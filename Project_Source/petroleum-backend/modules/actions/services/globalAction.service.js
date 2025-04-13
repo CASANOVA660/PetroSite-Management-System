@@ -247,13 +247,13 @@ class GlobalActionService {
         await Promise.all([
             createNotification({
                 type: 'ACTION_STATUS_CHANGED',
-                message: `Le statut de l'action "${action.title}" a été mis à jour: ${status}`,
+                message: `l'action "${action.title}" a été mis à jour`,
                 userId: action.responsibleForRealization._id,
                 isRead: false
             }),
             createNotification({
                 type: 'ACTION_STATUS_CHANGED',
-                message: `Le statut de l'action "${action.title}" a été mis à jour: ${status}`,
+                message: `l'action "${action.title}" a été mis à jour`,
                 userId: action.responsibleForFollowUp._id,
                 isRead: false
             })
@@ -294,6 +294,7 @@ class GlobalActionService {
         const realPersonChanged = existingAction.responsibleForRealization._id.toString() !== actionData.responsibleForRealization;
         const followUpPersonChanged = existingAction.responsibleForFollowUp._id.toString() !== actionData.responsibleForFollowUp;
         const statusChanged = existingAction.status !== actionData.status;
+        const contentChanged = existingAction.content !== actionData.content;
 
         // Update the action
         const updatedAction = await GlobalAction.findByIdAndUpdate(
@@ -322,6 +323,24 @@ class GlobalActionService {
                 createNotification({
                     type: 'ACTION_ASSIGNED_FOLLOWUP',
                     message: `L'action "${updatedAction.title}" vous a été assignée pour suivi`,
+                    userId: updatedAction.responsibleForFollowUp._id,
+                    isRead: false
+                })
+            );
+        }
+
+        // Notify about content change
+        if (contentChanged) {
+            notifications.push(
+                createNotification({
+                    type: 'ACTION_CONTENT_CHANGED',
+                    message: `Le contenu de l'action "${updatedAction.title}" a été modifié`,
+                    userId: updatedAction.responsibleForRealization._id,
+                    isRead: false
+                }),
+                createNotification({
+                    type: 'ACTION_CONTENT_CHANGED',
+                    message: `Le contenu de l'action "${updatedAction.title}" a été modifié`,
                     userId: updatedAction.responsibleForFollowUp._id,
                     isRead: false
                 })

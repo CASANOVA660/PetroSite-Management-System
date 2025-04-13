@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { RootState } from '../../store';
 
 interface Project {
     _id: string;
@@ -73,10 +74,13 @@ export const fetchProjects = createAsyncThunk(
         try {
             const response = await api.get('/projects');
             console.log('Projects API Response:', response.data);
-            // Check if the response has a data property
-            if (response.data && response.data.data) {
+
+            // Handle the standardized response format
+            if (response.data?.success && response.data?.data) {
+                // New format with success and data
                 return response.data.data;
             } else if (Array.isArray(response.data)) {
+                // Old format, direct array response
                 return response.data;
             } else {
                 console.error('Unexpected API response structure:', response.data);
@@ -97,21 +101,25 @@ export const fetchProjectById = createAsyncThunk(
             const response = await api.get(`/projects/${id}`);
             console.log('Project API Response:', response.data);
 
-            // Handle different response structures
-            const projectData = response.data?.data || response.data;
+            // Handle the standardized response format
+            if (response.data?.success && response.data?.data) {
+                // New format with success and data
+                const projectData = response.data.data;
 
-            if (!projectData) {
+                // Validate project data
+                if (!projectData._id || !projectData.projectNumber) {
+                    console.error('Project missing required fields:', projectData);
+                    return rejectWithValue('Données du projet incomplètes');
+                }
+
+                return projectData;
+            } else if (response.data && response.data._id) {
+                // Old format, direct project response
+                return response.data;
+            } else {
                 console.error('No project data in response:', response.data);
                 return rejectWithValue('Projet non trouvé');
             }
-
-            // Ensure required fields are present
-            if (!projectData._id || !projectData.projectNumber) {
-                console.error('Project missing required fields:', projectData);
-                return rejectWithValue('Données du projet incomplètes');
-            }
-
-            return projectData;
         } catch (error: any) {
             console.error('Error fetching project:', error);
             if (error.response?.status === 404) {
@@ -124,28 +132,50 @@ export const fetchProjectById = createAsyncThunk(
 
 export const createProject = createAsyncThunk(
     'projects/createProject',
-    async (projectData: CreateProjectData, { rejectWithValue }) => {
+    async (projectData: CreateProjectData, { rejectWithValue, getState }) => {
         try {
+            // Get the current user from the auth state
+            const state = getState() as RootState;
+            const currentUser = state.auth.user;
+
+            if (!currentUser || !currentUser._id) {
+                console.error('No authenticated user found');
+                return rejectWithValue('Vous devez être connecté pour créer un projet');
+            }
+
+            // Include createdBy field in the project data
+            const projectWithUser = {
+                ...projectData,
+                createdBy: currentUser._id
+            };
+
             // Log the request data
-            console.log('Creating project with data:', projectData);
+            console.log('Creating project with data:', projectWithUser);
+            console.log('Current user:', currentUser);
             console.log('Token:', localStorage.getItem('token'));
 
-            const response = await api.post('/projects', projectData);
+            const response = await api.post('/projects', projectWithUser);
             console.log('Create project response:', response.data);
 
-            if (!response.data || !response.data.data) {
+            // Handle the standardized response format
+            if (response.data?.success && response.data?.data) {
+                // New format with success and data
+                const projectData = response.data.data;
+
+                // Validate the project data
+                if (!projectData._id || !projectData.projectNumber) {
+                    console.error('Project missing required fields:', projectData);
+                    return rejectWithValue('Données du projet incomplètes');
+                }
+
+                return projectData;
+            } else if (response.data && response.data._id) {
+                // Fallback for direct project data
+                return response.data;
+            } else {
                 console.error('Invalid project creation response:', response.data);
                 return rejectWithValue('Erreur lors de la création du projet');
             }
-
-            // Ensure the project has all required fields
-            const project = response.data.data;
-            if (!project._id || !project.projectNumber || !project.creationDate) {
-                console.error('Project missing required fields:', project);
-                return rejectWithValue('Données du projet incomplètes');
-            }
-
-            return project;
         } catch (error: any) {
             console.error('Project creation error:', error.response?.data || error.message);
             return rejectWithValue(error.response?.data?.message || 'Failed to create project');
@@ -158,7 +188,16 @@ export const updateProject = createAsyncThunk(
     async ({ id, data }: { id: string; data: CreateProjectData }, { rejectWithValue }) => {
         try {
             const response = await api.put(`/projects/${id}`, data);
-            return response.data.data;
+
+            // Handle the standardized response format
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            } else if (response.data && response.data._id) {
+                // Fallback for direct project data
+                return response.data;
+            } else {
+                return rejectWithValue('Invalid response format');
+            }
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Failed to update project');
         }

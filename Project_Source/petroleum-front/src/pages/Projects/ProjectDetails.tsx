@@ -15,6 +15,7 @@ import DossierRH from '../../components/documents/DossierRH';
 import DossierHSE from '../../components/documents/DossierHSE';
 import Actions from '../../components/actions/Actions';
 import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
+import { clearProjectActions } from '../../store/slices/actionSlice';
 
 
 interface SectionProps {
@@ -60,6 +61,8 @@ const ProjectDetails: React.FC = () => {
 
     useEffect(() => {
         if (id) {
+            dispatch(clearProjectActions(id));
+
             dispatch(fetchProjectById(id))
                 .unwrap()
                 .catch((err) => {
@@ -68,6 +71,10 @@ const ProjectDetails: React.FC = () => {
                 });
             dispatch(fetchUsers());
         }
+
+        return () => {
+            dispatch(clearProjectActions(null));
+        };
     }, [dispatch, id]);
 
     if (loading) {

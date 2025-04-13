@@ -145,6 +145,159 @@ class ActionController {
         }
     }
 
+    async updateAction(req, res) {
+        console.log('ActionController - updateAction called with body:', req.body);
+        console.log('ActionController - updateAction params:', req.params);
+
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            console.log('ActionController - Validation errors:', errors.array());
+            return res.status(400).json({
+                success: false,
+                errors: errors.array().map(err => ({
+                    field: err.param,
+                    message: err.msg
+                }))
+            });
+        }
+
+        try {
+            const { actionId } = req.params;
+            const actionData = req.body;
+
+            // Find the existing action first
+            const existingAction = await Action.findById(actionId)
+                .populate('responsible', 'nom prenom')
+                .populate('manager', 'nom prenom');
+
+            if (!existingAction) {
+                console.error(`ActionController - Action with ID ${actionId} not found`);
+                return res.status(404).json({
+                    success: false,
+                    message: 'Action not found'
+                });
+            }
+
+            console.log('ActionController - Found existing action:', existingAction);
+
+            // Check if responsible has changed
+            const responsibleChanged = existingAction.responsible._id.toString() !== actionData.responsible;
+            const statusChanged = existingAction.status !== actionData.status;
+            const contentChanged = existingAction.content !== actionData.content;
+
+            console.log('ActionController - Field changes detected:', {
+                responsibleChanged,
+                statusChanged,
+                contentChanged
+            });
+
+            // Update action
+            console.log(`ActionController - Calling actionService.updateAction for ID ${actionId} with data:`, actionData);
+            const action = await actionService.updateAction(actionId, actionData);
+            console.log('ActionController - Action updated successfully:', action);
+
+            // Always get the updated action with populated fields for notifications
+            const updatedAction = await Action.findById(actionId)
+                .populate('responsible', 'nom prenom')
+                .populate('manager', 'nom prenom');
+
+            console.log('ActionController - Populated updated action for notifications:', updatedAction);
+
+            if (responsibleChanged) {
+                // Notification is always sent to the new responsible
+                try {
+                    await createNotification({
+                        type: 'ACTION_ASSIGNED',
+                        message: `L'action "${updatedAction.title}" vous a été assignée`,
+                        userId: updatedAction.responsible._id,
+                        isRead: false
+                    });
+                    console.log('ActionController - Responsible notification sent to:', updatedAction.responsible._id);
+
+                    // Send a real-time notification via socket if available
+                    if (global.io && updatedAction.responsible) {
+                        global.io.to(String(updatedAction.responsible._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_ASSIGNED',
+                                message: `L'action "${updatedAction.title}" vous a été assignée`,
+                                userId: updatedAction.responsible._id
+                            }
+                        });
+                        console.log('ActionController - Socket notification sent to responsible');
+                    }
+                } catch (notifError) {
+                    console.error('Error sending notification to responsible:', notifError);
+                }
+            }
+
+            if (statusChanged) {
+                try {
+                    await createNotification({
+                        type: 'ACTION_STATUS_CHANGED',
+                        message: `Le statut de l'action "${updatedAction.title}" a été mis à jour: ${updatedAction.status}`,
+                        userId: updatedAction.responsible._id,
+                        isRead: false
+                    });
+                    console.log('ActionController - Status change notification sent to:', updatedAction.responsible._id);
+
+                    // Send a real-time notification via socket if available
+                    if (global.io && updatedAction.responsible) {
+                        global.io.to(String(updatedAction.responsible._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_STATUS_CHANGED',
+                                message: `Le statut de l'action "${updatedAction.title}" a été mis à jour: ${updatedAction.status}`,
+                                userId: updatedAction.responsible._id
+                            }
+                        });
+                        console.log('ActionController - Socket notification sent for status change');
+                    }
+                } catch (notifError) {
+                    console.error('Error sending status change notification:', notifError);
+                }
+            }
+
+            if (contentChanged) {
+                try {
+                    await createNotification({
+                        type: 'ACTION_CONTENT_CHANGED',
+                        message: `Le contenu de l'action "${updatedAction.title}" a été modifié`,
+                        userId: updatedAction.responsible._id,
+                        isRead: false
+                    });
+                    console.log('ActionController - Content change notification sent to:', updatedAction.responsible._id);
+
+                    // Send a real-time notification via socket if available
+                    if (global.io && updatedAction.responsible) {
+                        global.io.to(String(updatedAction.responsible._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_CONTENT_CHANGED',
+                                message: `Le contenu de l'action "${updatedAction.title}" a été modifié`,
+                                userId: updatedAction.responsible._id
+                            }
+                        });
+                        console.log('ActionController - Socket notification sent for content change');
+                    }
+                } catch (notifError) {
+                    console.error('Error sending content change notification:', notifError);
+                }
+            }
+
+            res.json({
+                success: true,
+                data: action
+            });
+        } catch (error) {
+            console.error('Error updating action:', error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Erreur lors de la mise à jour de l\'action'
+            });
+        }
+    }
+
     async deleteAction(req, res) {
         try {
             const { actionId } = req.params;

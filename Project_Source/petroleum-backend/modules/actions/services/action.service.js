@@ -88,6 +88,70 @@ class ActionService {
         return action;
     }
 
+    async updateAction(actionId, actionData) {
+        console.log('ActionService - updateAction called with:', { actionId, actionData });
+
+        const action = await Action.findById(actionId);
+
+        if (!action) {
+            console.error('ActionService - Action not found with ID:', actionId);
+            throw new Error('Action not found');
+        }
+
+        console.log('ActionService - Found original action:', action);
+
+        // Ensure we maintain the original source if not provided
+        if (!actionData.source) {
+            actionData.source = action.source;
+        }
+
+        // Ensure we keep the manager field from the original action
+        if (!actionData.manager) {
+            actionData.manager = action.manager;
+        }
+
+        console.log('ActionService - Updating action with data:', actionData);
+
+        // Specifically log the responsible field to help debug notifications
+        console.log('ActionService - Original responsible:', action.responsible);
+        console.log('ActionService - New responsible:', actionData.responsible);
+
+        try {
+            // Update the action with new data
+            const updatedAction = await Action.findByIdAndUpdate(
+                actionId,
+                actionData,
+                { new: true, runValidators: true }
+            ).populate('responsible', 'nom prenom')
+                .populate('manager', 'nom prenom');
+
+            console.log('ActionService - Updated action result:', updatedAction);
+
+            // Update associated task
+            const task = await Task.findOne({ actionId: action._id });
+            if (task) {
+                console.log('ActionService - Found associated task:', task);
+
+                // Update task with the new information
+                const updatedTask = await Task.findByIdAndUpdate(task._id, {
+                    title: actionData.title || task.title,
+                    description: actionData.content || task.description,
+                    assignee: actionData.responsible || task.assignee,
+                    startDate: actionData.startDate || task.startDate,
+                    endDate: actionData.endDate || task.endDate,
+                    status: actionData.status === 'completed' ? 'completed' : task.status
+                }, { new: true });
+
+                console.log('ActionService - Updated associated task:', updatedTask);
+            }
+
+            return updatedAction;
+        } catch (error) {
+            console.error('ActionService - Error updating action:', error);
+            throw error;
+        }
+    }
+
     async deleteAction(actionId) {
         const action = await Action.findById(actionId)
             .populate('responsible', 'nom prenom')

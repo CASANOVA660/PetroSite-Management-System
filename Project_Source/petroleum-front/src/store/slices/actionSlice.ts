@@ -28,6 +28,7 @@ interface ActionState {
     actions: Action[];
     loading: boolean;
     error: string | null;
+    currentProjectId: string | null;
 }
 
 export interface CreateActionPayload {
@@ -45,7 +46,8 @@ export interface CreateActionPayload {
 const initialState: ActionState = {
     actions: [],
     loading: false,
-    error: null
+    error: null,
+    currentProjectId: null
 };
 
 export const fetchAllActions = createAsyncThunk(
@@ -60,7 +62,10 @@ export const fetchProjectActions = createAsyncThunk(
     'actions/fetchProjectActions',
     async (projectId: string) => {
         const response = await axios.get(`/actions/project/${projectId}`);
-        return response.data.data;
+        return {
+            projectId,
+            actions: response.data.data
+        };
     }
 );
 
@@ -68,7 +73,11 @@ export const fetchCategoryActions = createAsyncThunk(
     'actions/fetchCategoryActions',
     async ({ projectId, category }: { projectId: string; category: string }) => {
         const response = await axios.get(`/actions/project/${projectId}/category/${category}`);
-        return response.data.data;
+        return {
+            projectId,
+            category,
+            actions: response.data.data
+        };
     }
 );
 
@@ -112,6 +121,12 @@ const actionSlice = createSlice({
         removeAction: (state, action) => {
             state.actions = state.actions.filter(a => a._id !== action.payload);
         },
+        clearProjectActions: (state, action) => {
+            if (!action.payload || action.payload === state.currentProjectId) {
+                state.actions = [];
+                state.currentProjectId = action.payload || null;
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -136,7 +151,13 @@ const actionSlice = createSlice({
             })
             .addCase(fetchProjectActions.fulfilled, (state, action) => {
                 state.loading = false;
-                state.actions = action.payload;
+
+                if (state.currentProjectId !== action.payload.projectId) {
+                    state.actions = [];
+                    state.currentProjectId = action.payload.projectId;
+                }
+
+                state.actions = action.payload.actions;
                 state.error = null;
             })
             .addCase(fetchProjectActions.rejected, (state, action) => {
@@ -150,12 +171,17 @@ const actionSlice = createSlice({
             })
             .addCase(fetchCategoryActions.fulfilled, (state, action) => {
                 state.loading = false;
-                // Merge new actions with existing ones, avoiding duplicates
-                const newActions = action.payload;
-                const existingActions = state.actions.filter(
-                    (existing: Action) => !newActions.some((newAction: Action) => newAction._id === existing._id)
+
+                if (state.currentProjectId !== action.payload.projectId) {
+                    state.actions = [];
+                    state.currentProjectId = action.payload.projectId;
+                }
+
+                const otherCategoryActions = state.actions.filter(
+                    (existing: Action) => existing.category !== action.payload.category
                 );
-                state.actions = [...existingActions, ...newActions];
+
+                state.actions = [...otherCategoryActions, ...action.payload.actions];
                 state.error = null;
             })
             .addCase(fetchCategoryActions.rejected, (state, action) => {
@@ -208,5 +234,5 @@ const actionSlice = createSlice({
     }
 });
 
-export const { addAction, updateAction, removeAction } = actionSlice.actions;
+export const { addAction, updateAction, removeAction, clearProjectActions } = actionSlice.actions;
 export default actionSlice.reducer;
