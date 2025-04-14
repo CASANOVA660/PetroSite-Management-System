@@ -7,6 +7,7 @@ import documentReducer from './slices/documentSlice';
 import actionReducer from './slices/actionSlice';
 import taskReducer from './slices/taskSlice';
 import globalActionReducer from './slices/globalActionSlice';
+import equipmentReducer from './slices/equipmentSlice';
 
 export const store = configureStore({
     reducer: {
@@ -17,7 +18,8 @@ export const store = configureStore({
         documents: documentReducer,
         actions: actionReducer,
         tasks: taskReducer,
-        globalActions: globalActionReducer
+        globalActions: globalActionReducer,
+        equipment: equipmentReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

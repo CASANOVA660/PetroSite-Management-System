@@ -17,7 +17,8 @@ import {
   TableIcon,
   UserCircleIcon,
   GroupIcon,
-  FolderIcon
+  FolderIcon,
+  WarehouseIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { ClipboardIcon } from "@heroicons/react/24/outline";
@@ -235,11 +236,15 @@ const AppSidebar: React.FC = () => {
       name: "Mes Tâches",
       path: "/tasks"
     },
-
     {
       icon: <PageIcon />,
       name: "Documents",
       path: "/documents"
+    },
+    {
+      icon: <WarehouseIcon />,
+      name: "Magasin des équipments",
+      path: "/equipments"
     },
 
     // Add Global Actions for managers

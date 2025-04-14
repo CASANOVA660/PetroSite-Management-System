@@ -28,6 +28,10 @@ import ProjectDetails from './pages/Projects/ProjectDetails';
 import EditProject from './pages/Projects/EditProject';
 import Tasks from './pages/Tasks';
 import GlobalActions from './pages/GlobalActions';
+import EquipmentList from './pages/Equipment/EquipmentList';
+import EquipmentDetailView from './pages/Equipment/EquipmentDetailView';
+import EquipmentAdd from './pages/Equipment/EquipmentAdd';
+import EquipmentEdit from './pages/Equipment/EquipmentEdit';
 
 export default function App() {
   return (
@@ -86,6 +90,12 @@ export default function App() {
 
             {/* Global Actions */}
             <Route path="/global-actions" element={<GlobalActions />} />
+
+            {/* Equipment Management Routes */}
+            <Route path="/equipments" element={<EquipmentList />} />
+            <Route path="/equipments/:id" element={<EquipmentDetailView />} />
+            <Route path="/equipments/add" element={<EquipmentAdd />} />
+            <Route path="/equipments/:id/edit" element={<EquipmentEdit />} />
           </Route>
 
           {/* Redirect root to signin */}
