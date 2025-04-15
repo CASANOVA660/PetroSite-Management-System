@@ -53,6 +53,9 @@ import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
 import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
 import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
 import { ReactComponent as WarehouseIcon } from "./warehouse.svg?react";
+import { ReactComponent as LocationIcon } from "./location.svg?react";
+import { ReactComponent as FilterIcon } from "./filter.svg?react";
+import { ReactComponent as SearchIcon } from "./search.svg?react";
 
 export {
   ErrorHexaIcon,
@@ -110,4 +113,7 @@ export {
   ChevronUpIcon,
   ChatIcon,
   WarehouseIcon,
+  LocationIcon,
+  FilterIcon,
+  SearchIcon,
 };

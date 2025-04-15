@@ -3,7 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { fetchEquipmentById, fetchEquipmentHistory } from '../../store/slices/equipmentSlice';
-import { equipmentStatusLabels, equipmentStatusColors, Equipment } from '../../types/equipment';
+import { equipmentStatusLabels, equipmentStatusColors, Equipment, EquipmentHistoryEntry } from '../../types/equipment';
+import {
+    HistoryFilterPanel,
+    HistoryEntryCard,
+    EmptyHistoryState,
+    DateFilterType
+} from '../../components/equipment';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { toast } from 'react-toastify';
@@ -17,6 +23,108 @@ const EquipmentDetailView: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const { selectedEquipment, equipmentHistory, loading, error } = useSelector((state: RootState) => state.equipment);
     const [activeTab, setActiveTab] = useState<TabType>('details');
+
+    // History filtering states
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Filtered history entries
+    const [filteredPlacementHistory, setFilteredPlacementHistory] = useState<EquipmentHistoryEntry[]>([]);
+    const [filteredOperationHistory, setFilteredOperationHistory] = useState<EquipmentHistoryEntry[]>([]);
+    const [filteredMaintenanceHistory, setFilteredMaintenanceHistory] = useState<EquipmentHistoryEntry[]>([]);
+
+    // Initialize date filter values if needed
+    useEffect(() => {
+        if (dateFilter === 'custom' && !startDate) {
+            const today = new Date();
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+            setStartDate(sixMonthsAgo.toISOString().split('T')[0]);
+            setEndDate(today.toISOString().split('T')[0]);
+        }
+    }, [dateFilter, startDate]);
+
+    // Apply filters function
+    const applyFilters = () => {
+        // Calculate the date ranges based on filter
+        let fromDate: Date | null = null;
+        const today = new Date();
+
+        if (dateFilter === 'past-month') {
+            fromDate = new Date();
+            fromDate.setMonth(today.getMonth() - 1);
+        } else if (dateFilter === 'past-6-months') {
+            fromDate = new Date();
+            fromDate.setMonth(today.getMonth() - 6);
+        } else if (dateFilter === 'past-year') {
+            fromDate = new Date();
+            fromDate.setFullYear(today.getFullYear() - 1);
+        } else if (dateFilter === 'custom' && startDate) {
+            fromDate = new Date(startDate);
+        }
+
+        let toDate: Date | null = null;
+        if (dateFilter === 'custom' && endDate) {
+            toDate = new Date(endDate);
+            // Set to end of day
+            toDate.setHours(23, 59, 59, 999);
+        }
+
+        // Filter function for history entries
+        const filterEntry = (entry: EquipmentHistoryEntry) => {
+            const entryDate = new Date(entry.fromDate);
+
+            // Date filter
+            if (fromDate && entryDate < fromDate) {
+                return false;
+            }
+
+            if (toDate && entryDate > toDate) {
+                return false;
+            }
+
+            // Search term filter
+            if (searchTerm && searchTerm.trim() !== '') {
+                const searchLower = searchTerm.toLowerCase();
+                const descriptionMatch = entry.description.toLowerCase().includes(searchLower);
+                const responsibleMatch = entry.responsiblePerson &&
+                    entry.responsiblePerson.name.toLowerCase().includes(searchLower);
+                const locationMatch = entry.location && entry.location.toLowerCase().includes(searchLower);
+
+                return descriptionMatch || responsibleMatch || locationMatch;
+            }
+
+            return true;
+        };
+
+        // Apply filters to each history type
+        setFilteredPlacementHistory(equipmentHistory.placement.filter(filterEntry));
+        setFilteredOperationHistory(equipmentHistory.operation.filter(filterEntry));
+        setFilteredMaintenanceHistory(equipmentHistory.maintenance.filter(filterEntry));
+    };
+
+    // Reset filters
+    const resetFilters = () => {
+        setDateFilter('all');
+        setStartDate('');
+        setEndDate('');
+        setSearchTerm('');
+
+        // Reset to original data
+        setFilteredPlacementHistory(equipmentHistory.placement);
+        setFilteredOperationHistory(equipmentHistory.operation);
+        setFilteredMaintenanceHistory(equipmentHistory.maintenance);
+    };
+
+    // Initialize filtered data when original data changes
+    useEffect(() => {
+        setFilteredPlacementHistory(equipmentHistory.placement);
+        setFilteredOperationHistory(equipmentHistory.operation);
+        setFilteredMaintenanceHistory(equipmentHistory.maintenance);
+    }, [equipmentHistory]);
 
     useEffect(() => {
         if (id) {
@@ -110,7 +218,7 @@ const EquipmentDetailView: React.FC = () => {
 
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
                     <div className="border-b border-gray-200 dark:border-gray-700">
-                        <nav className="flex -mb-px">
+                        <nav className="flex flex-wrap -mb-px">
                             <button
                                 className={`px-6 py-3 border-b-2 text-sm font-medium ${activeTab === 'details'
                                         ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
@@ -200,12 +308,33 @@ const EquipmentDetailView: React.FC = () => {
                         {activeTab === 'placement' && (
                             <div>
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Historique de placement</h3>
-                                {equipmentHistory.placement.length > 0 ? (
-                                    <div className="space-y-6">
-                                        <p className="text-gray-500 dark:text-gray-400">En cours de développement</p>
+
+                                <HistoryFilterPanel
+                                    dateFilter={dateFilter}
+                                    setDateFilter={setDateFilter}
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    setStartDate={setStartDate}
+                                    setEndDate={setEndDate}
+                                    searchTerm={searchTerm}
+                                    setSearchTerm={setSearchTerm}
+                                    onApplyFilters={applyFilters}
+                                    onResetFilters={resetFilters}
+                                />
+
+                                {filteredPlacementHistory.length > 0 ? (
+                                    <div className="ml-6 pl-6 relative">
+                                        {filteredPlacementHistory.map((entry, index) => (
+                                            <HistoryEntryCard
+                                                key={entry._id}
+                                                entry={entry}
+                                                isFirst={index === 0}
+                                                isLast={index === filteredPlacementHistory.length - 1}
+                                            />
+                                        ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Aucun historique de placement disponible</p>
+                                    <EmptyHistoryState message="Aucun historique de placement disponible" />
                                 )}
                             </div>
                         )}
@@ -213,12 +342,33 @@ const EquipmentDetailView: React.FC = () => {
                         {activeTab === 'operation' && (
                             <div>
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Historique d'opération</h3>
-                                {equipmentHistory.operation.length > 0 ? (
-                                    <div className="space-y-6">
-                                        <p className="text-gray-500 dark:text-gray-400">En cours de développement</p>
+
+                                <HistoryFilterPanel
+                                    dateFilter={dateFilter}
+                                    setDateFilter={setDateFilter}
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    setStartDate={setStartDate}
+                                    setEndDate={setEndDate}
+                                    searchTerm={searchTerm}
+                                    setSearchTerm={setSearchTerm}
+                                    onApplyFilters={applyFilters}
+                                    onResetFilters={resetFilters}
+                                />
+
+                                {filteredOperationHistory.length > 0 ? (
+                                    <div className="ml-6 pl-6 relative">
+                                        {filteredOperationHistory.map((entry, index) => (
+                                            <HistoryEntryCard
+                                                key={entry._id}
+                                                entry={entry}
+                                                isFirst={index === 0}
+                                                isLast={index === filteredOperationHistory.length - 1}
+                                            />
+                                        ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Aucun historique d'opération disponible</p>
+                                    <EmptyHistoryState message="Aucun historique d'opération disponible" />
                                 )}
                             </div>
                         )}
@@ -226,12 +376,33 @@ const EquipmentDetailView: React.FC = () => {
                         {activeTab === 'maintenance' && (
                             <div>
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Historique de maintenance</h3>
-                                {equipmentHistory.maintenance.length > 0 ? (
-                                    <div className="space-y-6">
-                                        <p className="text-gray-500 dark:text-gray-400">En cours de développement</p>
+
+                                <HistoryFilterPanel
+                                    dateFilter={dateFilter}
+                                    setDateFilter={setDateFilter}
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    setStartDate={setStartDate}
+                                    setEndDate={setEndDate}
+                                    searchTerm={searchTerm}
+                                    setSearchTerm={setSearchTerm}
+                                    onApplyFilters={applyFilters}
+                                    onResetFilters={resetFilters}
+                                />
+
+                                {filteredMaintenanceHistory.length > 0 ? (
+                                    <div className="ml-6 pl-6 relative">
+                                        {filteredMaintenanceHistory.map((entry, index) => (
+                                            <HistoryEntryCard
+                                                key={entry._id}
+                                                entry={entry}
+                                                isFirst={index === 0}
+                                                isLast={index === filteredMaintenanceHistory.length - 1}
+                                            />
+                                        ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Aucun historique de maintenance disponible</p>
+                                    <EmptyHistoryState message="Aucun historique de maintenance disponible" />
                                 )}
                             </div>
                         )}
