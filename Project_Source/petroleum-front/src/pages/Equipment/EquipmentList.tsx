@@ -13,8 +13,8 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { EyeIcon, PlusIcon } from '../../icons';
-import { toast } from 'react-toastify';
+import { EyeIcon, PlusIcon, RefreshIcon, ChevronDownIcon, ChevronUpIcon } from '../../icons';
+import { toast, ToastContainer } from 'react-toastify';
 
 const EquipmentList: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -25,15 +25,24 @@ const EquipmentList: React.FC = () => {
         status: '',
         location: ''
     });
+    const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+    const [isStatsOpen, setIsStatsOpen] = useState(false);
 
     // Load equipment data on mount
     useEffect(() => {
+        loadEquipment();
+    }, [dispatch]);
+
+    const loadEquipment = () => {
         dispatch(fetchEquipment())
             .unwrap()
+            .then(() => {
+                setLastRefreshTime(new Date());
+            })
             .catch(err => {
                 toast.error(`Erreur lors du chargement des équipements: ${err}`);
             });
-    }, [dispatch]);
+    };
 
     // Update filtered equipment whenever equipment or filters change
     useEffect(() => {
@@ -63,6 +72,35 @@ const EquipmentList: React.FC = () => {
         setFilteredEquipment(result);
     }, [equipment, filters]);
 
+    // Calculate equipment statistics
+    const equipmentStats = React.useMemo(() => {
+        const stats = {
+            total: equipment.length,
+            byStatus: {} as Record<string, number>
+        };
+
+        // Count equipment by status
+        equipment.forEach(item => {
+            if (!stats.byStatus[item.status]) {
+                stats.byStatus[item.status] = 0;
+            }
+            stats.byStatus[item.status]++;
+        });
+
+        return stats;
+    }, [equipment]);
+
+    // Format date for display
+    const formatDate = (date: Date) => {
+        return new Intl.DateTimeFormat('fr-FR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    };
+
     // Get unique locations for the filter dropdown
     const uniqueLocations = React.useMemo(() => {
         const locations = equipment.map((e: Equipment) => e.location);
@@ -85,6 +123,15 @@ const EquipmentList: React.FC = () => {
         });
     };
 
+    const handleRefresh = () => {
+        loadEquipment();
+        toast.info("Actualisation des données...");
+    };
+
+    const toggleStats = () => {
+        setIsStatsOpen(!isStatsOpen);
+    };
+
     if (loading && equipment.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -101,6 +148,20 @@ const EquipmentList: React.FC = () => {
             />
             <PageBreadcrumb pageTitle="Magasin des équipments" />
 
+            {/* Toast container with proper positioning */}
+            <ToastContainer
+                position="bottom-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                style={{ zIndex: 9999 }}
+            />
+
             <div className="container mx-auto px-4 py-6">
                 {/* Header with title and add button */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
@@ -114,6 +175,84 @@ const EquipmentList: React.FC = () => {
                         <PlusIcon className="w-5 h-5 mr-2" />
                         Ajouter un équipement
                     </Link>
+                </div>
+
+                {/* Statistics Cards - Collapsible */}
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+                    <div
+                        className="p-4 flex justify-between items-center cursor-pointer"
+                        onClick={toggleStats}
+                    >
+                        <div className="flex items-center">
+                            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                                Statistiques des équipements
+                            </h2>
+                            <div className="flex items-center ml-4">
+                                <span className="text-sm text-gray-500">
+                                    {equipmentStats.total} équipements au total
+                                </span>
+                                <span className="text-sm text-gray-500 ml-4">
+                                    Dernière actualisation: {formatDate(lastRefreshTime)}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRefresh();
+                                }}
+                                className="p-2 mr-2 text-gray-500 hover:text-[#F28C38] focus:outline-none rounded-full hover:bg-gray-100"
+                                title="Actualiser les données"
+                            >
+                                <RefreshIcon className="w-5 h-5" />
+                            </button>
+                            {isStatsOpen ? (
+                                <ChevronUpIcon className="w-5 h-5 text-gray-500" />
+                            ) : (
+                                <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+                            )}
+                        </div>
+                    </div>
+
+                    {isStatsOpen && (
+                        <div className="p-4 pt-0 border-t border-gray-200 dark:border-gray-700">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-4">
+                                {/* Total count card */}
+                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex flex-col">
+                                    <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total</span>
+                                    <span className="text-3xl font-bold text-blue-800 dark:text-blue-300">{equipmentStats.total}</span>
+                                    <span className="text-sm text-blue-600 dark:text-blue-400 mt-2">Équipements</span>
+                                </div>
+
+                                {/* Status count cards */}
+                                {Object.entries(equipmentStatusLabels).map(([status, label]) => {
+                                    const count = equipmentStats.byStatus[status] || 0;
+                                    const colorClass = status === 'disponible_bon_etat' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
+                                        status === 'on_repair' ? 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
+                                            status === 'disponible_needs_repair' ? 'bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
+                                                status === 'working_non_disponible' ? 'bg-purple-50 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
+                                                    'bg-blue-50 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+
+                                    return (
+                                        <div key={status} className={`rounded-lg p-4 flex flex-col ${colorClass}`}>
+                                            <span className="text-sm font-medium">{label}</span>
+                                            <span className="text-3xl font-bold">{count}</span>
+                                            <button
+                                                onClick={() => {
+                                                    setFilters(prev => ({ ...prev, status }));
+                                                    setIsStatsOpen(false);
+                                                }}
+                                                className="text-sm mt-2 hover:underline"
+                                            >
+                                                Voir détails
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Filters */}
@@ -255,13 +394,15 @@ const EquipmentList: React.FC = () => {
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="px-5 py-4 text-sm text-gray-500 text-center">
-                                        {error ? (
-                                            `Erreur: ${error}`
+                                    <TableCell colSpan={7} className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        {loading ? (
+                                            <div className="flex justify-center">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#F28C38]"></div>
+                                            </div>
+                                        ) : error ? (
+                                            <div className="text-red-500">Une erreur est survenue lors du chargement des équipements.</div>
                                         ) : (
-                                            loading ?
-                                                "Chargement des équipements..." :
-                                                "Aucun équipement trouvé correspondant aux critères"
+                                            "Aucun équipement trouvé avec les filtres actuels."
                                         )}
                                     </TableCell>
                                 </TableRow>

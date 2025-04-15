@@ -56,6 +56,7 @@ import { ReactComponent as WarehouseIcon } from "./warehouse.svg?react";
 import { ReactComponent as LocationIcon } from "./location.svg?react";
 import { ReactComponent as FilterIcon } from "./filter.svg?react";
 import { ReactComponent as SearchIcon } from "./search.svg?react";
+import { ReactComponent as RefreshIcon } from "./refresh.svg?react";
 
 export {
   ErrorHexaIcon,
@@ -116,4 +117,5 @@ export {
   LocationIcon,
   FilterIcon,
   SearchIcon,
+  RefreshIcon,
 };
