@@ -13,7 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from '../../components/ui/table';
-import { EyeIcon, PlusIcon, RefreshIcon, ChevronDownIcon, ChevronUpIcon } from '../../icons';
+import { EyeIcon, PlusIcon, RefreshIcon, ChevronDownIcon, ChevronUpIcon, ChevronLeftIcon, ChevronRightIcon } from '../../icons';
 import { toast, ToastContainer } from 'react-toastify';
 
 const EquipmentList: React.FC = () => {
@@ -27,6 +27,12 @@ const EquipmentList: React.FC = () => {
     });
     const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
     const [isStatsOpen, setIsStatsOpen] = useState(false);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [paginatedEquipment, setPaginatedEquipment] = useState<Equipment[]>([]);
+    const [totalPages, setTotalPages] = useState(1);
 
     // Load equipment data on mount
     useEffect(() => {
@@ -70,7 +76,19 @@ const EquipmentList: React.FC = () => {
         }
 
         setFilteredEquipment(result);
+        // Reset to first page when filters change
+        setCurrentPage(1);
     }, [equipment, filters]);
+
+    // Apply pagination to filtered equipment
+    useEffect(() => {
+        const totalPages = Math.ceil(filteredEquipment.length / itemsPerPage);
+        setTotalPages(totalPages || 1); // Ensure at least 1 page even when empty
+
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        setPaginatedEquipment(filteredEquipment.slice(start, end));
+    }, [filteredEquipment, currentPage, itemsPerPage]);
 
     // Calculate equipment statistics
     const equipmentStats = React.useMemo(() => {
@@ -130,6 +148,17 @@ const EquipmentList: React.FC = () => {
 
     const toggleStats = () => {
         setIsStatsOpen(!isStatsOpen);
+    };
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
+
+    const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1); // Reset to first page when changing items per page
     };
 
     if (loading && equipment.length === 0) {
@@ -350,8 +379,8 @@ const EquipmentList: React.FC = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                            {filteredEquipment.length > 0 ? (
-                                filteredEquipment.map((item) => {
+                            {paginatedEquipment.length > 0 ? (
+                                paginatedEquipment.map((item) => {
                                     // Type assertion for status
                                     const status = item.status as keyof typeof equipmentStatusColors;
 
@@ -409,6 +438,113 @@ const EquipmentList: React.FC = () => {
                             )}
                         </TableBody>
                     </Table>
+
+                    {/* Pagination */}
+                    {filteredEquipment.length > 0 && (
+                        <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col sm:flex-row items-center justify-between">
+                            <div className="flex items-center mb-4 sm:mb-0">
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                    Affichage de{' '}
+                                    <span className="font-medium">
+                                        {Math.min((currentPage - 1) * itemsPerPage + 1, filteredEquipment.length)}
+                                    </span>{' '}
+                                    à{' '}
+                                    <span className="font-medium">
+                                        {Math.min(currentPage * itemsPerPage, filteredEquipment.length)}
+                                    </span>{' '}
+                                    sur <span className="font-medium">{filteredEquipment.length}</span> équipements
+                                </span>
+                                <div className="ml-4">
+                                    <label htmlFor="itemsPerPage" className="sr-only">Éléments par page</label>
+                                    <select
+                                        id="itemsPerPage"
+                                        value={itemsPerPage}
+                                        onChange={handleItemsPerPageChange}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38] sm:text-sm"
+                                    >
+                                        <option value="5">5 par page</option>
+                                        <option value="10">10 par page</option>
+                                        <option value="25">25 par page</option>
+                                        <option value="50">50 par page</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={() => handlePageChange(1)}
+                                    disabled={currentPage === 1}
+                                    className={`px-3 py-1 rounded-md ${currentPage === 1
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        }`}
+                                >
+                                    Premier
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className={`p-1 rounded-md ${currentPage === 1
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        }`}
+                                >
+                                    <ChevronLeftIcon className="w-5 h-5" />
+                                </button>
+                                <div className="flex items-center space-x-1">
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        // Create a window of 5 pages centered around current page
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            // Less than 5 pages, show all
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            // Near start, show first 5 pages
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            // Near end, show last 5 pages
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            // Middle, show current and 2 on each side
+                                            pageNum = currentPage - 2 + i;
+                                        }
+
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => handlePageChange(pageNum)}
+                                                className={`px-3 py-1 rounded-md ${currentPage === pageNum
+                                                        ? 'bg-[#F28C38] text-white'
+                                                        : 'text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700'
+                                                    }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className={`p-1 rounded-md ${currentPage === totalPages
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        }`}
+                                >
+                                    <ChevronRightIcon className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => handlePageChange(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-3 py-1 rounded-md ${currentPage === totalPages
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        }`}
+                                >
+                                    Dernier
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </>
