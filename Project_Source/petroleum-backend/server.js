@@ -13,6 +13,7 @@ const projectRoutes = require('./modules/projects/routes/projectRoutes');
 const documentRoutes = require('./modules/documents/routes/document.routes');
 const actionRoutes = require('./modules/actions/routes/action.routes');
 const taskRoutes = require('./modules/tasks/routes/task.routes');
+const equipmentRoutes = require('./modules/equipment/routes/equipment.routes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -107,6 +108,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/global-actions', globalActionRoutes);
+app.use('/api/equipment', equipmentRoutes);
 // Socket.io events
 io.on('connection', (socket) => {
     logger.info(`Client connected: ${socket.id}`);
