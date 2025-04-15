@@ -4,7 +4,7 @@ import { Equipment, EquipmentHistoryEntry } from '../../types/equipment';
 import { mockEquipment, mockEquipmentHistory } from '../../mocks/equipmentData';
 
 // Use mock data for UI development
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 interface EquipmentState {
     equipment: Equipment[];
