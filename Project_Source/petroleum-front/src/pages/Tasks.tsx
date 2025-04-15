@@ -5,7 +5,7 @@ import { fetchUserTasks, updateTaskStatus, addNewTask, updateTask } from '../sto
 import { RootState, AppDispatch } from '../store';
 import { toast, Toaster } from 'react-hot-toast';
 import socket from '../utils/socket';
-import { PlusIcon, CheckIcon, ChatBubbleLeftRightIcon, PaperClipIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CheckIcon, ChatBubbleLeftRightIcon, PaperClipIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
 import PageMeta from '../components/common/PageMeta';
 import AddTaskModal from '../components/tasks/AddTaskModal';
 
@@ -21,6 +21,8 @@ interface Task {
     };
     status: 'todo' | 'inProgress' | 'inReview' | 'done';
     progress?: number;
+    startDate?: string;
+    endDate?: string;
 }
 
 interface TaskTag {
@@ -33,9 +35,9 @@ const formatDate = (dateString: string) => {
     const today = new Date();
     const date = new Date(dateString);
 
-    // If it's today, return "Today"
+    // If it's today, return "Aujourd'hui"
     if (date.toDateString() === today.toDateString()) {
-        return 'Today';
+        return 'Aujourd\'hui';
     }
 
     // Otherwise, return formatted date
@@ -46,11 +48,25 @@ const formatDate = (dateString: string) => {
     });
 };
 
+const getDaysRemaining = (endDateString: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(endDateString);
+    endDate.setHours(0, 0, 0, 0);
+
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { days: Math.abs(diffDays), overdue: true };
+    return { days: diffDays, overdue: false };
+};
+
 const ProgressBar = ({ percentage }: { percentage: number }) => {
     return (
         <div className="w-full mb-4">
             <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-gray-500">Progress</span>
+                <span className="text-xs font-medium text-gray-500">Progression</span>
                 <span className="text-xs font-medium text-gray-700">{percentage}%</span>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full">
@@ -90,13 +106,17 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
     // Calculate progress randomly for demo (in real app, this would come from task data)
     const progress = task.progress || Math.floor(Math.random() * 100);
 
+    // Calculate days remaining
+    const { days, overdue } = task.endDate ? getDaysRemaining(task.endDate) : { days: 0, overdue: false };
+
     return (
         <div className="bg-white rounded-xl shadow p-4 mb-3 border border-gray-200">
-            {/* Collapse/Expand button */}
-            <div className="flex justify-end mb-2">
+            {/* Title and collapse button */}
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="font-medium text-gray-900">{task.title}</h3>
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 ml-2 flex-shrink-0"
                 >
                     {isExpanded ?
                         <ChevronUpIcon className="w-5 h-5" /> :
@@ -104,9 +124,6 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
                     }
                 </button>
             </div>
-
-            {/* Progress bar */}
-            <ProgressBar percentage={progress} />
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-3">
@@ -120,13 +137,38 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
                 ))}
             </div>
 
-            {/* Title */}
-            <h3 className="font-medium text-gray-900 mb-2">{task.title}</h3>
+            {/* Progress bar */}
+            <ProgressBar percentage={progress} />
+
+            {/* Timeline information with icons */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-3 border border-gray-100">
+                <div className="flex items-center mb-2 text-xs text-gray-600">
+                    <CalendarIcon className="w-4 h-4 mr-1 text-gray-500" />
+                    <span className="font-medium mr-1">Début:</span>
+                    <span>{task.startDate ? formatDate(task.startDate) : 'Non défini'}</span>
+                </div>
+
+                <div className="flex items-center text-xs text-gray-600">
+                    <CalendarIcon className="w-4 h-4 mr-1 text-gray-500" />
+                    <span className="font-medium mr-1">Échéance:</span>
+                    <span>{task.endDate ? formatDate(task.endDate) : 'Aucune échéance'}</span>
+                </div>
+
+                {task.endDate && (
+                    <div className={`flex items-center mt-2 text-xs ${overdue ? 'text-red-500' : 'text-gray-600'}`}>
+                        <ClockIcon className={`w-4 h-4 mr-1 ${overdue ? 'text-red-500' : 'text-gray-500'}`} />
+                        <span className="font-medium mr-1">{overdue ? 'En retard:' : 'Reste:'}</span>
+                        <span>
+                            {days} jour{days !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                )}
+            </div>
 
             {/* Description - only visible when expanded */}
             {isExpanded && (
                 <div className="text-sm text-gray-600 mb-3 border-t border-b border-gray-100 py-2">
-                    {task.description || "No description provided."}
+                    {task.description || "Aucune description fournie."}
                 </div>
             )}
 
@@ -144,7 +186,7 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
                 {/* View details button */}
                 <button className="text-xs flex items-center text-[#F28C38] hover:text-[#e07520] font-medium">
                     <EyeIcon className="w-3 h-3 mr-1" />
-                    View details
+                    Voir détails
                 </button>
             </div>
         </div>
@@ -152,11 +194,20 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
 };
 
 const TaskColumn = ({ title, tasks, droppableId }: { title: string, tasks: any[], droppableId: string }) => {
+    const statusLabels = {
+        todo: "À faire",
+        inProgress: "En cours",
+        inReview: "En revue",
+        done: "Terminé"
+    };
+
+    const frenchTitle = statusLabels[droppableId as keyof typeof statusLabels] || title;
+
     return (
         <div className="bg-gray-50 rounded-xl border border-gray-200">
             <div className="p-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-gray-700">{title}</h2>
+                    <h2 className="text-lg font-semibold text-gray-700">{frenchTitle}</h2>
                     <div className="flex space-x-2">
                         <button className="p-1 rounded-md hover:bg-gray-200">
                             <PlusIcon className="w-5 h-5 text-gray-500" />
@@ -231,7 +282,7 @@ const Tasks: React.FC = () => {
     const taskData = filterTasksByCurrentUser(tasks);
 
     // Get today's date in format "Day Month Date, Year"
-    const today = new Date().toLocaleDateString('en-US', {
+    const today = new Date().toLocaleDateString('fr-FR', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
@@ -299,7 +350,7 @@ const Tasks: React.FC = () => {
     };
 
     const handleAddTask = (task: any) => {
-        console.log('New task to add:', task);
+        console.log('Nouvelle tâche à ajouter:', task);
         // Here you would typically dispatch an action to add the task
         toast.success('Tâche ajoutée avec succès');
     };
@@ -314,7 +365,7 @@ const Tasks: React.FC = () => {
 
     return (
         <>
-            <PageMeta title="Tasks" description="Task management board" />
+            <PageMeta title="Tâches" description="Tableau de gestion des tâches" />
             <Toaster position="bottom-right" />
 
             <div className="container mx-auto px-6 py-8">
@@ -322,13 +373,13 @@ const Tasks: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
                     <div>
                         <div className="flex items-center mb-2">
-                            <h1 className="text-2xl font-bold mr-4">Board</h1>
+                            <h1 className="text-2xl font-bold mr-4">Tableau</h1>
                             <button className="text-gray-500 flex items-center text-sm border border-gray-300 rounded-md px-3 py-1">
-                                <span>Daily Tasks</span>
+                                <span>Tâches quotidiennes</span>
                                 <ChevronDownIcon className="w-4 h-4 ml-2" />
                             </button>
                         </div>
-                        <p className="text-gray-500 text-sm">May<br />Today is {today}</p>
+                        <p className="text-gray-500 text-sm">{new Date().toLocaleDateString('fr-FR', { month: 'long' })}<br />Aujourd'hui: {today}</p>
                     </div>
 
                     {/* User Avatars */}
@@ -338,7 +389,7 @@ const Tasks: React.FC = () => {
                                 <img
                                     key={i}
                                     src={`https://ui-avatars.com/api/?name=User+${i}&background=random`}
-                                    alt={`User ${i}`}
+                                    alt={`Utilisateur ${i}`}
                                     className="w-8 h-8 rounded-full border-2 border-white"
                                 />
                             ))}
@@ -349,7 +400,7 @@ const Tasks: React.FC = () => {
                                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M3 6H21M3 12H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                 </svg>
-                                <span>Filters</span>
+                                <span>Filtres</span>
                             </button>
 
                             <button
@@ -357,7 +408,7 @@ const Tasks: React.FC = () => {
                                 className="bg-[#F28C38] text-white rounded-md px-3 py-2 flex items-center"
                             >
                                 <PlusIcon className="w-5 h-5 mr-2" />
-                                <span>Create task</span>
+                                <span>Créer une tâche</span>
                             </button>
                         </div>
                     </div>
@@ -368,28 +419,28 @@ const Tasks: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Todo Column */}
                         <TaskColumn
-                            title="Todo list"
+                            title="À faire"
                             tasks={taskData.todo || []}
                             droppableId="todo"
                         />
 
                         {/* In Progress Column */}
                         <TaskColumn
-                            title="In Progress"
+                            title="En cours"
                             tasks={taskData.inProgress || []}
                             droppableId="inProgress"
                         />
 
                         {/* In Review Column */}
                         <TaskColumn
-                            title="In Review"
+                            title="En revue"
                             tasks={taskData.inReview}
                             droppableId="inReview"
                         />
 
                         {/* Done Column */}
                         <TaskColumn
-                            title="Done"
+                            title="Terminé"
                             tasks={taskData.done || []}
                             droppableId="done"
                         />

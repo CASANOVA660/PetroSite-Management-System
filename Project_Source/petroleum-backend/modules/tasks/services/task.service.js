@@ -80,16 +80,7 @@ class TaskService {
             console.log('Task status updated successfully:', task);
 
             // If task is from an action and is completed, notify creator
-            if (task.actionId && status === 'done') {
-                console.log('Creating notification for completed action task');
-                await createNotification({
-                    userId: task.creator._id,
-                    type: 'TASK_COMPLETED',
-                    message: `La tâche "${task.title}" a été marquée comme terminée par ${task.assignee.prenom} ${task.assignee.nom}`,
-                    isRead: false,
-                    createdAt: new Date()
-                });
-            }
+
 
             return task;
         } catch (error) {
