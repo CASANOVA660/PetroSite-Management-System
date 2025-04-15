@@ -195,7 +195,7 @@ const EquipmentList: React.FC = () => {
                 {/* Header with title and add button */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
                     <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4 md:mb-0">
-                        Liste des équipements
+
                     </h1>
                     <Link
                         to="/equipments/add"
@@ -474,8 +474,8 @@ const EquipmentList: React.FC = () => {
                                     onClick={() => handlePageChange(1)}
                                     disabled={currentPage === 1}
                                     className={`px-3 py-1 rounded-md ${currentPage === 1
-                                            ? 'text-gray-400 cursor-not-allowed'
-                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-[#F28C38] hover:bg-orange-50'
                                         }`}
                                 >
                                     Premier
@@ -484,8 +484,8 @@ const EquipmentList: React.FC = () => {
                                     onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage === 1}
                                     className={`p-1 rounded-md ${currentPage === 1
-                                            ? 'text-gray-400 cursor-not-allowed'
-                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-[#F28C38] hover:bg-orange-50'
                                         }`}
                                 >
                                     <ChevronLeftIcon className="w-5 h-5" />
@@ -513,8 +513,8 @@ const EquipmentList: React.FC = () => {
                                                 key={pageNum}
                                                 onClick={() => handlePageChange(pageNum)}
                                                 className={`px-3 py-1 rounded-md ${currentPage === pageNum
-                                                        ? 'bg-[#F28C38] text-white'
-                                                        : 'text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700'
+                                                    ? 'bg-[#F28C38] text-white'
+                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700'
                                                     }`}
                                             >
                                                 {pageNum}
@@ -526,8 +526,8 @@ const EquipmentList: React.FC = () => {
                                     onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage === totalPages}
                                     className={`p-1 rounded-md ${currentPage === totalPages
-                                            ? 'text-gray-400 cursor-not-allowed'
-                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-[#F28C38] hover:bg-orange-50'
                                         }`}
                                 >
                                     <ChevronRightIcon className="w-5 h-5" />
@@ -536,8 +536,8 @@ const EquipmentList: React.FC = () => {
                                     onClick={() => handlePageChange(totalPages)}
                                     disabled={currentPage === totalPages}
                                     className={`px-3 py-1 rounded-md ${currentPage === totalPages
-                                            ? 'text-gray-400 cursor-not-allowed'
-                                            : 'text-[#F28C38] hover:bg-orange-50'
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-[#F28C38] hover:bg-orange-50'
                                         }`}
                                 >
                                     Dernier
