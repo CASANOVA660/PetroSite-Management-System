@@ -2,14 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     XMarkIcon,
     CalendarIcon,
-    UserIcon,
     TagIcon,
     ChatBubbleLeftRightIcon,
-    CheckCircleIcon,
     FaceSmileIcon,
     PaperClipIcon,
     LinkIcon,
-    ArrowPathIcon
+    BoltIcon,
+    FireIcon
 } from '@heroicons/react/24/outline';
 import { useDispatch } from 'react-redux';
 import { updateTask } from '../../store/slices/taskSlice';
@@ -38,7 +37,6 @@ const priorityOptions = [
 
 const formatDate = (dateString: string) => {
     if (!dateString) return 'Non défini';
-
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', {
@@ -81,6 +79,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const [comments, setComments] = useState<any[]>([]);
     const [commentText, setCommentText] = useState('');
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('Comments');
     const panelRef = useRef<HTMLDivElement>(null);
 
     const handleBackdropClick = (e: React.MouseEvent) => {
@@ -89,16 +88,22 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
-    const progress = task?.progress || 0;
-
     useEffect(() => {
         if (task?._id) {
             setComments([
                 {
                     id: 1,
                     user: { name: 'Ethan Carter', avatar: 'https://ui-avatars.com/api/?name=Ethan+Carter&background=random' },
-                    text: "J'ai mis à jour les wireframes et ajouté quelques notes sur Figma.",
-                    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000)
+                    text: "Hey @Sam! I've updated the wireframes and left some notes on Figma. Let me know your thoughts. Thanks!",
+                    timestamp: new Date(Date.now() - 3 * 60 * 1000),
+                    reactions: []
+                },
+                {
+                    id: 2,
+                    user: { name: 'Sam', avatar: 'https://ui-avatars.com/api/?name=Sam&background=random' },
+                    text: "Got it! I'll review and provide feedback by tomorrow. 🚀",
+                    timestamp: new Date(Date.now() - 2 * 60 * 1000),
+                    reactions: [{ emoji: '🔥', count: 1 }, { emoji: '⚡', count: 1 }]
                 }
             ]);
         }
@@ -106,14 +111,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     useEffect(() => {
         if (isOpen) {
-            // Prevent body scrolling
             document.body.style.overflow = 'hidden';
         } else {
-            // Restore body scrolling
             document.body.style.overflow = 'auto';
         }
-
-        // Cleanup on unmount
         return () => {
             document.body.style.overflow = 'auto';
         };
@@ -130,7 +131,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
-    const handleCommentSubmit = (e: React.FormEvent) => {
+    const handleCommentSubmit = (e: React.MouseEvent) => {
         e.preventDefault();
         if (!commentText.trim()) return;
 
@@ -140,11 +141,33 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 id: Date.now(),
                 user: { name: 'Moi', avatar: 'https://ui-avatars.com/api/?name=Moi&background=random' },
                 text: commentText,
-                timestamp: new Date()
+                timestamp: new Date(),
+                reactions: []
             }
         ]);
-
         setCommentText('');
+    };
+
+    const handleAddReaction = (commentId: number, emoji: string) => {
+        setComments(comments.map(comment => {
+            if (comment.id === commentId) {
+                const existingReaction = comment.reactions.find((r: any) => r.emoji === emoji);
+                if (existingReaction) {
+                    return {
+                        ...comment,
+                        reactions: comment.reactions.map((r: any) =>
+                            r.emoji === emoji ? { ...r, count: r.count + 1 } : r
+                        )
+                    };
+                } else {
+                    return {
+                        ...comment,
+                        reactions: [...comment.reactions, { emoji, count: 1 }]
+                    };
+                }
+            }
+            return comment;
+        }));
     };
 
     const getCurrentStatus = () => {
@@ -153,20 +176,27 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     return (
         <>
-            <div
-                style={backdropStyles}
-                onClick={handleBackdropClick}
-            />
-            <div
-                ref={panelRef}
-                className="task-detail-panel"
-                style={panelStyles}
-            >
+            <div style={backdropStyles} onClick={handleBackdropClick} />
+            <div ref={panelRef} className="task-detail-panel" style={panelStyles}>
                 <div className="flex flex-col h-full">
-                    <div className="mb-6">
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100"
+                        style={{ zIndex: 100001 }}
+                    >
+                        <XMarkIcon className="w-6 h-6 text-gray-500" />
+                    </button>
+                    <div className="mb-4">
                         <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
+                        <div className="text-sm text-gray-600">
+                            <span className="font-medium">Assigné à: </span>
+                            <span>Ethan Carter</span>
+                            <span className="mx-2">|</span>
+                            <span className="font-medium">Suivi par: </span>
+                            <span>Moi</span>
+                        </div>
                     </div>
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <div className="text-sm font-medium text-gray-500 mb-2">Statut</div>
                         <div className="relative">
                             <button
@@ -195,7 +225,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                             )}
                         </div>
                     </div>
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <div className="text-sm font-medium text-gray-500 mb-2">Date d'échéance</div>
                         <div className="flex items-center">
                             <CalendarIcon className="w-5 h-5 text-gray-400 mr-2" />
@@ -204,120 +234,154 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                             </span>
                         </div>
                     </div>
-                    <div className="mb-6">
-                        <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
-                        <div className="flex items-center">
-                            <div className="flex -space-x-1 mr-2">
-                                <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-white font-medium">
-                                    US
-                                </div>
-                                <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white font-medium">
-                                    U2
-                                </div>
-                            </div>
-                            <button className="text-sm text-blue-600 hover:text-blue-800 ml-2">+ Inviter</button>
-                        </div>
-                    </div>
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <div className="text-sm font-medium text-gray-500 mb-2">Étiquettes</div>
                         <div className="flex flex-wrap gap-2">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 text-red-600">
-                                Haute priorité
-                            </span>
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-yellow-100 text-yellow-600">
-                                Priorité moyenne
-                            </span>
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-600">
-                                Priorité basse
-                            </span>
+                            {priorityOptions.map(option => (
+                                <span
+                                    key={option.id}
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${option.color}`}
+                                >
+                                    {option.name}
+                                </span>
+                            ))}
                         </div>
                     </div>
-                    <div className="mb-6">
+                    <div className="mb-4">
                         <div className="text-sm font-medium text-gray-500 mb-2">Description</div>
                         <div className="text-sm text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-100">
                             {task.description || "Le formulaire de connexion doit inclure un lien 'Mot de passe oublié' et garantir la validation des entrées utilisateur. Prendre en compte l'accessibilité et s'assurer que tous les messages d'erreur sont clairs et concis."}
                         </div>
                     </div>
-                    <div className="mt-auto">
-                        <div className="border-t pt-6">
-                            <div className="flex items-center mb-4">
-                                <ChatBubbleLeftRightIcon className="w-5 h-5 mr-2 text-gray-600" />
-                                <span className="text-sm font-medium text-gray-700">Commentaires</span>
-                                <span className="ml-2 bg-gray-200 px-2 py-0.5 rounded-full text-xs text-gray-700">
-                                    {comments.length}
-                                </span>
-                            </div>
-                            {comments.length > 0 && (
-                                <div className="space-y-4 mb-6">
-                                    {comments.map(comment => (
-                                        <div key={comment.id} className="flex items-start">
-                                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium mr-3 flex-shrink-0">
-                                                EC
+                    <div className="mt-4">
+                        <div className="flex border-b border-gray-200">
+                            <button
+                                className={`px-4 py-2 text-sm font-medium ${activeTab === 'Comments' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
+                                onClick={() => setActiveTab('Comments')}
+                            >
+                                Commentaires <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{comments.length}</span>
+                            </button>
+                            <button
+                                className={`px-4 py-2 text-sm font-medium ${activeTab === 'Files' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
+                                onClick={() => setActiveTab('Files')}
+                            >
+                                Fichiers
+                            </button>
+                            <button
+                                className={`px-4 py-2 text-sm font-medium ${activeTab === 'Progress' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
+                                onClick={() => setActiveTab('Progress')}
+                            >
+                                Progrès
+                            </button>
+                        </div>
+                        <div className="mt-4">
+                            {activeTab === 'Comments' && (
+                                <div>
+                                    <div className="mb-6">
+                                        <textarea
+                                            value={commentText}
+                                            onChange={e => setCommentText(e.target.value)}
+                                            placeholder="Ajouter un commentaire..."
+                                            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none bg-gray-50"
+                                            rows={3}
+                                        />
+                                        <div className="flex justify-between items-center mt-2 bg-gray-50 p-2 rounded-b-lg border border-t-0">
+                                            <div className="flex space-x-2">
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <span className="font-bold text-sm">B</span>
+                                                </button>
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <span className="italic text-sm">I</span>
+                                                </button>
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <span className="line-through text-sm">S</span>
+                                                </button>
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <PaperClipIcon className="w-5 h-5 text-gray-500" />
+                                                </button>
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <LinkIcon className="w-5 h-5 text-gray-500" />
+                                                </button>
+                                                <button type="button" className="p-1 rounded hover:bg-gray-200">
+                                                    <FaceSmileIcon className="w-5 h-5 text-gray-500" />
+                                                </button>
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center mb-1">
-                                                    <span className="font-medium text-sm text-gray-800 mr-2">Ethan Carter</span>
-                                                    <span className="text-xs text-gray-500">
-                                                        il y a environ 3 heures
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-700">J'ai mis à jour les wireframes et ajouté quelques notes sur Figma.</p>
-                                                <div className="flex items-center mt-1 text-gray-500 text-xs">
-                                                    <button className="flex items-center hover:text-gray-700 mr-4">
-                                                        Réagir
-                                                    </button>
-                                                    <button className="hover:text-gray-700">
-                                                        Répondre
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <button
+                                                onClick={handleCommentSubmit}
+                                                className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                                            >
+                                                Publier
+                                            </button>
                                         </div>
-                                    ))}
+                                    </div>
+                                    {comments.length > 0 && (
+                                        <div className="space-y-4">
+                                            {comments.map(comment => (
+                                                <div key={comment.id} className="flex items-start">
+                                                    <img
+                                                        src={comment.user.avatar}
+                                                        alt={comment.user.name}
+                                                        className="w-8 h-8 rounded-full mr-3 flex-shrink-0"
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center mb-1">
+                                                            <span className="font-medium text-sm text-gray-800 mr-2">{comment.user.name}</span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {formatDistanceToNow(new Date(comment.timestamp), { locale: fr, addSuffix: true })}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm text-gray-700">{comment.text}</p>
+                                                        <div className="flex items-center mt-2 space-x-2">
+                                                            {comment.reactions.map((reaction: any, index: number) => (
+                                                                <button
+                                                                    key={index}
+                                                                    className="flex items-center px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 hover:bg-gray-200"
+                                                                >
+                                                                    <span className="mr-1">{reaction.emoji}</span>
+                                                                    <span>{reaction.count}</span>
+                                                                </button>
+                                                            ))}
+                                                            <button
+                                                                onClick={() => handleAddReaction(comment.id, '🔥')}
+                                                                className="p-1 rounded hover:bg-gray-100"
+                                                            >
+                                                                <FireIcon className="w-4 h-4 text-gray-500" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleAddReaction(comment.id, '⚡')}
+                                                                className="p-1 rounded hover:bg-gray-100"
+                                                            >
+                                                                <BoltIcon className="w-4 h-4 text-gray-500" />
+                                                            </button>
+                                                            <button className="text-xs text-gray-500 hover:text-gray-700 ml-2">
+                                                                Répondre
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                            <div className="mt-3 flex">
-                                <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-xs text-white font-medium mr-3 flex-shrink-0">
-                                    MO
+                            {activeTab === 'Files' && (
+                                <div className="text-sm text-gray-600">
+                                    Aucun fichier pour le moment.
                                 </div>
-                                <div className="flex-1">
-                                    <textarea
-                                        value={commentText}
-                                        onChange={e => setCommentText(e.target.value)}
-                                        placeholder="Ajouter un commentaire..."
-                                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
-                                        rows={2}
-                                    />
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className="flex space-x-2">
-                                            <button type="button" className="p-1 rounded hover:bg-gray-100">
-                                                <PaperClipIcon className="w-5 h-5 text-gray-500" />
-                                            </button>
-                                            <button type="button" className="p-1 rounded hover:bg-gray-100">
-                                                <LinkIcon className="w-5 h-5 text-gray-500" />
-                                            </button>
-                                            <button type="button" className="p-1 rounded hover:bg-gray-100">
-                                                <FaceSmileIcon className="w-5 h-5 text-gray-500" />
-                                            </button>
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            onClick={handleCommentSubmit}
-                                            className="px-4 py-1.5 bg-gray-200 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-300"
-                                        >
-                                            Publier
-                                        </button>
+                            )}
+                            {activeTab === 'Progress' && (
+                                <div className="text-sm text-gray-600">
+                                    Progrès: {task?.progress || 0}%
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                        <div
+                                            className="bg-blue-500 h-2.5 rounded-full"
+                                            style={{ width: `${task?.progress || 0}%` }}
+                                        ></div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100"
-                        style={{ zIndex: 100001 }}
-                    >
-                        <XMarkIcon className="w-6 h-6 text-gray-500" />
-                    </button>
                 </div>
             </div>
         </>
