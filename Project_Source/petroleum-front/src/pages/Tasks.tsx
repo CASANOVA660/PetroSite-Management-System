@@ -6,9 +6,11 @@ import { RootState, AppDispatch } from '../store';
 import { toast, Toaster } from 'react-hot-toast';
 import socket from '../utils/socket';
 import { PlusIcon, CheckIcon, ChatBubbleLeftRightIcon, PaperClipIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ClockIcon as ClockIconSolid } from '@heroicons/react/24/solid';
 import PageMeta from '../components/common/PageMeta';
-import AddTaskModal from '../components/tasks/AddTaskModal';
+import CreatePersonalTaskForm from '../components/tasks/CreatePersonalTaskForm';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
+import TaskHistory from '../components/tasks/TaskHistory';
 
 // Update the Task interface to include inReview status
 interface Task {
@@ -265,6 +267,7 @@ const Tasks: React.FC = () => {
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     // Filter tasks to show only those assigned to the current user
     const filterTasksByCurrentUser = (tasksObj: any) => {
@@ -414,6 +417,14 @@ const Tasks: React.FC = () => {
                         </div>
 
                         <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => setIsHistoryOpen(true)}
+                                className="flex items-center text-gray-700 border border-gray-300 rounded-md px-3 py-2"
+                            >
+                                <ClockIconSolid className="w-5 h-5 mr-2 text-[#F28C38]" />
+                                <span>Historique</span>
+                            </button>
+
                             <button className="flex items-center text-gray-700 border border-gray-300 rounded-md px-3 py-2">
                                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M3 6H21M3 12H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -471,10 +482,10 @@ const Tasks: React.FC = () => {
             </div>
 
             {isAddTaskModalOpen && (
-                <AddTaskModal
+                <CreatePersonalTaskForm
                     isOpen={isAddTaskModalOpen}
                     onClose={closeAddTaskModal}
-                    onAdd={handleAddTask}
+
                 />
             )}
 
@@ -482,6 +493,11 @@ const Tasks: React.FC = () => {
                 isOpen={isTaskDetailOpen}
                 onClose={closeTaskDetails}
                 task={selectedTask}
+            />
+
+            <TaskHistory
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
             />
         </>
     );
