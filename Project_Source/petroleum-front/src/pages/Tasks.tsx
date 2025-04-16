@@ -8,6 +8,7 @@ import socket from '../utils/socket';
 import { PlusIcon, CheckIcon, ChatBubbleLeftRightIcon, PaperClipIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
 import PageMeta from '../components/common/PageMeta';
 import AddTaskModal from '../components/tasks/AddTaskModal';
+import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
 
 // Update the Task interface to include inReview status
 interface Task {
@@ -94,7 +95,7 @@ const ProgressDots = ({ percentage, total = 10 }: { percentage: number, total?: 
     );
 };
 
-const TaskCard = ({ task, index }: { task: any, index: number }) => {
+const TaskCard = ({ task, index, onViewDetails }: { task: any, index: number, onViewDetails: (task: any) => void }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Generate tags from task properties
@@ -184,7 +185,13 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
                 </div>
 
                 {/* View details button */}
-                <button className="text-xs flex items-center text-[#F28C38] hover:text-[#e07520] font-medium">
+                <button
+                    className="text-xs flex items-center text-[#F28C38] hover:text-[#e07520] font-medium"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onViewDetails(task);
+                    }}
+                >
                     <EyeIcon className="w-3 h-3 mr-1" />
                     Voir détails
                 </button>
@@ -193,7 +200,7 @@ const TaskCard = ({ task, index }: { task: any, index: number }) => {
     );
 };
 
-const TaskColumn = ({ title, tasks, droppableId }: { title: string, tasks: any[], droppableId: string }) => {
+const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: string, tasks: any[], droppableId: string, onViewDetails: (task: any) => void }) => {
     const statusLabels = {
         todo: "À faire",
         inProgress: "En cours",
@@ -238,7 +245,7 @@ const TaskColumn = ({ title, tasks, droppableId }: { title: string, tasks: any[]
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
                                     >
-                                        <TaskCard task={task} index={index} />
+                                        <TaskCard task={task} index={index} onViewDetails={onViewDetails} />
                                     </div>
                                 )}
                             </Draggable>
@@ -256,6 +263,8 @@ const Tasks: React.FC = () => {
     const { tasks, loading, error } = useSelector((state: RootState) => state.tasks);
     const { user } = useSelector((state: RootState) => state.auth);
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
 
     // Filter tasks to show only those assigned to the current user
     const filterTasksByCurrentUser = (tasksObj: any) => {
@@ -355,6 +364,15 @@ const Tasks: React.FC = () => {
         toast.success('Tâche ajoutée avec succès');
     };
 
+    const handleViewTaskDetails = (task: any) => {
+        setSelectedTask(task);
+        setIsTaskDetailOpen(true);
+    };
+
+    const closeTaskDetails = () => {
+        setIsTaskDetailOpen(false);
+    };
+
     if (loading && Object.keys(tasks).length === 0) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -422,6 +440,7 @@ const Tasks: React.FC = () => {
                             title="À faire"
                             tasks={taskData.todo || []}
                             droppableId="todo"
+                            onViewDetails={handleViewTaskDetails}
                         />
 
                         {/* In Progress Column */}
@@ -429,13 +448,15 @@ const Tasks: React.FC = () => {
                             title="En cours"
                             tasks={taskData.inProgress || []}
                             droppableId="inProgress"
+                            onViewDetails={handleViewTaskDetails}
                         />
 
                         {/* In Review Column */}
                         <TaskColumn
                             title="En revue"
-                            tasks={taskData.inReview}
+                            tasks={taskData.inReview || []}
                             droppableId="inReview"
+                            onViewDetails={handleViewTaskDetails}
                         />
 
                         {/* Done Column */}
@@ -443,6 +464,7 @@ const Tasks: React.FC = () => {
                             title="Terminé"
                             tasks={taskData.done || []}
                             droppableId="done"
+                            onViewDetails={handleViewTaskDetails}
                         />
                     </div>
                 </DragDropContext>
@@ -455,6 +477,12 @@ const Tasks: React.FC = () => {
                     onAdd={handleAddTask}
                 />
             )}
+
+            <TaskDetailPanel
+                isOpen={isTaskDetailOpen}
+                onClose={closeTaskDetails}
+                task={selectedTask}
+            />
         </>
     );
 };

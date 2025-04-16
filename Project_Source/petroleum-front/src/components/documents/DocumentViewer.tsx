@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon, ArrowDownTrayIcon, DocumentIcon, PhotoIcon, DocumentTextIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
 import { Cloudinary } from '@cloudinary/url-gen';
 import { auto } from '@cloudinary/url-gen/actions/resize';
@@ -11,9 +11,37 @@ interface DocumentViewerProps {
     onClose: () => void;
 }
 
+const panelStyles: React.CSSProperties = {
+    backgroundColor: 'white',
+    boxShadow: '0 0 20px rgba(0, 0, 0, 0.3)',
+    zIndex: 100000,
+    overflowY: 'auto',
+    padding: '24px',
+    opacity: 1,
+    maxWidth: '90%',
+    maxHeight: '90%',
+    width: '800px',
+    borderRadius: '8px'
+};
+
+const backdropStyles: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 99999,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center'
+};
+
 const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) => {
     const cld = new Cloudinary({ cloud: { cloudName: 'dx9psug39' } });
     const [isLoading, setIsLoading] = useState(true);
+
+
 
     const isImage = (fileName: string) => {
         const extension = fileName.split('.').pop()?.toLowerCase();
@@ -189,8 +217,12 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-20 z-10 flex items-center justify-end p-4 pr-8">
-            <div className="bg-white rounded-lg shadow-xl w-[calc(100%-300px)] h-[calc(90vh-80px)] ml-64 mt-16 flex flex-col overflow-hidden transition-opacity duration-300 ease-in-out opacity-100 z-50">
+        <div style={backdropStyles} onClick={onClose}>
+            <div
+                style={panelStyles}
+                className="flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="flex items-center p-4 border-b border-gray-200">
                     <div className="flex items-center flex-1">
                         <PhotoIcon className="h-5 w-5 text-gray-500 mr-2" />
@@ -268,4 +300,4 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
     );
 };
 
-export default DocumentViewer; 
+export default DocumentViewer;
