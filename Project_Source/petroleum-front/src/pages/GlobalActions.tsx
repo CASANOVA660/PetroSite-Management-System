@@ -12,6 +12,7 @@ import PlusIcon from '../components/icons/PlusIcon';
 import EcommerceMetrics from '../components/ecommerce/EcommerceMetrics';
 import GanttChart from '../components/tasks/GanttChart';
 import { ChevronLeft, Calendar, List } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 // Define the form data interface
 interface GlobalActionFormData {
@@ -93,7 +94,6 @@ const GlobalActions: React.FC = () => {
     const refreshAllActions = useCallback(async () => {
         try {
             setIsRefreshing(true);
-            console.log('Refreshing all actions from parent component...');
 
             // Fetch both global and project actions
             await Promise.all([
@@ -108,7 +108,6 @@ const GlobalActions: React.FC = () => {
                 setIsRefreshing(false);
             }, 500);
 
-            console.log('All actions refreshed successfully');
         } catch (error) {
             console.error('Error refreshing actions:', error);
             setIsRefreshing(false);
@@ -117,14 +116,9 @@ const GlobalActions: React.FC = () => {
 
     // Fetch both global and project actions when component mounts
     useEffect(() => {
-        console.log('Fetching all actions...');
         refreshAllActions();
     }, [refreshAllActions]);
 
-    useEffect(() => {
-        console.log('Current global actions:', globalActions);
-        console.log('Current project actions:', projectActions);
-    }, [globalActions, projectActions]);
 
     // Update selectedAction when globalActions changes
     useEffect(() => {
@@ -159,11 +153,27 @@ const GlobalActions: React.FC = () => {
         ];
     }, [globalActions, projectActions]);
 
-    // Calculate metrics
-    const totalActions = combinedActions.length;
-    const completedActions = combinedActions.filter(action => action.status === 'completed').length;
-    const inProgressActions = combinedActions.filter(action => action.status === 'in_progress').length;
-    const pendingActions = combinedActions.filter(action => action.status === 'pending').length;
+    // Calculate metrics using useMemo
+    const metrics = useMemo(() => {
+        // Add debugging logs
+
+        // Ensure combinedActions is an array
+        const actions = Array.isArray(combinedActions) ? combinedActions : [];
+
+        const totalActions = actions.length;
+        const completedActions = actions.filter(action => action?.status === 'completed').length;
+        const inProgressActions = actions.filter(action => action?.status === 'in_progress').length;
+        const pendingActions = actions.filter(action => action?.status === 'pending').length;
+
+        const calculatedMetrics = {
+            totalActions,
+            completedActions,
+            inProgressActions,
+            pendingActions
+        };
+
+        return calculatedMetrics;
+    }, [combinedActions]);
 
     // Debounced search function
     const debouncedSearch = debounce((term) => {
@@ -178,8 +188,6 @@ const GlobalActions: React.FC = () => {
 
     // Handle create action with refresh
     const handleCreateAction = () => {
-        // Log all form data for debugging
-        console.log('All form data:', formData);
 
         // Check each required field individually and log which ones are missing
         const missingFields = [];
@@ -213,8 +221,9 @@ const GlobalActions: React.FC = () => {
             title: formData.title.trim(),
             content: formData.content.trim(),
             category: formData.category,
-            responsibleForRealization: formData.responsibleForRealization,
-            responsibleForFollowUp: formData.responsibleForFollowUp,
+            // These values should be the MongoDB ObjectIds, not the names
+            responsibleForRealization: formData.responsibleForRealization, // Already should be _id from dropdown
+            responsibleForFollowUp: formData.responsibleForFollowUp, // Already should be _id from dropdown
             startDate: new Date(formData.startDate).toISOString(),
             endDate: new Date(formData.endDate).toISOString(),
             status: 'pending'
@@ -230,11 +239,12 @@ const GlobalActions: React.FC = () => {
 
         dispatch(createGlobalAction(formattedData))
             .then(() => {
-                // Refresh the actions list after creating a new action
                 refreshAllActions();
+                toast.success('Action globale créée avec succès');
             })
             .catch(error => {
                 console.error('Error creating global action:', error);
+                toast.error('Erreur lors de la création de l\'action globale');
             });
 
         setIsCreateModalOpen(false);
@@ -335,12 +345,7 @@ const GlobalActions: React.FC = () => {
 
                 {/* Metrics Section */}
                 <div className="mb-6">
-                    <EcommerceMetrics data={{
-                        totalActions,
-                        completedActions,
-                        pendingActions,
-                        inProgressActions
-                    }} />
+                    <EcommerceMetrics data={metrics} />
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

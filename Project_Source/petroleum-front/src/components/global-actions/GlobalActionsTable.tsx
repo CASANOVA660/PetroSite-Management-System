@@ -183,7 +183,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     // Initialize actions when they change
     useEffect(() => {
         if (Array.isArray(initialActions)) {
-            console.log("Setting all actions:", initialActions.length);
             setAllActions(initialActions);
             // Update last refresh time when initialActions change
             setLastUpdateTime(new Date());
@@ -306,7 +305,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
 
     // Sort actions by createdAt date (newest first)
     const sortedActions = useMemo(() => {
-        console.log("Sorting filtered actions:", filteredActions.length);
         const sorted = Array.isArray(filteredActions) ? [...filteredActions].sort((a, b) => {
             // If createdAt exists, use it for sorting
             if (a?.createdAt && b?.createdAt) {
@@ -325,8 +323,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = sortedActions.slice(indexOfFirstItem, indexOfLastItem);
 
-    console.log("Current page:", currentPage, "Total items:", sortedActions.length, "Items per page:", itemsPerPage);
-    console.log("Current items:", currentItems.length);
 
     // Pagination controls
     const goToNextPage = () => {
@@ -479,16 +475,12 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 sendNotification: responsibleChanged
             };
 
-            console.log('Sending project action update with data:', actionData);
-            console.log('Action ID:', selectedActionForUpdate._id);
-
             // Close the modal first for better UX
             setIsUpdateModalOpen(false);
 
             // Use the correct URL format with the base URL from axios instance
             axios.put(`/actions/${selectedActionForUpdate._id}`, actionData)
                 .then(response => {
-                    console.log('Project action updated:', response.data);
 
                     // Update the local state immediately with the updated action
                     const updatedAction = response.data.data;
@@ -592,14 +584,12 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
 
             // Add visual feedback for the user
             const loadingMessage = 'Actualisation des données en cours...';
-            console.log(loadingMessage);
 
             const result = await dispatch(fetchGlobalActions({})).unwrap();
 
             if (result && result.actions && Array.isArray(result.actions)) {
                 setAllActions(result.actions);
                 setLastUpdateTime(new Date());
-                console.log('Données actualisées avec succès:', result.actions.length, 'actions');
             }
 
             // Also call the parent refresh if available

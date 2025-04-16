@@ -56,9 +56,9 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
     if (token) {
         try {
             const decodedToken = jwtDecode<User>(token);
-            console.log(decodedToken);
+
             currentUser = decodedToken; // The user data is directly in the decoded token
-            console.log(currentUser);
+
         } catch (error) {
             console.error('Failed to decode token:', error);
         }
@@ -104,13 +104,14 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         const newProjectId = e.target.value;
                         const selectedProject = projects.find(project => project._id === newProjectId);
+
                         setFormData(prevFormData => ({
                             ...prevFormData,
                             projectId: newProjectId,
                             // Reset project category when project changes
                             projectCategory: '',
-                            // Set the current manager's name as responsible for follow-up
-                            responsibleForFollowUp: currentUser ? currentUser.nom : ''
+                            // Set the current user's ID for responsibleForFollowUp
+                            responsibleForFollowUp: currentUser ? currentUser.userId : ''
                         }));
                     }}
                     options={[
@@ -150,11 +151,17 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                 />
 
                 {formData.projectId ? (
-                    <FormDefaultInput
-                        label="Responsable de suivi"
-                        value={formData.responsibleForFollowUp}
-                        readOnly
-                    />
+                    <>
+                        <input
+                            type="hidden"
+                            value={formData.responsibleForFollowUp}
+                        />
+                        <FormDefaultInput
+                            label="Responsable de suivi"
+                            value={users.find(user => user._id === formData.responsibleForFollowUp)?.nom || ""}
+                            readOnly
+                        />
+                    </>
                 ) : (
                     <FormSelectInput
                         label="Responsable de suivi"

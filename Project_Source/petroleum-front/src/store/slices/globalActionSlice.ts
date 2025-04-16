@@ -77,7 +77,6 @@ export const searchGlobalActions = createAsyncThunk(
         try {
             console.log('Searching with params:', searchParams);
             const response = await axios.get('/global-actions/search', { params: searchParams });
-            console.log('Search response:', response.data);
 
             // Handle different response formats
             if (response.data && response.data.actions) {
@@ -101,7 +100,6 @@ export const createGlobalAction = createAsyncThunk(
         try {
             console.log('Sending data to backend:', actionData);
             const response = await axios.post('/global-actions', actionData);
-            console.log('Backend response:', response.data);
             return response.data;
         } catch (error: any) {
             console.error('Error creating action:', error.response?.data || error.message);
@@ -126,9 +124,7 @@ export const updateGlobalAction = createAsyncThunk(
     'globalActions/updateGlobalAction',
     async ({ actionId, actionData }: { actionId: string; actionData: any }, { rejectWithValue }) => {
         try {
-            console.log('Updating global action with data:', { actionId, actionData });
             const response = await axios.put(`/global-actions/${actionId}`, actionData);
-            console.log('Update response:', response.data);
             return response.data;
         } catch (error: any) {
             console.error('Error updating action:', error.response?.data || error.message);

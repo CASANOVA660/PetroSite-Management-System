@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -21,23 +21,31 @@ interface EcommerceMetricsProps {
 }
 
 const EcommerceMetrics: React.FC<EcommerceMetricsProps> = ({ data }) => {
+
+  const metricsData = {
+    totalActions: data?.totalActions || 0,
+    completedActions: data?.completedActions || 0,
+    pendingActions: data?.pendingActions || 0,
+    inProgressActions: data?.inProgressActions || 0
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-500">Total des actions</h3>
-        <p className="mt-2 text-3xl font-bold text-gray-900">{data.totalActions}</p>
+        <p className="mt-2 text-3xl font-bold text-gray-900">{metricsData.totalActions}</p>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-500">Actions terminées</h3>
-        <p className="mt-2 text-3xl font-bold text-green-600">{data.completedActions}</p>
+        <p className="mt-2 text-3xl font-bold text-green-600">{metricsData.completedActions}</p>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-500">Actions en attente</h3>
-        <p className="mt-2 text-3xl font-bold text-yellow-600">{data.pendingActions}</p>
+        <p className="mt-2 text-3xl font-bold text-yellow-600">{metricsData.pendingActions}</p>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <h3 className="text-sm font-medium text-gray-500">Actions en cours</h3>
-        <p className="mt-2 text-3xl font-bold text-blue-600">{data.inProgressActions}</p>
+        <p className="mt-2 text-3xl font-bold text-blue-600">{metricsData.inProgressActions}</p>
       </div>
     </div>
   );
