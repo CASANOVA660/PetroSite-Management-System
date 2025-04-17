@@ -1,5 +1,6 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
+import { fetchUserTasks, fetchProjectActionTasks } from './taskSlice';
 
 export interface Action {
     _id: string;
@@ -85,9 +86,34 @@ export const fetchCategoryActions = createAsyncThunk(
 
 export const createAction = createAsyncThunk(
     'actions/createAction',
-    async (actionData: CreateActionPayload) => {
-        const response = await axios.post('/actions', actionData);
-        return response.data.data;
+    async (actionData: CreateActionPayload, { dispatch }) => {
+        try {
+            // Create the action
+            const response = await axios.post('/actions', actionData);
+            const actionId = response.data.data._id;
+
+            console.log('Action created successfully with ID:', actionId);
+
+            // Wait 1s to ensure backend task creation completes
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Try to explicitly trigger task creation via the new endpoint
+            try {
+                console.log(`Explicitly triggering task creation for actionId: ${actionId}`);
+                const taskCreateResponse = await axios.post(`/tasks/project-action/${actionId}`);
+                console.log('Task creation response:', taskCreateResponse.data);
+            } catch (taskError) {
+                console.warn('Task creation endpoint failed, will try regular fetch', taskError);
+            }
+
+            // Now fetch the project action tasks
+            dispatch(fetchProjectActionTasks());
+
+            return response.data.data;
+        } catch (error) {
+            console.error('Error creating action:', error);
+            throw error;
+        }
     }
 );
 

@@ -84,6 +84,20 @@ class ActionController {
             const action = await actionService.createAction(actionData);
             console.log('Action created:', action); // Debug log
 
+            // Immediately create tasks from this action
+            try {
+                // Import the task service
+                const taskService = require('../../tasks/services/task.service');
+
+                // Create tasks
+                console.log('ActionController - Immediately creating tasks for action:', action._id);
+                const tasks = await taskService.createTasksFromProjectAction(action._id);
+                console.log(`ActionController - Successfully created ${tasks.length} tasks for action`);
+            } catch (taskError) {
+                console.error('ActionController - Error creating tasks for action:', taskError);
+                // We don't fail the request if task creation fails
+            }
+
             // Emit socket notification ONLY to responsible user if they are different from the manager
             if (action.responsible && action.responsible._id &&
                 action.responsible._id.toString() !== action.manager.toString()) {

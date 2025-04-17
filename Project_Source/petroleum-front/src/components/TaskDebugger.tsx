@@ -1,8 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { Task, fetchUserTasks } from '../store/slices/taskSlice';
+import { Task, fetchUserTasks, fetchProjectActionTasks, fetchGlobalActionTasks } from '../store/slices/taskSlice';
 import { toast } from 'react-hot-toast';
+
+// Define interfaces for the populated objects
+interface PopulatedId {
+    _id: string;
+    [key: string]: any; // Allow other properties
+}
+
+// Simplified display function for IDs
+const displayId = (id: any): string => {
+    if (typeof id === 'string') {
+        return id.substring(0, 8) + '...';
+    } else if (id && typeof id === 'object') {
+        // Handle populated object case
+        const objectId = (id as PopulatedId)?._id;
+        if (objectId && typeof objectId === 'string') {
+            return objectId.substring(0, 8) + '...';
+        }
+    }
+    return 'N/A';
+};
 
 const TaskDebugger: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -21,9 +41,20 @@ const TaskDebugger: React.FC = () => {
     const handleRefreshTasks = async () => {
         try {
             setIsRefreshing(true);
-            await dispatch(fetchUserTasks()).unwrap();
+
+            // Fetch personal tasks
+            await dispatch(fetchUserTasks({})).unwrap();
+
+            // Fetch project action tasks
+            await dispatch(fetchProjectActionTasks()).unwrap();
+
+            // Fetch global action tasks
+            await dispatch(fetchGlobalActionTasks()).unwrap();
+
+            toast.success('All tasks refreshed');
         } catch (error) {
             console.error('Error refreshing tasks:', error);
+            toast.error('Failed to refresh tasks');
         } finally {
             setIsRefreshing(false);
         }
@@ -163,8 +194,8 @@ const TaskDebugger: React.FC = () => {
                                 <div key={task._id} className="p-2 border-b border-gray-100 bg-orange-50">
                                     <div className="font-semibold">{task.title} ({task.status})</div>
                                     <div className="text-gray-500 mt-1">
-                                        <div>ActionID: {task.actionId?.substring(0, 8)}...</div>
-                                        {task.projectId && <div>ProjectID: {task.projectId.substring(0, 8)}...</div>}
+                                        <div>ActionID: {displayId(task.actionId)}</div>
+                                        {task.projectId && <div>ProjectID: {displayId(task.projectId)}</div>}
                                         {task.category && <div>Category: {task.category}</div>}
                                         {task.tags && task.tags.length > 0 && <div>Tags: {task.tags.join(', ')}</div>}
                                     </div>
@@ -187,8 +218,8 @@ const TaskDebugger: React.FC = () => {
                                 <div key={task._id} className="p-2 border-b border-gray-100 bg-blue-50">
                                     <div className="font-semibold">{task.title} ({task.status})</div>
                                     <div className="text-gray-500 mt-1">
-                                        <div>GlobalActionID: {task.globalActionId?.substring(0, 8)}...</div>
-                                        {task.projectId && <div>ProjectID: {task.projectId.substring(0, 8)}...</div>}
+                                        <div>GlobalActionID: {displayId(task.globalActionId)}</div>
+                                        {task.projectId && <div>ProjectID: {displayId(task.projectId)}</div>}
                                         {task.category && <div>Category: {task.category}</div>}
                                         {task.tags && task.tags.length > 0 && <div>Tags: {task.tags.join(', ')}</div>}
                                     </div>

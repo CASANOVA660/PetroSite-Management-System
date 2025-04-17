@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
+import { fetchGlobalActionTasks } from './taskSlice';
 
 // Define the action interface
 export interface GlobalAction {
@@ -97,10 +98,17 @@ export const searchGlobalActions = createAsyncThunk(
 
 export const createGlobalAction = createAsyncThunk(
     'globalActions/createGlobalAction',
-    async (actionData: any, { rejectWithValue }) => {
+    async (actionData: any, { rejectWithValue, dispatch }) => {
         try {
             console.log('Sending data to backend:', actionData);
             const response = await axios.post('/global-actions', actionData);
+
+            // After creating a global action, specifically refresh global action tasks
+            console.log('Global action created, triggering specific global action tasks refresh');
+            setTimeout(() => {
+                dispatch(fetchGlobalActionTasks());
+            }, 500);
+
             return response.data;
         } catch (error: any) {
             console.error('Error creating action:', error.response?.data || error.message);

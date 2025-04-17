@@ -60,49 +60,30 @@ class TaskService {
     }
 
     // Get all tasks for a user
-    async getUserTasks(userId) {
+    async getUserTasks(userId, options = {}) {
         try {
-            console.log('TaskService - getUserTasks called for user:', userId);
+            console.log('TaskService - getUserTasks called for user:', userId, 'with options:', options);
+            const { includeProjectActions = false } = options;
 
-            // Try to get from cache first
-            const cacheKey = `${this.USER_TASKS_KEY_PREFIX}${userId}`;
-            const cachedTasks = await redis.get(cacheKey);
-
-            if (cachedTasks) {
-                console.log('TaskService - Returning cached tasks for user', userId);
-                // Even when returning cached tasks, let's log what's being returned
-                const parsedTasks = JSON.parse(cachedTasks);
-
-                // Check for action tasks in the cache
-                const allCachedTasks = [
-                    ...(parsedTasks.todo || []),
-                    ...(parsedTasks.inProgress || []),
-                    ...(parsedTasks.inReview || []),
-                    ...(parsedTasks.done || [])
-                ];
-
-                const actionTasks = allCachedTasks.filter(t => t.actionId);
-                console.log(`TaskService - Cache has ${actionTasks.length} action tasks for user ${userId}`);
-
-                // If we have action tasks in cache, return them
-                if (actionTasks.length > 0) {
-                    return parsedTasks;
-                }
-
-                // If no action tasks in cache, proceed to fetch from DB
-                console.log('TaskService - No action tasks in cache, clearing cache to refresh');
-                await redis.del(cacheKey);
-            }
-
-            // If not in cache, fetch from database
-            console.log('TaskService - Fetching tasks from database for user:', userId);
-            const tasks = await Task.find({
+            // Build query based on parameters
+            const query = {
                 assignee: userId,
                 isArchived: { $ne: true }  // Explicitly exclude archived tasks
-            })
+            };
+
+            // If we're not explicitly including project actions, exclude them
+            if (!includeProjectActions) {
+                query.actionId = { $exists: false };
+            }
+
+            console.log('TaskService - Using query:', JSON.stringify(query));
+
+            const tasks = await Task.find(query)
                 .populate('assignee', 'nom prenom')
                 .populate('creator', 'nom prenom')
-                .sort({ createdAt: -1 });
+                .populate('actionId')
+                .populate('globalActionId')
+                .sort({ createdAt: -1 }); // Sort by creation date, newest first
 
             console.log(`TaskService - Found ${tasks.length} total tasks for user ${userId}`);
 
@@ -115,7 +96,7 @@ class TaskService {
                 });
             }
 
-            // Group tasks by status
+            // Group tasks by status while preserving order
             const groupedTasks = {
                 todo: tasks.filter(task => task.status === 'todo'),
                 inProgress: tasks.filter(task => task.status === 'inProgress'),
@@ -131,9 +112,10 @@ class TaskService {
                 done: groupedTasks.done.length
             });
 
-            // Cache the result
+            // Update the cache with fresh data
+            const cacheKey = `${this.USER_TASKS_KEY_PREFIX}${userId}${includeProjectActions ? ':with_project_actions' : ''}`;
             await redis.setex(cacheKey, this.CACHE_DURATION, JSON.stringify(groupedTasks));
-            console.log(`TaskService - Cached ${tasks.length} tasks for user ${userId}`);
+            console.log(`TaskService - Updated cache with ${tasks.length} tasks for user ${userId}`);
 
             return groupedTasks;
         } catch (error) {
@@ -753,24 +735,218 @@ class TaskService {
         }
     }
 
-    // Helper method to clear user tasks cache
+    // Clear user tasks cache
     async clearUserTasksCache(userId) {
         try {
-            if (!userId) {
-                console.error('TaskService - Cannot clear cache: userId is undefined or null');
-                return;
+            // Clear all variations of user task cache
+            const baseKey = `${this.USER_TASKS_KEY_PREFIX}${userId}`;
+
+            // Create a list of all possible cache keys
+            const cacheKeys = [
+                baseKey,                              // Basic user tasks
+                `${baseKey}:with_project_actions`,    // User tasks with project actions
+                `${baseKey}:project_actions_only`,    // Only project action tasks
+                `${baseKey}:global_actions_only`      // Only global action tasks
+            ];
+
+            // Clear all cache keys
+            for (const key of cacheKeys) {
+                await redis.del(key);
+                console.log(`TaskService - Cleared cache for key: ${key}`);
             }
 
-            // Log the cache clearing
-            console.log(`TaskService - Clearing cache for user ${userId}`);
-            const cacheKey = `${this.USER_TASKS_KEY_PREFIX}${userId}`;
-
-            // Delete the cache key
-            const result = await redis.del(cacheKey);
-            console.log(`TaskService - Cache cleared for user ${userId} (Result: ${result})`);
+            console.log(`TaskService - All cache cleared for user ${userId}`);
         } catch (error) {
-            console.error('TaskService - Error clearing cache:', error);
-            // Don't throw, just log the error
+            console.error(`TaskService - Error clearing cache for user ${userId}:`, error);
+            // Don't throw the error since this is a non-critical operation
+        }
+    }
+
+    // Get only project action tasks for a user
+    async getProjectActionTasks(userId) {
+        try {
+            console.log('TaskService - getProjectActionTasks called for user:', userId);
+
+            // Query only for tasks that have actionId
+            const tasks = await Task.find({
+                assignee: userId,
+                actionId: { $exists: true, $ne: null },
+                isArchived: { $ne: true }
+            })
+                .populate('assignee', 'nom prenom')
+                .populate('creator', 'nom prenom')
+                .populate('actionId')
+                .sort({ createdAt: -1 }); // Sort by creation date, newest first
+
+            console.log(`TaskService - Found ${tasks.length} project action tasks for user ${userId}`);
+
+            // Group tasks by status while preserving order
+            const groupedTasks = {
+                todo: tasks.filter(task => task.status === 'todo'),
+                inProgress: tasks.filter(task => task.status === 'inProgress'),
+                inReview: tasks.filter(task => task.status === 'inReview'),
+                done: tasks.filter(task => task.status === 'done')
+            };
+
+            // Update cache
+            const cacheKey = `${this.USER_TASKS_KEY_PREFIX}${userId}:project_actions_only`;
+            await redis.setex(cacheKey, this.CACHE_DURATION, JSON.stringify(groupedTasks));
+            console.log(`TaskService - Updated cache for project action tasks for user ${userId}`);
+
+            return groupedTasks;
+        } catch (error) {
+            console.error('TaskService - Error fetching project action tasks:', error);
+            throw error;
+        }
+    }
+
+    // Get only global action tasks for a user
+    async getGlobalActionTasks(userId) {
+        try {
+            console.log('TaskService - getGlobalActionTasks called for user:', userId);
+
+            // Query only for tasks that have globalActionId
+            const tasks = await Task.find({
+                assignee: userId,
+                globalActionId: { $exists: true, $ne: null },
+                isArchived: { $ne: true }
+            })
+                .populate('assignee', 'nom prenom')
+                .populate('creator', 'nom prenom')
+                .populate('globalActionId')
+                .sort({ createdAt: -1 }); // Sort by creation date, newest first
+
+            console.log(`TaskService - Found ${tasks.length} global action tasks for user ${userId}`);
+
+            // Group tasks by status while preserving order
+            const groupedTasks = {
+                todo: tasks.filter(task => task.status === 'todo'),
+                inProgress: tasks.filter(task => task.status === 'inProgress'),
+                inReview: tasks.filter(task => task.status === 'inReview'),
+                done: tasks.filter(task => task.status === 'done')
+            };
+
+            // Update cache
+            const cacheKey = `${this.USER_TASKS_KEY_PREFIX}${userId}:global_actions_only`;
+            await redis.setex(cacheKey, this.CACHE_DURATION, JSON.stringify(groupedTasks));
+            console.log(`TaskService - Updated cache for global action tasks for user ${userId}`);
+
+            return groupedTasks;
+        } catch (error) {
+            console.error('TaskService - Error fetching global action tasks:', error);
+            throw error;
+        }
+    }
+
+    // Create tasks directly from a project action
+    async createTasksFromProjectAction(actionId) {
+        try {
+            console.log(`TaskService - createTasksFromProjectAction called for action: ${actionId}`);
+
+            if (!actionId) {
+                throw new Error('Action ID is required to create tasks');
+            }
+
+            // First, check if tasks already exist for this action
+            const existingTasks = await Task.find({ actionId });
+            if (existingTasks && existingTasks.length > 0) {
+                console.log(`TaskService - ${existingTasks.length} tasks already exist for action ${actionId}`);
+                return existingTasks;
+            }
+
+            // Fetch the action with all its details
+            const Action = require('../../actions/models/action.model');
+            const action = await Action.findById(actionId)
+                .populate('responsible')
+                .populate('manager');
+
+            if (!action) {
+                throw new Error(`Project action with ID ${actionId} not found`);
+            }
+
+            console.log(`TaskService - Creating tasks for action: ${action.title}`);
+
+            // Create tasks based on action type
+            let tasks = [];
+
+            // Create a task for the responsible person
+            const responsibleTask = new Task({
+                title: `Réalisation: ${action.title}`,
+                description: action.content,
+                status: 'todo',
+                progress: 0,
+                priority: 'medium',
+                startDate: action.startDate,
+                endDate: action.endDate,
+                assignee: action.responsible._id,
+                creator: action.manager._id,
+                needsValidation: action.needsValidation === true,
+                tags: ['Project Action', action.category],
+                actionId: action._id,
+                projectId: action.projectId,
+                category: action.category
+            });
+
+            await responsibleTask.save();
+            tasks.push(responsibleTask);
+
+            // Create a task for the manager if they need to validate
+            if (action.needsValidation) {
+                const managerTask = new Task({
+                    title: `Suivi: ${action.title}`,
+                    description: action.content,
+                    status: 'todo',
+                    progress: 0,
+                    priority: 'medium',
+                    startDate: action.startDate,
+                    endDate: action.endDate,
+                    assignee: action.manager._id,
+                    creator: action.manager._id,
+                    needsValidation: false,
+                    tags: ['Project Action Validation', action.category],
+                    actionId: action._id,
+                    projectId: action.projectId,
+                    category: action.category
+                });
+
+                await managerTask.save();
+                tasks.push(managerTask);
+            }
+
+            console.log(`TaskService - Created ${tasks.length} tasks for action ${actionId}`);
+
+            // Clear caches for all users involved
+            await this.clearUserTasksCache(action.responsible._id.toString());
+            await this.clearUserTasksCache(action.manager._id.toString());
+
+            return tasks;
+        } catch (error) {
+            console.error(`TaskService - Error creating tasks from project action:`, error);
+            throw error;
+        }
+    }
+
+    // Get task by ID
+    async getTaskById(taskId) {
+        try {
+            if (!taskId) {
+                throw new Error('Task ID is required');
+            }
+
+            const task = await Task.findById(taskId)
+                .populate('assignee', 'nom prenom')
+                .populate('creator', 'nom prenom')
+                .populate('actionId')
+                .populate('globalActionId');
+
+            if (!task) {
+                throw new Error('Task not found');
+            }
+
+            return task;
+        } catch (error) {
+            console.error(`TaskService - Error fetching task with ID ${taskId}:`, error);
+            throw error;
         }
     }
 }

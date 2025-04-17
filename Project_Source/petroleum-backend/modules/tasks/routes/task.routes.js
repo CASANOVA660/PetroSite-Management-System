@@ -10,6 +10,15 @@ router.use(authMiddleware);
 // Get all tasks for the current user
 router.get('/user', taskController.getUserTasks);
 
+// Get only project action tasks for the current user
+router.get('/project-actions', taskController.getProjectActionTasks);
+
+// Get only global action tasks for the current user
+router.get('/global-actions', taskController.getGlobalActionTasks);
+
+// Force create tasks from a project action (manual trigger)
+router.post('/project-action/:actionId', taskController.createTasksFromProjectAction);
+
 // Get task history
 router.get('/history', taskController.getTaskHistory);
 

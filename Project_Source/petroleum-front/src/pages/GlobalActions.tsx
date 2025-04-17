@@ -5,6 +5,7 @@ import { fetchGlobalActions, createGlobalAction } from '../store/slices/globalAc
 import { fetchProjects } from '../store/slices/projectSlice';
 import { fetchUsers } from '../store/slices/userSlice';
 import { fetchAllActions } from '../store/slices/actionSlice';
+import { fetchUserTasks } from '../store/slices/taskSlice';
 import { debounce } from 'lodash';
 import { GlobalAction } from '../store/slices/globalActionSlice';
 import { Action } from '../store/slices/actionSlice';
@@ -230,8 +231,25 @@ const GlobalActions: React.FC = () => {
 
         dispatch(createGlobalAction(formattedData))
             .then(() => {
+                // Refresh all actions
                 refreshAllActions();
                 toast.success('Action globale créée avec succès');
+
+                // Multi-stage refresh approach to ensure tasks appear
+                // 1. First immediate refresh
+                dispatch(fetchUserTasks({ includeProjectActions: true }));
+
+                // 2. Second refresh after a delay
+                setTimeout(() => {
+                    console.log('First delayed refresh of tasks after global action creation...');
+                    dispatch(fetchUserTasks({ includeProjectActions: true }));
+                }, 1000);
+
+                // 3. Third refresh after a longer delay to ensure backend processing is complete
+                setTimeout(() => {
+                    console.log('Second delayed refresh of tasks after global action creation...');
+                    dispatch(fetchUserTasks({ includeProjectActions: true }));
+                }, 3000);
             })
             .catch(error => {
                 console.error('Error creating global action:', error);

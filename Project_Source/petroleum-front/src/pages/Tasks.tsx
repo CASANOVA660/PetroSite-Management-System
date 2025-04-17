@@ -10,7 +10,7 @@ import PageMeta from '../components/common/PageMeta';
 import CreatePersonalTaskForm from '../components/tasks/CreatePersonalTaskForm';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
 import TaskHistory from '../components/tasks/TaskHistory';
-import { fetchUserTasks, updateTaskStatus, addNewTask, updateTask, Task } from '../store/slices/taskSlice';
+import { fetchUserTasks, fetchProjectActionTasks, fetchGlobalActionTasks, updateTaskStatus, addNewTask, updateTask, Task } from '../store/slices/taskSlice';
 import ApiTest from '../components/ApiTest';
 import TaskDebugger from '../components/TaskDebugger';
 
@@ -300,105 +300,98 @@ const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: strin
 
 const Tasks: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
-    const { tasks, loading, error } = useSelector((state: RootState) => state.tasks);
+    const { tasks, loading } = useSelector((state: RootState) => state.tasks);
     const { user } = useSelector((state: RootState) => state.auth);
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [showHistory, setShowHistory] = useState(false);
 
-    // Filter tasks to show only those assigned to the current user
+    // Add a new state for filter type
+    const [filterType, setFilterType] = useState<'all' | 'standard' | 'projectAction' | 'globalAction'>('all');
+
+    // Filter tasks by current user
     const filterTasksByCurrentUser = (tasksObj: { todo: Task[], inProgress: Task[], inReview: Task[], done: Task[] }) => {
         if (!user || !user._id) return { todo: [], inProgress: [], inReview: [], done: [] };
 
-        // Log tasks for debugging
-        console.log('All tasks before filtering:', {
-            todo: tasksObj.todo?.length || 0,
-            inProgress: tasksObj.inProgress?.length || 0,
-            inReview: tasksObj.inReview?.length || 0,
-            done: tasksObj.done?.length || 0
-        });
-
-        // Count tasks by type before filtering
-        const countByType = {
-            projectAction: 0,
-            globalAction: 0,
-            personal: 0,
-            other: 0
+        // Create a deep copy of the tasks object to avoid mutations
+        let filteredTasks = {
+            todo: [...(tasksObj.todo || [])],
+            inProgress: [...(tasksObj.inProgress || [])],
+            inReview: [...(tasksObj.inReview || [])],
+            done: [...(tasksObj.done || [])]
         };
 
-        // Check all tasks for debugging
-        const allTasks = [
-            ...(tasksObj.todo || []),
-            ...(tasksObj.inProgress || []),
-            ...(tasksObj.inReview || []),
-            ...(tasksObj.done || [])
-        ];
-
-        allTasks.forEach(task => {
-            if (task.actionId) {
-                countByType.projectAction++;
-            } else if (task.globalActionId) {
-                countByType.globalAction++;
-            } else if (!task.actionId && !task.globalActionId) {
-                countByType.personal++;
-            } else {
-                countByType.other++;
-            }
+        // Filter tasks assigned to current user
+        Object.keys(filteredTasks).forEach(key => {
+            const status = key as keyof typeof filteredTasks;
+            filteredTasks[status] = filteredTasks[status].filter(task =>
+                task.assignee && task.assignee._id === user._id
+            );
         });
 
-        console.log('Tasks by type before filtering:', countByType);
+        // Count tasks by type before filtering by task type
+        const countByType = {
+            standard: filteredTasks.todo.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.inProgress.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.inReview.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.done.filter(t => !t.actionId && !t.globalActionId).length,
+            projectAction: filteredTasks.todo.filter(t => t.actionId).length +
+                filteredTasks.inProgress.filter(t => t.actionId).length +
+                filteredTasks.inReview.filter(t => t.actionId).length +
+                filteredTasks.done.filter(t => t.actionId).length,
+            globalAction: filteredTasks.todo.filter(t => t.globalActionId).length +
+                filteredTasks.inProgress.filter(t => t.globalActionId).length +
+                filteredTasks.inReview.filter(t => t.globalActionId).length +
+                filteredTasks.done.filter(t => t.globalActionId).length
+        };
 
-        const filteredTasks = Object.keys(tasksObj).reduce((acc: { [key: string]: Task[] }, status) => {
-            // Filter tasks for each status category to show all tasks assigned to current user
-            // regardless of source (personal, project action, global action)
-            acc[status] = tasksObj[status as keyof typeof tasksObj]?.filter((task: Task) => {
-                const isAssignedToCurrentUser = task.assignee && task.assignee._id === user._id;
+        console.log('Tasks by type BEFORE filtering:', countByType);
 
-                // Log rejected tasks for debugging
-                if (!isAssignedToCurrentUser && (task.actionId || task.projectId)) {
-                    console.log('Rejected task (not assigned to current user):', {
-                        id: task._id,
-                        title: task.title,
-                        actionId: task.actionId,
-                        projectId: task.projectId,
-                        assigneeId: task.assignee?._id,
-                        currentUserId: user._id
-                    });
-                }
+        if (filterType !== 'all') {
+            Object.keys(filteredTasks).forEach(key => {
+                const status = key as keyof typeof filteredTasks;
 
-                return isAssignedToCurrentUser;
-            }) || [];
+                filteredTasks[status] = filteredTasks[status].filter(task => {
+                    if (filterType === 'standard' && !task.actionId && !task.globalActionId) {
+                        return true;
+                    }
+                    if (filterType === 'projectAction' && task.actionId) {
+                        return true;
+                    }
+                    if (filterType === 'globalAction' && task.globalActionId) {
+                        return true;
+                    }
+                    return false;
+                });
+            });
+        }
 
-            return acc;
-        }, {} as { [key: string]: Task[] });
+        // Sort all task lists by creation date (newest first)
+        for (const status in filteredTasks) {
+            const taskStatus = status as keyof typeof filteredTasks;
+            filteredTasks[taskStatus].sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+        }
 
         // Count tasks by type after filtering
         const filteredCountByType = {
-            projectAction: 0,
-            globalAction: 0,
-            personal: 0,
-            other: 0
+            standard: filteredTasks.todo.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.inProgress.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.inReview.filter(t => !t.actionId && !t.globalActionId).length +
+                filteredTasks.done.filter(t => !t.actionId && !t.globalActionId).length,
+            projectAction: filteredTasks.todo.filter(t => t.actionId).length +
+                filteredTasks.inProgress.filter(t => t.actionId).length +
+                filteredTasks.inReview.filter(t => t.actionId).length +
+                filteredTasks.done.filter(t => t.actionId).length,
+            globalAction: filteredTasks.todo.filter(t => t.globalActionId).length +
+                filteredTasks.inProgress.filter(t => t.globalActionId).length +
+                filteredTasks.inReview.filter(t => t.globalActionId).length +
+                filteredTasks.done.filter(t => t.globalActionId).length
         };
-
-        const allFilteredTasks = [
-            ...(filteredTasks.todo || []),
-            ...(filteredTasks.inProgress || []),
-            ...(filteredTasks.inReview || []),
-            ...(filteredTasks.done || [])
-        ];
-
-        allFilteredTasks.forEach(task => {
-            if (task.actionId) {
-                filteredCountByType.projectAction++;
-            } else if (task.globalActionId) {
-                filteredCountByType.globalAction++;
-            } else if (!task.actionId && !task.globalActionId) {
-                filteredCountByType.personal++;
-            } else {
-                filteredCountByType.other++;
-            }
-        });
 
         console.log('Tasks by type AFTER filtering:', filteredCountByType);
 
@@ -426,9 +419,18 @@ const Tasks: React.FC = () => {
     useEffect(() => {
         const loadTasks = async () => {
             try {
-                console.log('Fetching tasks...');
-                const response = await dispatch(fetchUserTasks()).unwrap();
-                console.log('Tasks loaded successfully:', response);
+                console.log('Fetching all tasks...');
+                // Include project actions by setting includeProjectActions to true
+                await dispatch(fetchUserTasks({ includeProjectActions: true })).unwrap();
+
+                // The following calls might be redundant if global actions are included in the main fetch
+                // But keep them if they are needed for separate sections
+                console.log('Fetching project action tasks...');
+                await dispatch(fetchProjectActionTasks()).unwrap();
+
+                console.log('Fetching global action tasks...');
+                await dispatch(fetchGlobalActionTasks()).unwrap();
+
                 toast.success('Tâches chargées avec succès');
             } catch (err) {
                 console.error('Error loading tasks:', err);
@@ -498,9 +500,18 @@ const Tasks: React.FC = () => {
     const testApiConnection = async () => {
         try {
             console.log('Testing API connection...');
-            const response = await dispatch(fetchUserTasks()).unwrap();
-            console.log('API response:', response);
-            toast.success('API connection successful!');
+
+            // Test all three API endpoints
+            console.log('Testing personal tasks API...');
+            await dispatch(fetchUserTasks({})).unwrap();
+
+            console.log('Testing project action tasks API...');
+            await dispatch(fetchProjectActionTasks()).unwrap();
+
+            console.log('Testing global action tasks API...');
+            await dispatch(fetchGlobalActionTasks()).unwrap();
+
+            toast.success('All API connections successful!');
         } catch (error) {
             console.error('API connection error:', error);
             toast.error(`API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -549,7 +560,7 @@ const Tasks: React.FC = () => {
 
                         <div className="flex items-center space-x-2">
                             <button
-                                onClick={() => setIsHistoryOpen(true)}
+                                onClick={() => setShowHistory(true)}
                                 className="flex items-center text-gray-700 border border-gray-300 rounded-md px-3 py-2"
                             >
                                 <ClockIconSolid className="w-5 h-5 mr-2 text-[#F28C38]" />
@@ -633,8 +644,8 @@ const Tasks: React.FC = () => {
             />
 
             <TaskHistory
-                isOpen={isHistoryOpen}
-                onClose={() => setIsHistoryOpen(false)}
+                isOpen={showHistory}
+                onClose={() => setShowHistory(false)}
             />
 
             <ApiTest />

@@ -88,95 +88,88 @@ const initialState: TasksState = {
 // Async thunks
 export const fetchUserTasks = createAsyncThunk(
     'tasks/fetchUserTasks',
-    async (_, { rejectWithValue }) => {
+    async (options: { includeProjectActions?: boolean } = {}, { rejectWithValue, dispatch }) => {
         try {
             console.log('Fetching user tasks from API...');
-            const response = await axios.get('/tasks/user');
+
+            // Add timestamp and includeProjectActions flag explicitly
+            const timestamp = new Date().getTime();
+            const includeProjectActions = options.includeProjectActions === true ? 'true' : 'false';
+            const response = await axios.get(`/tasks/user?_t=${timestamp}&includeProjectActions=${includeProjectActions}`);
+
             console.log('User tasks API response:', response.data);
 
             // Check if the data has the expected structure
             if (!response.data.data || !response.data.data.todo) {
                 console.error('Unexpected API response format:', response.data);
-                return rejectWithValue('Invalid response format from API');
-            }
 
-            // Count task types in the response
-            const allTasks = [
-                ...(response.data.data.todo || []),
-                ...(response.data.data.inProgress || []),
-                ...(response.data.data.inReview || []),
-                ...(response.data.data.done || [])
-            ];
+                // If we didn't explicitly request project actions yet, try again with that parameter
+                if (!options.includeProjectActions) {
+                    console.log('Retrying with explicit includeProjectActions=true parameter...');
+                    // Instead of recursion, just make a new request directly
+                    const retryTimestamp = new Date().getTime();
+                    const retryResponse = await axios.get(`/tasks/user?_t=${retryTimestamp}&includeProjectActions=true`);
 
-            const taskTypes = {
-                projectAction: allTasks.filter(t => t.actionId).length,
-                globalAction: allTasks.filter(t => t.globalActionId).length,
-                personal: allTasks.filter(t => !t.actionId && !t.globalActionId).length,
-                total: allTasks.length
-            };
-
-            console.log('Task types in API response:', taskTypes);
-
-            // Check for any tasks with actionId
-            const projectActionTasks = allTasks.filter(t => t.actionId);
-            if (projectActionTasks.length > 0) {
-                console.log('Project action tasks found in response:',
-                    projectActionTasks.map(t => ({
-                        id: t._id,
-                        title: t.title,
-                        actionId: t.actionId,
-                        projectId: t.projectId,
-                        assigneeId: t.assignee?._id,
-                        status: t.status
-                    }))
-                );
-            } else {
-                console.warn('No project action tasks found in the API response!');
-
-                // Force a fresh reload without cache
-                console.log('Trying to force reload without cache...');
-                try {
-                    const freshResponse = await axios.get('/tasks/user', {
-                        headers: {
-                            'Cache-Control': 'no-cache',
-                            'Pragma': 'no-cache',
-                            'Expires': '0'
-                        }
-                    });
-
-                    console.log('Fresh API response received:', freshResponse.data);
-
-                    if (freshResponse.data.data && freshResponse.data.data.todo) {
-                        const freshAllTasks = [
-                            ...(freshResponse.data.data.todo || []),
-                            ...(freshResponse.data.data.inProgress || []),
-                            ...(freshResponse.data.data.inReview || []),
-                            ...(freshResponse.data.data.done || [])
-                        ];
-
-                        const freshProjectActionTasks = freshAllTasks.filter(t => t.actionId);
-                        if (freshProjectActionTasks.length > 0) {
-                            console.log('Fresh request found project action tasks:',
-                                freshProjectActionTasks.map(t => ({
-                                    id: t._id,
-                                    title: t.title,
-                                    actionId: t.actionId,
-                                    status: t.status
-                                }))
-                            );
-
-                            return freshResponse.data.data;
-                        }
+                    if (retryResponse.data.data && retryResponse.data.data.todo) {
+                        return retryResponse.data.data;
                     }
-                } catch (freshError) {
-                    console.error('Error in fresh request:', freshError);
                 }
+
+                return rejectWithValue('Invalid response format from API');
             }
 
             return response.data.data;
         } catch (error: any) {
             console.error('Error fetching user tasks:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch tasks');
+        }
+    }
+);
+
+// Specialized function to fetch only project action tasks
+export const fetchProjectActionTasks = createAsyncThunk(
+    'tasks/fetchProjectActionTasks',
+    async (_, { rejectWithValue }) => {
+        try {
+            console.log('Fetching only project action tasks...');
+            const timestamp = new Date().getTime();
+            const response = await axios.get(`/tasks/project-actions?_t=${timestamp}`);
+
+            console.log('Project action tasks response:', response.data);
+
+            if (!response.data.data) {
+                console.error('Invalid project action tasks response:', response.data);
+                return rejectWithValue('Invalid response format from API');
+            }
+
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error fetching project action tasks:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch project action tasks');
+        }
+    }
+);
+
+// Specialized function to fetch only global action tasks
+export const fetchGlobalActionTasks = createAsyncThunk(
+    'tasks/fetchGlobalActionTasks',
+    async (_, { rejectWithValue }) => {
+        try {
+            console.log('Fetching only global action tasks...');
+            const timestamp = new Date().getTime();
+            const response = await axios.get(`/tasks/global-actions?_t=${timestamp}`);
+
+            console.log('Global action tasks response:', response.data);
+
+            if (!response.data.data) {
+                console.error('Invalid global action tasks response:', response.data);
+                return rejectWithValue('Invalid response format from API');
+            }
+
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error fetching global action tasks:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch global action tasks');
         }
     }
 );
@@ -326,6 +319,64 @@ const taskSlice = createSlice({
                 state.tasks = action.payload;
             })
             .addCase(fetchUserTasks.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // fetchProjectActionTasks
+            .addCase(fetchProjectActionTasks.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchProjectActionTasks.fulfilled, (state, action) => {
+                state.loading = false;
+                // Merge project action tasks with existing tasks
+                // Keep all non-project action tasks and add the new project action tasks
+                const nonProjectActionTasks = {
+                    todo: state.tasks.todo.filter(t => !t.actionId),
+                    inProgress: state.tasks.inProgress.filter(t => !t.actionId),
+                    inReview: state.tasks.inReview.filter(t => !t.actionId),
+                    done: state.tasks.done.filter(t => !t.actionId)
+                };
+
+                // Combine with the new project action tasks
+                state.tasks = {
+                    todo: [...nonProjectActionTasks.todo, ...(action.payload.todo || [])],
+                    inProgress: [...nonProjectActionTasks.inProgress, ...(action.payload.inProgress || [])],
+                    inReview: [...nonProjectActionTasks.inReview, ...(action.payload.inReview || [])],
+                    done: [...nonProjectActionTasks.done, ...(action.payload.done || [])]
+                };
+            })
+            .addCase(fetchProjectActionTasks.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // fetchGlobalActionTasks
+            .addCase(fetchGlobalActionTasks.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchGlobalActionTasks.fulfilled, (state, action) => {
+                state.loading = false;
+                // Merge global action tasks with existing tasks
+                // Keep all non-global action tasks and add the new global action tasks
+                const nonGlobalActionTasks = {
+                    todo: state.tasks.todo.filter(t => !t.globalActionId),
+                    inProgress: state.tasks.inProgress.filter(t => !t.globalActionId),
+                    inReview: state.tasks.inReview.filter(t => !t.globalActionId),
+                    done: state.tasks.done.filter(t => !t.globalActionId)
+                };
+
+                // Combine with the new global action tasks
+                state.tasks = {
+                    todo: [...nonGlobalActionTasks.todo, ...(action.payload.todo || [])],
+                    inProgress: [...nonGlobalActionTasks.inProgress, ...(action.payload.inProgress || [])],
+                    inReview: [...nonGlobalActionTasks.inReview, ...(action.payload.inReview || [])],
+                    done: [...nonGlobalActionTasks.done, ...(action.payload.done || [])]
+                };
+            })
+            .addCase(fetchGlobalActionTasks.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })

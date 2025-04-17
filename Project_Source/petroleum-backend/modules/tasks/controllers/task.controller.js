@@ -32,7 +32,12 @@ class TaskController {
     async getUserTasks(req, res) {
         try {
             const userId = req.user.id;
-            const tasks = await taskService.getUserTasks(userId);
+            // Check for additional flags in the request
+            const includeProjectActions = req.query.includeProjectActions === 'true';
+
+            console.log('TaskController - getUserTasks called with includeProjectActions:', includeProjectActions);
+
+            const tasks = await taskService.getUserTasks(userId, { includeProjectActions });
 
             return res.status(200).json({
                 success: true,
@@ -43,6 +48,50 @@ class TaskController {
             return res.status(500).json({
                 success: false,
                 message: 'Une erreur est survenue lors de la récupération des tâches.',
+                error: error.message
+            });
+        }
+    }
+
+    // Get only project action tasks for the current user
+    async getProjectActionTasks(req, res) {
+        try {
+            const userId = req.user.id;
+            console.log('TaskController - getProjectActionTasks called for user:', userId);
+
+            const tasks = await taskService.getProjectActionTasks(userId);
+
+            return res.status(200).json({
+                success: true,
+                data: tasks
+            });
+        } catch (error) {
+            console.error('TaskController - Error fetching project action tasks:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des tâches d\'action de projet.',
+                error: error.message
+            });
+        }
+    }
+
+    // Get only global action tasks for the current user
+    async getGlobalActionTasks(req, res) {
+        try {
+            const userId = req.user.id;
+            console.log('TaskController - getGlobalActionTasks called for user:', userId);
+
+            const tasks = await taskService.getGlobalActionTasks(userId);
+
+            return res.status(200).json({
+                success: true,
+                data: tasks
+            });
+        } catch (error) {
+            console.error('TaskController - Error fetching global action tasks:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des tâches d\'action globale.',
                 error: error.message
             });
         }
@@ -361,6 +410,48 @@ class TaskController {
             return res.status(500).json({
                 success: false,
                 message: 'Une erreur est survenue lors de l\'archivage des tâches.',
+                error: error.message
+            });
+        }
+    }
+
+    // Manually create tasks from a project action
+    async createTasksFromProjectAction(req, res) {
+        try {
+            const { actionId } = req.params;
+
+            if (!actionId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Action ID is required'
+                });
+            }
+
+            console.log('TaskController - createTasksFromProjectAction called for action:', actionId);
+
+            // Force clear the cache before creating tasks
+            const taskService = require('../services/task.service');
+            const userId = req.user.id;
+            await taskService.clearUserTasksCache(userId);
+
+            // Create the tasks
+            const tasks = await taskService.createTasksFromProjectAction(actionId);
+
+            // Now fetch and return fully populated tasks
+            const populatedTasks = await Promise.all(tasks.map(async (task) => {
+                return await taskService.getTaskById(task._id);
+            }));
+
+            return res.status(200).json({
+                success: true,
+                message: `Created ${tasks.length} tasks for project action`,
+                data: populatedTasks
+            });
+        } catch (error) {
+            console.error('TaskController - Error creating tasks from project action:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la création des tâches à partir de l\'action de projet.',
                 error: error.message
             });
         }

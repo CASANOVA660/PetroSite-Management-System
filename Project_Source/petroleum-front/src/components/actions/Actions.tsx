@@ -12,6 +12,7 @@ import {
     deleteAction
 } from '../../store/slices/actionSlice';
 import { RootState, AppDispatch } from '../../store';
+import { fetchUserTasks } from '../../store/slices/taskSlice';
 
 interface ActionsProps {
     projectId: string;
@@ -74,17 +75,35 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
             console.log('Action created:', result);
             toast.success('Action créée avec succès');
             setIsFormModalOpen(false);
-        } catch (error: any) {
+
+            // Force refresh the category actions
+            dispatch(fetchCategoryActions({ projectId, category }));
+
+            // Multi-stage refresh approach to ensure tasks appear
+            // 1. First immediate refresh
+            console.log('Initial refresh of tasks after project action creation...');
+            dispatch(fetchUserTasks({ includeProjectActions: true }));
+
+            // 2. Second refresh after a short delay
+            setTimeout(() => {
+                console.log('First delayed refresh of tasks after project action creation...');
+                dispatch(fetchUserTasks({ includeProjectActions: true }));
+            }, 1000);
+
+            // 3. Third refresh after a longer delay to ensure backend processing is complete
+            setTimeout(() => {
+                console.log('Second delayed refresh of tasks after project action creation...');
+                dispatch(fetchUserTasks({ includeProjectActions: true }));
+            }, 3000);
+
+            // 4. Final refresh after an even longer delay
+            setTimeout(() => {
+                console.log('Final delayed refresh of tasks after project action creation...');
+                dispatch(fetchUserTasks({ includeProjectActions: true }));
+            }, 6000);
+        } catch (error) {
             console.error('Error creating action:', error);
-            if (error.response?.data?.errors) {
-                // Handle validation errors
-                const errorMessages = error.response.data.errors.map((err: any) => err.message).join(', ');
-                toast.error(`Erreur: ${errorMessages}`);
-            } else if (error.message) {
-                toast.error(error.message);
-            } else {
-                toast.error('Erreur lors de la création de l\'action');
-            }
+            toast.error('Erreur lors de la création de l\'action');
         }
     };
 
