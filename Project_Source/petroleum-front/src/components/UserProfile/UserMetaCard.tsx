@@ -33,7 +33,7 @@ export default function UserMetaCard() {
       }
 
       // Get the authenticated user's ID and role
-      const authUserId = user?._id || user?.id || parsedStoredUser?.id || parsedStoredUser?._id;
+      const authUserId = user?._id || user?._id || parsedStoredUser?.id || parsedStoredUser?._id;
       const userRole = user?.role || parsedStoredUser?.role;
 
       console.log('Auth state:', {

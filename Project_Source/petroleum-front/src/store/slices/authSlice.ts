@@ -64,6 +64,7 @@ export const logoutUser = createAsyncThunk(
     async () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        delete axios.defaults.headers.common['Authorization'];
     }
 );
 
@@ -94,6 +95,7 @@ const authSlice = createSlice({
             .addCase(logoutUser.fulfilled, (state) => {
                 state.user = null;
                 state.token = null;
+                state.isAuthenticated = false;
             });
     },
 });

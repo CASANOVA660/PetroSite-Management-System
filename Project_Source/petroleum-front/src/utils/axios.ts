@@ -22,4 +22,26 @@ instance.interceptors.request.use(
     }
 );
 
+// Add response interceptor to handle token expiration
+instance.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    (error) => {
+        // Handle token expiration - if we get 401 Unauthorized error
+        if (error.response && error.response.status === 401) {
+            // Clear localStorage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+
+            // Clear axios headers
+            delete instance.defaults.headers.common['Authorization'];
+
+            // Redirect to login page
+            window.location.href = '/signin';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default instance; 

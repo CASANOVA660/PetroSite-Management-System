@@ -278,8 +278,8 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                                     <button
                                         key={type}
                                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === type
-                                                ? 'bg-blue-600 text-white'
-                                                : 'text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'text-gray-600 hover:bg-gray-200'
                                             }`}
                                         onClick={() => setFilter(type as 'all' | 'tasks' | 'actions')}
                                         aria-pressed={filter === type}

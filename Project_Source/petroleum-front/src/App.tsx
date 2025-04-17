@@ -32,11 +32,23 @@ import EquipmentList from './pages/Equipment/EquipmentList';
 import EquipmentDetailView from './pages/Equipment/EquipmentDetailView';
 import EquipmentAdd from './pages/Equipment/EquipmentAdd';
 import EquipmentEdit from './pages/Equipment/EquipmentEdit';
+import { useEffect } from "react";
+import { setupTokenExpirationChecker } from "./utils/authUtils";
+
+// Initialize token expiration checking
+const AppInitializer = () => {
+  useEffect(() => {
+    setupTokenExpirationChecker();
+  }, []);
+
+  return null;
+};
 
 export default function App() {
   return (
     <Provider store={store}>
       <Router>
+        <AppInitializer />
         <ScrollToTop />
         <Routes>
           {/* Auth Layout */}
