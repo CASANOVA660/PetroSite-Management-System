@@ -84,39 +84,41 @@ class ActionController {
             const action = await actionService.createAction(actionData);
             console.log('Action created:', action); // Debug log
 
-            // Immediately create tasks from this action
-            try {
-                // Import the task service
-                const taskService = require('../../tasks/services/task.service');
-
-                // Create tasks
-                console.log('ActionController - Immediately creating tasks for action:', action._id);
-                const tasks = await taskService.createTasksFromProjectAction(action._id);
-                console.log(`ActionController - Successfully created ${tasks.length} tasks for action`);
-            } catch (taskError) {
-                console.error('ActionController - Error creating tasks for action:', taskError);
-                // We don't fail the request if task creation fails
-            }
-
-            // Emit socket notification ONLY to responsible user if they are different from the manager
-            if (action.responsible && action.responsible._id &&
-                action.responsible._id.toString() !== action.manager.toString()) {
-
-                // Emit socket notification
-                global.io.to(String(action.responsible._id)).emit('notification', {
-                    type: 'NEW_NOTIFICATION',
-                    payload: {
-                        type: 'ACTION_ASSIGNED',
-                        message: `Une nouvelle action "${action.title}" vous a été assignée`,
-                        userId: action.responsible._id
-                    }
-                });
-            }
-
-            return res.status(201).json({
+            // Return successful response immediately
+            const response = {
                 success: true,
                 data: action
-            });
+            };
+            res.status(201).json(response);
+
+            // Create tasks asynchronously after sending the response
+            setTimeout(async () => {
+                try {
+                    // Import the task service
+                    const taskService = require('../../tasks/services/task.service');
+                    console.log('ActionController - Creating tasks for action:', action._id);
+                    await taskService.createTasksFromProjectAction(action._id);
+
+                    // Emit socket notification ONLY to responsible user if they are different from the manager
+                    if (action.responsible && action.responsible._id &&
+                        action.responsible._id.toString() !== action.manager.toString()) {
+
+                        // Emit socket notification
+                        global.io.to(String(action.responsible._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_ASSIGNED',
+                                message: `Une nouvelle action "${action.title}" vous a été assignée`,
+                                userId: action.responsible._id
+                            }
+                        });
+                    }
+                } catch (taskError) {
+                    console.error('ActionController - Error creating tasks for action:', taskError);
+                }
+            }, 0);
+
+            return;
         } catch (error) {
             console.error('Error in createAction:', error);
             return res.status(400).json({
