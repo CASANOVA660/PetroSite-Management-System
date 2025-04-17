@@ -8,24 +8,12 @@ import { fetchAllActions } from '../store/slices/actionSlice';
 import { debounce } from 'lodash';
 import { GlobalAction } from '../store/slices/globalActionSlice';
 import { Action } from '../store/slices/actionSlice';
+import { GlobalActionFormData } from '../types/action';
 import PlusIcon from '../components/icons/PlusIcon';
 import EcommerceMetrics from '../components/ecommerce/EcommerceMetrics';
 import GanttChart from '../components/tasks/GanttChart';
 import { ChevronLeft, Calendar, List } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
-// Define the form data interface
-interface GlobalActionFormData {
-    title: string;
-    content: string;
-    category: string;
-    projectId: string;
-    projectCategory: string;
-    responsibleForRealization: string;
-    responsibleForFollowUp: string;
-    startDate: string;
-    endDate: string;
-}
 
 // Import components
 import {
@@ -87,7 +75,8 @@ const GlobalActions: React.FC = () => {
         responsibleForRealization: '',
         responsibleForFollowUp: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        needsValidation: true
     });
 
     // Refresh function to be passed to the table component
@@ -216,6 +205,7 @@ const GlobalActions: React.FC = () => {
             startDate: string;
             endDate: string;
             status: string;
+            needsValidation: boolean;
             projectId?: string;
         } = {
             title: formData.title.trim(),
@@ -226,7 +216,8 @@ const GlobalActions: React.FC = () => {
             responsibleForFollowUp: formData.responsibleForFollowUp, // Already should be _id from dropdown
             startDate: new Date(formData.startDate).toISOString(),
             endDate: new Date(formData.endDate).toISOString(),
-            status: 'pending'
+            status: 'pending',
+            needsValidation: formData.needsValidation
         };
 
         // Only add projectId if it has a value
@@ -257,7 +248,8 @@ const GlobalActions: React.FC = () => {
             responsibleForRealization: '',
             responsibleForFollowUp: '',
             startDate: '',
-            endDate: ''
+            endDate: '',
+            needsValidation: true
         });
     };
 

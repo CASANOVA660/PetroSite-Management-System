@@ -20,9 +20,23 @@ export interface Action {
     createdAt: string;
     updatedAt: string;
     responsible: User;
+    needsValidation?: boolean;
 }
 
 export interface GlobalAction extends Action {
     isProjectAction: boolean;
     projectId: string | null;
+}
+
+export interface GlobalActionFormData {
+    title: string;
+    content: string;
+    category: string;
+    projectId: string;
+    projectCategory: string;
+    responsibleForRealization: string;
+    responsibleForFollowUp: string;
+    startDate: string;
+    endDate: string;
+    needsValidation: boolean;
 } 

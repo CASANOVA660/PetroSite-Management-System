@@ -42,7 +42,7 @@ class ActionService {
                 tags: ['Action'],
                 projectId: action.projectId || null,
                 category: action.category || null,
-                needsValidation: true
+                needsValidation: action.needsValidation
             });
 
             // Create notification for the responsible user if they are different from the manager
@@ -149,7 +149,8 @@ class ActionService {
                         startDate: actionData.startDate || task.startDate,
                         endDate: actionData.endDate || task.endDate,
                         projectId: actionData.projectId || task.projectId,
-                        category: actionData.category || task.category
+                        category: actionData.category || task.category,
+                        needsValidation: actionData.needsValidation !== undefined ? actionData.needsValidation : task.needsValidation
                     };
 
                     // If action status changed to completed, update task status too

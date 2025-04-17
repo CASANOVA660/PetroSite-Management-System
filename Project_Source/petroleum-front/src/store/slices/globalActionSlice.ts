@@ -33,6 +33,7 @@ export interface GlobalAction {
     source?: string;
     createdAt: string;
     updatedAt: string;
+    needsValidation?: boolean;
 }
 
 // Search params interface

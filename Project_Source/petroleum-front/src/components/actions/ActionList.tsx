@@ -1,12 +1,24 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { Action } from '../../types/action';
 
+// Define User interface for the component
+interface User {
+    _id: string;
+    nom: string;
+    prenom: string;
+}
+
+// Extend Action type for this component
+interface ActionWithResponsible extends Action {
+    responsible: User;
+}
+
 interface ActionListProps {
-    actions: Action[];
-    onEdit: (action: Action) => void;
+    actions: ActionWithResponsible[];
+    onEdit: (action: ActionWithResponsible) => void;
     onDelete: (actionId: string) => void;
     onStatusChange: (actionId: string, status: Action['status']) => void;
 }
@@ -64,12 +76,21 @@ const ActionList: React.FC<ActionListProps> = ({
                 >
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
-                            <p className="text-gray-900">{action.content}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-gray-900 font-medium">{action.title}</p>
+                                {action.needsValidation && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        <CheckCircleIcon className="h-3 w-3 mr-1" />
+                                        Validation requise
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-gray-700 mt-1">{action.content}</p>
                             <div className="mt-2 flex items-center text-sm text-gray-500">
                                 <span className="mr-4">
                                     Responsable: {action.responsible ?
                                         `${action.responsible.prenom} ${action.responsible.nom}` :
-                                        action.responsibleForRealization}
+                                        'Non assigné'}
                                 </span>
 
                                 <span>

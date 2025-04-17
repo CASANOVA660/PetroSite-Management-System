@@ -17,6 +17,7 @@ interface GlobalActionUpdateFormProps {
         startDate: string;
         endDate: string;
         status: string;
+        needsValidation: boolean;
     };
     setFormData: React.Dispatch<React.SetStateAction<{
         title: string;
@@ -29,6 +30,7 @@ interface GlobalActionUpdateFormProps {
         startDate: string;
         endDate: string;
         status: string;
+        needsValidation: boolean;
     }>>;
     projects: any[];
     users: any[];
@@ -183,6 +185,22 @@ const GlobalActionUpdateForm: React.FC<GlobalActionUpdateFormProps> = ({ action,
                     ]}
                     required
                 />
+            </div>
+
+            <div className="flex items-center mt-3">
+                <input
+                    type="checkbox"
+                    id="needsValidation"
+                    name="needsValidation"
+                    checked={formData.needsValidation}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setFormData({ ...formData, needsValidation: e.target.checked })
+                    }
+                    className="h-4 w-4 text-[#F28C38] border-gray-300 rounded focus:ring-[#F28C38]"
+                />
+                <label htmlFor="needsValidation" className="ml-2 block text-sm font-medium text-gray-700">
+                    Nécessite une validation par le manager
+                </label>
             </div>
         </div>
     );

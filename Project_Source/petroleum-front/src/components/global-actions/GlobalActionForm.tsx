@@ -3,30 +3,11 @@ import FormDefaultInput from '../form/form-elements/FormDefaultInput';
 import FormSelectInput from '../form/form-elements/FormSelectInput';
 import FormTextAreaInput from '../form/form-elements/FormTextAreaInput';
 import { jwtDecode, JwtPayload } from 'jwt-decode';
+import { GlobalActionFormData } from '../../types/action';
 
 interface GlobalActionFormProps {
-    formData: {
-        title: string;
-        content: string;
-        category: string;
-        projectId: string;
-        projectCategory: string;
-        responsibleForRealization: string;
-        responsibleForFollowUp: string;
-        startDate: string;
-        endDate: string;
-    };
-    setFormData: React.Dispatch<React.SetStateAction<{
-        title: string;
-        content: string;
-        category: string;
-        projectId: string;
-        projectCategory: string;
-        responsibleForRealization: string;
-        responsibleForFollowUp: string;
-        startDate: string;
-        endDate: string;
-    }>>;
+    formData: GlobalActionFormData;
+    setFormData: React.Dispatch<React.SetStateAction<GlobalActionFormData>>;
     projects: any[];
     users: any[];
 }
@@ -193,6 +174,20 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, endDate: e.target.value })}
                     required
                 />
+            </div>
+
+            <div className="flex items-center mt-3">
+                <input
+                    type="checkbox"
+                    id="needsValidation"
+                    checked={formData.needsValidation}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setFormData({ ...formData, needsValidation: e.target.checked })}
+                    className="h-4 w-4 text-[#F28C38] border-gray-300 rounded focus:ring-[#F28C38]"
+                />
+                <label htmlFor="needsValidation" className="ml-2 block text-sm font-medium text-gray-700">
+                    Nécessite une validation par le manager
+                </label>
             </div>
         </div>
     );

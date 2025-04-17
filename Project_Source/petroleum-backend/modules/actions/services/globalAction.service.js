@@ -204,7 +204,7 @@ class GlobalActionService {
                 type: 'realization',
                 projectId: actionData.projectId || null,
                 category: actionData.projectCategory || actionData.category || null,
-                needsValidation: true,
+                needsValidation: savedAction.needsValidation,
                 tags: ['Global Action', 'Realization']
             },
             {
@@ -219,7 +219,7 @@ class GlobalActionService {
                 type: 'followup',
                 projectId: actionData.projectId || null,
                 category: actionData.projectCategory || actionData.category || null,
-                needsValidation: true,
+                needsValidation: savedAction.needsValidation,
                 tags: ['Global Action', 'Follow-up']
             }
         ];
@@ -341,7 +341,8 @@ class GlobalActionService {
                     startDate: actionData.startDate || task.startDate,
                     endDate: actionData.endDate || task.endDate,
                     projectId: actionData.projectId || task.projectId,
-                    category: actionData.projectCategory || actionData.category || task.category
+                    category: actionData.projectCategory || actionData.category || task.category,
+                    needsValidation: actionData.needsValidation !== undefined ? actionData.needsValidation : task.needsValidation
                 };
 
                 // If action status changed to completed, update task status too

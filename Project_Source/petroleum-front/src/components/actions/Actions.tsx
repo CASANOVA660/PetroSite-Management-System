@@ -56,7 +56,8 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 category: actionData.category || category,
                 manager: user._id,
                 responsible: actionData.responsible,
-                status: 'pending'
+                status: 'pending',
+                needsValidation: actionData.needsValidation
             };
 
             // Debug logs

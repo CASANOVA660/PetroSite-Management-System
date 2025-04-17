@@ -48,7 +48,8 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         responsibleForFollowUp: '',
         startDate: '',
         endDate: '',
-        status: ''
+        status: '',
+        needsValidation: false
     });
 
     // Filter state
@@ -173,6 +174,27 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
             default:
                 return 'En attente';
         }
+    };
+
+    // First, add this function to check if tasks need validation
+    const getNeedsValidationStatus = (action: any) => {
+        // Check if the action itself has the needsValidation property
+        if (action.needsValidation !== undefined) {
+            return action.needsValidation;
+        }
+
+        // For project actions
+        if (action.isProjectAction && action.tasks && action.tasks.length > 0) {
+            return action.tasks.some((task: any) => task.needsValidation);
+        }
+
+        // For global actions with tasks
+        if (action.tasks && action.tasks.length > 0) {
+            return action.tasks.some((task: any) => task.needsValidation);
+        }
+
+        // Default to false if we can't determine
+        return false;
     };
 
     // Reset to first page when filter query changes
@@ -407,7 +429,8 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 responsibleForFollowUp: action.manager?._id || '',
                 startDate: formatDateForInput(action.startDate),
                 endDate: formatDateForInput(action.endDate),
-                status: action.status || 'pending'
+                status: action.status || 'pending',
+                needsValidation: action.needsValidation === true
             });
         } else {
             // Standard global action
@@ -421,7 +444,8 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 responsibleForFollowUp: action.responsibleForFollowUp?._id || '',
                 startDate: formatDateForInput(action.startDate),
                 endDate: formatDateForInput(action.endDate),
-                status: action.status || 'pending'
+                status: action.status || 'pending',
+                needsValidation: action.needsValidation === true
             });
         }
 
@@ -468,6 +492,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 startDate: new Date(updateFormData.startDate).toISOString(),
                 endDate: new Date(updateFormData.endDate).toISOString(),
                 status: updateFormData.status,
+                needsValidation: updateFormData.needsValidation,
                 // Keep the existing source and projectId
                 source: selectedActionForUpdate.source || 'Project',
                 projectId: selectedActionForUpdate.projectId,
@@ -523,6 +548,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 startDate: new Date(updateFormData.startDate).toISOString(),
                 endDate: new Date(updateFormData.endDate).toISOString(),
                 status: updateFormData.status,
+                needsValidation: updateFormData.needsValidation,
                 // Add flag for notification
                 sendNotification: responsibleChanged
             };
@@ -896,12 +922,22 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                             </div>
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                            <Badge
-                                                size="sm"
-                                                color={getStatusColor(action.status)}
-                                            >
-                                                {getStatusText(action.status)}
-                                            </Badge>
+                                            <div className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(action.status)}`}>
+                                                    {getStatusText(action.status)}
+                                                </span>
+
+                                                {/* Add validation badge - directly check the needsValidation property */}
+                                                {action.needsValidation === true ? (
+                                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                                                        Validation requise
+                                                    </span>
+                                                ) : (
+                                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                                        Auto-validé
+                                                    </span>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                                             <div className="flex items-center gap-2">

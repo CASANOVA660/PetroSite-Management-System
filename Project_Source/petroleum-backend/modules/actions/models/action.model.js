@@ -45,6 +45,10 @@ const actionSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Project',
         required: false
+    },
+    needsValidation: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

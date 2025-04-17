@@ -65,7 +65,12 @@ const globalActionSchema = new Schema({
     subActions: [{
         type: Schema.Types.ObjectId,
         ref: 'GlobalAction'
-    }]
+    }],
+    // Whether this action needs validation from manager
+    needsValidation: {
+        type: Boolean,
+        default: false
+    }
 }, {
     timestamps: true
 });

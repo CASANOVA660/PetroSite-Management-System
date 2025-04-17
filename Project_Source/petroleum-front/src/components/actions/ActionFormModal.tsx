@@ -24,7 +24,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
     // Find project name for display only
     const projectName = projects.find(p => p._id === projectId)?.name || '';
 
-    const [formData, setFormData] = useState<CreateActionPayload>({
+    const [formData, setFormData] = useState<CreateActionPayload & { needsValidation?: boolean }>({
         title: '',
         content: '',
         source: isGlobal ? '' : 'Project', // Always use 'Project' string for project-specific actions
@@ -33,7 +33,8 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
         startDate: format(new Date(), 'yyyy-MM-dd'),
         endDate: '',
         category: isGlobal ? '' : categories[0],
-        projectId: projectId || ''
+        projectId: projectId || '',
+        needsValidation: true // Default to true for validation
     });
 
     // Update source when project changes
@@ -60,8 +61,14 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type } = e.target;
+
+        if (type === 'checkbox') {
+            const target = e.target as HTMLInputElement;
+            setFormData(prev => ({ ...prev, [name]: target.checked }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     return (
@@ -132,6 +139,20 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                         />
                     </div>
+                </div>
+
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="needsValidation"
+                        name="needsValidation"
+                        checked={formData.needsValidation}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-[#F28C38] border-gray-300 rounded focus:ring-[#F28C38]"
+                    />
+                    <label htmlFor="needsValidation" className="ml-2 block text-sm font-medium text-gray-700">
+                        Nécessite une validation par le manager
+                    </label>
                 </div>
 
                 {isGlobal && (

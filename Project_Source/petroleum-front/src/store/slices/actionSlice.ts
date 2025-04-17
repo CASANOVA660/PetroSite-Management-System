@@ -22,6 +22,7 @@ export interface Action {
     category: string;
     projectId: string;
     createdAt: string;
+    needsValidation?: boolean;
 }
 
 interface ActionState {
@@ -41,6 +42,7 @@ export interface CreateActionPayload {
     endDate: string;
     category: string;
     projectId?: string;
+    needsValidation?: boolean;
 }
 
 const initialState: ActionState = {
