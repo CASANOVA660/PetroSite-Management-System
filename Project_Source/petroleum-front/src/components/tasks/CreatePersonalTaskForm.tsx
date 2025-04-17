@@ -4,6 +4,10 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../../store';
+import { createPersonalTask } from '../../store/slices/taskSlice';
+import { toast } from 'react-hot-toast';
 
 interface CreatePersonalTaskFormProps {
     isOpen: boolean;
@@ -54,6 +58,7 @@ const priorityOptions = [
 ];
 
 const CreatePersonalTaskForm: React.FC<CreatePersonalTaskFormProps> = ({ isOpen, onClose }) => {
+    const dispatch = useDispatch<AppDispatch>();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -134,12 +139,25 @@ const CreatePersonalTaskForm: React.FC<CreatePersonalTaskFormProps> = ({ isOpen,
 
         setIsSubmitting(true);
         try {
-            // Mock API call (replace with your Redux dispatch, e.g., dispatch(createTask({...formData, subtasks})))
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Personal task created:', { ...formData, subtasks });
+            // Create payload from form data
+            const payload = {
+                title: formData.title,
+                description: formData.description,
+                dueDate: formData.dueDate.toISOString(),
+                priority: formData.priority,
+                subtasks: subtasks.map(subtask => ({
+                    text: subtask.text,
+                    completed: subtask.completed
+                }))
+            };
+
+            // Dispatch the action to create a personal task
+            await dispatch(createPersonalTask(payload)).unwrap();
+            toast.success('Tâche personnelle créée avec succès');
             onClose();
         } catch (error) {
             console.error('Failed to create task:', error);
+            toast.error('Échec de la création de la tâche');
             setErrors({ title: 'Une erreur est survenue. Veuillez réessayer.' });
         } finally {
             setIsSubmitting(false);

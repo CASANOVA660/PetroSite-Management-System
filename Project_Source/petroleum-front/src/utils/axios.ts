@@ -1,5 +1,4 @@
 import axios from 'axios';
-
 const instance = axios.create({
     baseURL: 'http://localhost:5000/api',
     headers: {
@@ -11,6 +10,9 @@ const instance = axios.create({
 // Add request interceptor to add auth token
 instance.interceptors.request.use(
     (config) => {
+        // Log all requests for debugging
+        console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config);
+
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -18,6 +20,7 @@ instance.interceptors.request.use(
         return config;
     },
     (error) => {
+        console.error('API Request error:', error);
         return Promise.reject(error);
     }
 );
@@ -25,9 +28,12 @@ instance.interceptors.request.use(
 // Add response interceptor to handle token expiration
 instance.interceptors.response.use(
     (response) => {
+        console.log('API Response:', response);
         return response;
     },
     (error) => {
+        console.error('API Response error:', error.response || error);
+
         // Handle token expiration - if we get 401 Unauthorized error
         if (error.response && error.response.status === 401) {
             // Clear localStorage

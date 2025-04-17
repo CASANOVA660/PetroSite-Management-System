@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { fetchUserTasks, updateTaskStatus, addNewTask, updateTask } from '../store/slices/taskSlice';
 import { RootState, AppDispatch } from '../store';
 import { toast, Toaster } from 'react-hot-toast';
 import socket from '../utils/socket';
@@ -11,22 +10,12 @@ import PageMeta from '../components/common/PageMeta';
 import CreatePersonalTaskForm from '../components/tasks/CreatePersonalTaskForm';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
 import TaskHistory from '../components/tasks/TaskHistory';
+import { fetchUserTasks, updateTaskStatus, addNewTask, updateTask, Task } from '../store/slices/taskSlice';
+import ApiTest from '../components/ApiTest';
+import TaskDebugger from '../components/TaskDebugger';
 
 // Update the Task interface to include inReview status
-interface Task {
-    _id: string;
-    title: string;
-    description: string;
-    assignee: {
-        _id: string;
-        nom: string;
-        prenom: string;
-    };
-    status: 'todo' | 'inProgress' | 'inReview' | 'done';
-    progress?: number;
-    startDate?: string;
-    endDate?: string;
-}
+
 
 interface TaskTag {
     id: string;
@@ -97,17 +86,62 @@ const ProgressDots = ({ percentage, total = 10 }: { percentage: number, total?: 
     );
 };
 
-const TaskCard = ({ task, index, onViewDetails }: { task: any, index: number, onViewDetails: (task: any) => void }) => {
+const TaskCard = ({ task, index, onViewDetails }: { task: Task, index: number, onViewDetails: (task: Task) => void }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Generate tags from task properties
-    const tags: TaskTag[] = [
-        { id: '1', name: task.project?.name || 'projet', color: 'bg-blue-100 text-blue-600' },
-        { id: '2', name: 'client', color: 'bg-gray-100 text-gray-600' }
-    ];
+    const tags: TaskTag[] = [];
 
-    // Calculate progress randomly for demo (in real app, this would come from task data)
-    const progress = task.progress || Math.floor(Math.random() * 100);
+    // Always add source tags first for better visibility
+    if (task.actionId) {
+        tags.push({
+            id: 'project-action',
+            name: 'Action Projet',
+            color: 'bg-orange-100 text-orange-600 font-semibold'
+        });
+    }
+
+    if (task.globalActionId) {
+        tags.push({
+            id: 'global-action',
+            name: 'Action Globale',
+            color: 'bg-blue-100 text-blue-600 font-semibold'
+        });
+    }
+
+    // Now add the regular tags
+    if (task.tags && task.tags.length > 0) {
+        task.tags.forEach((tag, idx) => {
+            // Don't duplicate Action/Global Action tags
+            if (tag !== 'Action' && tag !== 'Global Action') {
+                tags.push({
+                    id: `tag-${idx}`,
+                    name: tag,
+                    color: 'bg-gray-100 text-gray-600'
+                });
+            }
+        });
+    }
+
+    // Add project and category tags if available
+    if (task.projectId) {
+        tags.push({
+            id: `project-${task.projectId}`,
+            name: 'Projet',
+            color: 'bg-purple-100 text-purple-600'
+        });
+    }
+
+    if (task.category) {
+        tags.push({
+            id: `category-${task.category}`,
+            name: task.category,
+            color: 'bg-green-100 text-green-600'
+        });
+    }
+
+    // Calculate progress
+    const progress = task.progress || 0;
 
     // Calculate days remaining
     const { days, overdue } = task.endDate ? getDaysRemaining(task.endDate) : { days: 0, overdue: false };
@@ -129,16 +163,18 @@ const TaskCard = ({ task, index, onViewDetails }: { task: any, index: number, on
             </div>
 
             {/* Tags */}
-            <div className="flex flex-wrap gap-2 mb-3">
-                {tags.map(tag => (
-                    <span
-                        key={tag.id}
-                        className={`text-xs px-2 py-1 rounded-md ${tag.color}`}
-                    >
-                        #{tag.name}
-                    </span>
-                ))}
-            </div>
+            {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                    {tags.map(tag => (
+                        <span
+                            key={tag.id}
+                            className={`text-xs px-2 py-1 rounded-md ${tag.color}`}
+                        >
+                            #{tag.name}
+                        </span>
+                    ))}
+                </div>
+            )}
 
             {/* Progress bar */}
             <ProgressBar percentage={progress} />
@@ -179,11 +215,13 @@ const TaskCard = ({ task, index, onViewDetails }: { task: any, index: number, on
             <div className="mt-3 flex justify-between items-center">
                 {/* Avatars */}
                 <div className="flex -space-x-2">
-                    <img
-                        src={`https://ui-avatars.com/api/?name=${task.assignee.prenom}+${task.assignee.nom}&background=random`}
-                        alt={`${task.assignee.prenom} ${task.assignee.nom}`}
-                        className="w-7 h-7 rounded-full border-2 border-white"
-                    />
+                    {task.assignee && (
+                        <img
+                            src={`https://ui-avatars.com/api/?name=${task.assignee.prenom}+${task.assignee.nom}&background=random`}
+                            alt={`${task.assignee.prenom} ${task.assignee.nom}`}
+                            className="w-7 h-7 rounded-full border-2 border-white"
+                        />
+                    )}
                 </div>
 
                 {/* View details button */}
@@ -202,7 +240,7 @@ const TaskCard = ({ task, index, onViewDetails }: { task: any, index: number, on
     );
 };
 
-const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: string, tasks: any[], droppableId: string, onViewDetails: (task: any) => void }) => {
+const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: string, tasks: Task[], droppableId: string, onViewDetails: (task: Task) => void }) => {
     const statusLabels = {
         todo: "À faire",
         inProgress: "En cours",
@@ -217,17 +255,17 @@ const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: strin
             <div className="p-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-700">{frenchTitle}</h2>
-                    <div className="flex space-x-2">
-                        <button className="p-1 rounded-md hover:bg-gray-200">
-                            <PlusIcon className="w-5 h-5 text-gray-500" />
-                        </button>
-                        <button className="p-1 rounded-md hover:bg-gray-200">
-                            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="5" cy="12" r="2" fill="currentColor" />
-                                <circle cx="12" cy="12" r="2" fill="currentColor" />
-                                <circle cx="19" cy="12" r="2" fill="currentColor" />
-                            </svg>
-                        </button>
+                    <div className="flex items-center">
+                        <span className="text-sm text-gray-500 mr-2">{tasks.length}</span>
+                        <div className="flex space-x-2">
+                            <button className="p-1 rounded-md hover:bg-gray-200">
+                                <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="5" cy="12" r="2" fill="currentColor" />
+                                    <circle cx="12" cy="12" r="2" fill="currentColor" />
+                                    <circle cx="19" cy="12" r="2" fill="currentColor" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -237,7 +275,7 @@ const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: strin
                     <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="p-3 min-h-[200px]"
+                        className="p-3 min-h-[200px] max-h-[70vh] overflow-y-auto"
                     >
                         {tasks.map((task, index) => (
                             <Draggable key={task._id} draggableId={task._id} index={index}>
@@ -265,21 +303,104 @@ const Tasks: React.FC = () => {
     const { tasks, loading, error } = useSelector((state: RootState) => state.tasks);
     const { user } = useSelector((state: RootState) => state.auth);
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     // Filter tasks to show only those assigned to the current user
-    const filterTasksByCurrentUser = (tasksObj: any) => {
+    const filterTasksByCurrentUser = (tasksObj: { todo: Task[], inProgress: Task[], inReview: Task[], done: Task[] }) => {
         if (!user || !user._id) return { todo: [], inProgress: [], inReview: [], done: [] };
 
-        const filteredTasks = Object.keys(tasksObj).reduce((acc: any, status) => {
-            // Filter tasks for each status category
-            acc[status] = tasksObj[status]?.filter((task: any) =>
-                task.assignee && task.assignee._id === user._id
-            ) || [];
+        // Log tasks for debugging
+        console.log('All tasks before filtering:', {
+            todo: tasksObj.todo?.length || 0,
+            inProgress: tasksObj.inProgress?.length || 0,
+            inReview: tasksObj.inReview?.length || 0,
+            done: tasksObj.done?.length || 0
+        });
+
+        // Count tasks by type before filtering
+        const countByType = {
+            projectAction: 0,
+            globalAction: 0,
+            personal: 0,
+            other: 0
+        };
+
+        // Check all tasks for debugging
+        const allTasks = [
+            ...(tasksObj.todo || []),
+            ...(tasksObj.inProgress || []),
+            ...(tasksObj.inReview || []),
+            ...(tasksObj.done || [])
+        ];
+
+        allTasks.forEach(task => {
+            if (task.actionId) {
+                countByType.projectAction++;
+            } else if (task.globalActionId) {
+                countByType.globalAction++;
+            } else if (!task.actionId && !task.globalActionId) {
+                countByType.personal++;
+            } else {
+                countByType.other++;
+            }
+        });
+
+        console.log('Tasks by type before filtering:', countByType);
+
+        const filteredTasks = Object.keys(tasksObj).reduce((acc: { [key: string]: Task[] }, status) => {
+            // Filter tasks for each status category to show all tasks assigned to current user
+            // regardless of source (personal, project action, global action)
+            acc[status] = tasksObj[status as keyof typeof tasksObj]?.filter((task: Task) => {
+                const isAssignedToCurrentUser = task.assignee && task.assignee._id === user._id;
+
+                // Log rejected tasks for debugging
+                if (!isAssignedToCurrentUser && (task.actionId || task.projectId)) {
+                    console.log('Rejected task (not assigned to current user):', {
+                        id: task._id,
+                        title: task.title,
+                        actionId: task.actionId,
+                        projectId: task.projectId,
+                        assigneeId: task.assignee?._id,
+                        currentUserId: user._id
+                    });
+                }
+
+                return isAssignedToCurrentUser;
+            }) || [];
+
             return acc;
-        }, {});
+        }, {} as { [key: string]: Task[] });
+
+        // Count tasks by type after filtering
+        const filteredCountByType = {
+            projectAction: 0,
+            globalAction: 0,
+            personal: 0,
+            other: 0
+        };
+
+        const allFilteredTasks = [
+            ...(filteredTasks.todo || []),
+            ...(filteredTasks.inProgress || []),
+            ...(filteredTasks.inReview || []),
+            ...(filteredTasks.done || [])
+        ];
+
+        allFilteredTasks.forEach(task => {
+            if (task.actionId) {
+                filteredCountByType.projectAction++;
+            } else if (task.globalActionId) {
+                filteredCountByType.globalAction++;
+            } else if (!task.actionId && !task.globalActionId) {
+                filteredCountByType.personal++;
+            } else {
+                filteredCountByType.other++;
+            }
+        });
+
+        console.log('Tasks by type AFTER filtering:', filteredCountByType);
 
         // Ensure all status arrays exist
         return {
@@ -305,9 +426,13 @@ const Tasks: React.FC = () => {
     useEffect(() => {
         const loadTasks = async () => {
             try {
-                await dispatch(fetchUserTasks()).unwrap();
+                console.log('Fetching tasks...');
+                const response = await dispatch(fetchUserTasks()).unwrap();
+                console.log('Tasks loaded successfully:', response);
+                toast.success('Tâches chargées avec succès');
             } catch (err) {
-                toast.error('Erreur lors du chargement des tâches');
+                console.error('Error loading tasks:', err);
+                toast.error(`Erreur lors du chargement des tâches: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
             }
         };
         loadTasks();
@@ -317,14 +442,14 @@ const Tasks: React.FC = () => {
     useEffect(() => {
         if (!user?._id) return;
 
-        const handleNewTask = (task: any) => {
+        const handleNewTask = (task: Task) => {
             if (task.assignee._id === user._id) {
                 dispatch(addNewTask(task));
                 toast.success('Nouvelle tâche assignée');
             }
         };
 
-        const handleTaskUpdate = (task: any) => {
+        const handleTaskUpdate = (task: Task) => {
             if (task.assignee._id === user._id) {
                 dispatch(updateTask(task));
             }
@@ -361,19 +486,25 @@ const Tasks: React.FC = () => {
         setIsAddTaskModalOpen(false);
     };
 
-    const handleAddTask = (task: any) => {
-        console.log('Nouvelle tâche à ajouter:', task);
-        // Here you would typically dispatch an action to add the task
-        toast.success('Tâche ajoutée avec succès');
-    };
-
-    const handleViewTaskDetails = (task: any) => {
+    const handleViewTaskDetails = (task: Task) => {
         setSelectedTask(task);
         setIsTaskDetailOpen(true);
     };
 
     const closeTaskDetails = () => {
         setIsTaskDetailOpen(false);
+    };
+
+    const testApiConnection = async () => {
+        try {
+            console.log('Testing API connection...');
+            const response = await dispatch(fetchUserTasks()).unwrap();
+            console.log('API response:', response);
+            toast.success('API connection successful!');
+        } catch (error) {
+            console.error('API connection error:', error);
+            toast.error(`API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     };
 
     if (loading && Object.keys(tasks).length === 0) {
@@ -439,6 +570,13 @@ const Tasks: React.FC = () => {
                                 <PlusIcon className="w-5 h-5 mr-2" />
                                 <span>Créer une tâche</span>
                             </button>
+
+                            <button
+                                onClick={testApiConnection}
+                                className="ml-2 bg-gray-500 text-white rounded-md px-3 py-2 flex items-center"
+                            >
+                                <span>Tester API</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -485,20 +623,22 @@ const Tasks: React.FC = () => {
                 <CreatePersonalTaskForm
                     isOpen={isAddTaskModalOpen}
                     onClose={closeAddTaskModal}
-
                 />
             )}
 
             <TaskDetailPanel
                 isOpen={isTaskDetailOpen}
                 onClose={closeTaskDetails}
-                task={selectedTask}
+                task={selectedTask || undefined}
             />
 
             <TaskHistory
                 isOpen={isHistoryOpen}
                 onClose={() => setIsHistoryOpen(false)}
             />
+
+            <ApiTest />
+            <TaskDebugger />
         </>
     );
 };

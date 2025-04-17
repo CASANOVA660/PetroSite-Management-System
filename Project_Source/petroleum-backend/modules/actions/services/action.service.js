@@ -1,5 +1,4 @@
 const Action = require('../models/action.model');
-const Task = require('../../tasks/models/task.model');
 const { createNotification } = require('../../../modules/notifications/controllers/notificationController');
 const taskService = require('../../tasks/services/task.service');
 
@@ -30,7 +29,7 @@ class ActionService {
             const action = await new Action(actionData).save();
             const populatedAction = await action.populate(['responsible', 'manager']);
 
-            // Create corresponding task
+            // Create corresponding task with project info if available
             const task = await taskService.createTask({
                 title: action.title,
                 description: action.content,
@@ -40,7 +39,10 @@ class ActionService {
                 endDate: action.endDate,
                 status: 'todo',
                 actionId: action._id,
-                tags: ['Action']
+                tags: ['Action'],
+                projectId: action.projectId || null,
+                category: action.category || null,
+                needsValidation: true
             });
 
             // Create notification for the responsible user if they are different from the manager
@@ -79,10 +81,15 @@ class ActionService {
 
         // Update associated task if action is completed
         if (status === 'completed') {
-            await Task.findOneAndUpdate(
-                { actionId: action._id },
-                { status: 'completed' }
-            );
+            // Find associated task
+            const tasks = await taskService.getTasksByActionId(actionId);
+
+            // Update tasks status using task service
+            if (tasks && tasks.length > 0) {
+                for (const task of tasks) {
+                    await taskService.updateTaskStatus(task._id, 'done', action.manager);
+                }
+            }
         }
 
         return action;
@@ -127,22 +134,33 @@ class ActionService {
 
             console.log('ActionService - Updated action result:', updatedAction);
 
-            // Update associated task
-            const task = await Task.findOne({ actionId: action._id });
-            if (task) {
-                console.log('ActionService - Found associated task:', task);
+            // Update associated tasks
+            const tasks = await taskService.getTasksByActionId(actionId);
 
-                // Update task with the new information
-                const updatedTask = await Task.findByIdAndUpdate(task._id, {
-                    title: actionData.title || task.title,
-                    description: actionData.content || task.description,
-                    assignee: actionData.responsible || task.assignee,
-                    startDate: actionData.startDate || task.startDate,
-                    endDate: actionData.endDate || task.endDate,
-                    status: actionData.status === 'completed' ? 'completed' : task.status
-                }, { new: true });
+            if (tasks && tasks.length > 0) {
+                for (const task of tasks) {
+                    console.log('ActionService - Found associated task:', task);
 
-                console.log('ActionService - Updated associated task:', updatedTask);
+                    // Update task data
+                    const taskUpdateData = {
+                        title: actionData.title || task.title,
+                        description: actionData.content || task.description,
+                        assignee: actionData.responsible || task.assignee,
+                        startDate: actionData.startDate || task.startDate,
+                        endDate: actionData.endDate || task.endDate,
+                        projectId: actionData.projectId || task.projectId,
+                        category: actionData.category || task.category
+                    };
+
+                    // If action status changed to completed, update task status too
+                    if (actionData.status === 'completed' && task.status !== 'done') {
+                        await taskService.updateTaskStatus(task._id, 'done', action.manager);
+                    }
+
+                    // Update task data
+                    await taskService.updateTaskData(task._id, taskUpdateData);
+                    console.log('ActionService - Updated associated task');
+                }
             }
 
             return updatedAction;
@@ -161,8 +179,13 @@ class ActionService {
             throw new Error('Action not found');
         }
 
-        // Delete associated task
-        await Task.deleteOne({ actionId: action._id });
+        // Delete associated tasks
+        const tasks = await taskService.getTasksByActionId(actionId);
+        if (tasks && tasks.length > 0) {
+            for (const task of tasks) {
+                await taskService.deleteTask(task._id);
+            }
+        }
 
         // Delete the action
         await Action.deleteOne({ _id: actionId });

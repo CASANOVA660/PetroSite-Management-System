@@ -27,6 +27,12 @@ dotenv.config();
 connectDB(); // MongoDB
 initializeFirebase(); // Firebase
 
+// Initialize cron jobs
+if (process.env.NODE_ENV !== 'test') {
+    logger.info('Initializing cron jobs');
+    require('./crons/archive-tasks');
+}
+
 // Redis connection events
 redis.on('connect', () => logger.info('Redis connected'));
 redis.on('error', (err) => logger.error('Redis connection error:', err));
@@ -109,18 +115,6 @@ app.use('/api/actions', actionRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/global-actions', globalActionRoutes);
 app.use('/api/equipment', equipmentRoutes);
-// Socket.io events
-io.on('connection', (socket) => {
-    logger.info(`Client connected: ${socket.id}`);
-
-    socket.on('error', (error) => {
-        logger.error(`Socket error (${socket.id}):`, error);
-    });
-
-    socket.on('disconnect', (reason) => {
-        logger.info(`Client disconnected (${socket.id}): ${reason}`);
-    });
-});
 
 // Error handling
 app.use(errorHandler);

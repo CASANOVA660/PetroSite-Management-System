@@ -14,33 +14,67 @@ import {
     ChevronDownIcon,
     ClockIcon,
     ArrowsPointingOutIcon,
-    ArrowsPointingInIcon
+    ArrowsPointingInIcon,
+    CheckIcon
 } from '@heroicons/react/24/outline';
-import { useDispatch } from 'react-redux';
-import { updateTask } from '../../store/slices/taskSlice';
-import { AppDispatch } from '../../store';
+import { useDispatch, useSelector } from 'react-redux';
+
+import { AppDispatch, RootState } from '../../store';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { toast } from 'react-hot-toast';
+import {
+    Task,
+    updateTask,
+    updateTaskStatus,
+    addComment,
+    toggleSubtask
+} from '../../store/slices/taskSlice';
 
 interface TaskDetailPanelProps {
     isOpen: boolean;
     onClose: () => void;
-    task?: any;
+    task?: Task;
 }
 
 interface FileItem {
-    id: string;
+    _id: string;
     name: string;
     type: string;
     size: number;
     uploadedAt: string;
     url: string;
+    approved?: boolean;
 }
 
-interface Subtask {
-    id: string;
+interface LocalSubtask {
+    _id: string;
     text: string;
     completed: boolean;
+}
+
+interface TaskSubtask {
+    _id: string;
+    text: string;
+    completed: boolean;
+}
+
+interface TaskFile {
+    _id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    uploadedBy: any;
+    uploadedAt: string;
+    approved: boolean;
+}
+
+interface StatusHistoryEntry {
+    user: string;
+    status: string;
+    newStatus: string;
+    date: Date;
 }
 
 const statusOptions = [
@@ -82,13 +116,14 @@ const backdropStyles: React.CSSProperties = {
 
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task }) => {
     const dispatch = useDispatch<AppDispatch>();
+    const currentUser = useSelector((state: RootState) => state.auth.user);
     const [comments, setComments] = useState<any[]>([]);
     const [commentText, setCommentText] = useState('');
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('Comments');
     const [files, setFiles] = useState<FileItem[]>([]);
     const [uploading, setUploading] = useState<{ [key: string]: number }>({});
-    const [progress, setProgress] = useState(task?.progress || 0);
+    const [progress, setProgress] = useState(0);
     const [isExpanded, setIsExpanded] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,46 +156,30 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     };
 
     useEffect(() => {
-        if (task?._id) {
-            setComments([
-                {
-                    id: 1,
-                    user: { name: 'Ethan Carter', avatar: 'https://ui-avatars.com/api/?name=Ethan+Carter&background=random' },
-                    text: "Hey @Sam! I've updated the wireframes and left some notes on Figma. Let me know your thoughts. Thanks!",
-                    timestamp: new Date(Date.now() - 3 * 60 * 1000),
-                    reactions: []
-                },
-                {
-                    id: 2,
-                    user: { name: 'Sam', avatar: 'https://ui-avatars.com/api/?name=Sam&background=random' },
-                    text: "Got it! I'll review and provide feedback by tomorrow. 🚀",
-                    timestamp: new Date(Date.now() - 2 * 60 * 1000),
-                    reactions: [{ emoji: '🔥', count: 1 }, { emoji: '⚡', count: 1 }]
-                }
-            ]);
-
-            setFiles([
-                {
-                    id: '1',
-                    name: 'wireframes.pdf',
-                    type: 'application/pdf',
-                    size: 2457600,
-                    uploadedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-                    url: 'https://example.com/wireframes.pdf'
-                },
-                {
-                    id: '2',
-                    name: 'screenshot.png',
-                    type: 'image/png',
-                    size: 512000,
-                    uploadedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-                    url: 'https://example.com/screenshot.png'
-                }
-            ]);
-
-            setProgress(task?.progress || 75);
+        if (task) {
+            setProgress(task.progress || 0);
         }
-    }, [task?._id, task?.progress]);
+    }, [task?.progress]);
+
+    useEffect(() => {
+        if (task?._id) {
+            setComments(task.comments || []);
+            if (task.files && task.files.length > 0) {
+                const mappedFiles = task.files.map(file => ({
+                    _id: file._id,
+                    name: file.name,
+                    type: file.type || 'application/octet-stream',
+                    size: file.size || 0,
+                    uploadedAt: new Date().toISOString(),
+                    url: file.url,
+                    approved: !!file.approved
+                }));
+                setFiles(mappedFiles);
+            } else {
+                setFiles([]);
+            }
+        }
+    }, [task?._id]);
 
     useEffect(() => {
         if (isOpen) {
@@ -177,28 +196,37 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     const handleStatusChange = async (newStatus: string) => {
         try {
-            await dispatch(updateTask({ ...task, status: newStatus }));
-            setStatusDropdownOpen(false);
+            if (task?._id) {
+                await dispatch(updateTaskStatus({
+                    taskId: task._id,
+                    status: newStatus as Task['status']
+                }));
+                setStatusDropdownOpen(false);
+            }
         } catch (err) {
-            console.error('Erreur lors du changement de statut', err);
+            console.error('Error changing status:', err);
+            toast.error('Failed to update task status');
         }
     };
 
-    const handleCommentSubmit = (e: React.MouseEvent) => {
+    const handleCommentSubmit = async (e: React.MouseEvent) => {
         e.preventDefault();
         if (!commentText.trim()) return;
 
-        setComments([
-            ...comments,
-            {
-                id: Date.now(),
-                user: { name: 'Moi', avatar: 'https://ui-avatars.com/api/?name=Moi&background=random' },
-                text: commentText,
-                timestamp: new Date(),
-                reactions: []
+        try {
+            if (task?._id) {
+                await dispatch(addComment({
+                    taskId: task._id,
+                    text: commentText
+                }));
+
+                setCommentText('');
+                toast.success('Commentaire ajouté');
             }
-        ]);
-        setCommentText('');
+        } catch (error) {
+            console.error('Error submitting comment:', error);
+            toast.error('Échec de l\'ajout du commentaire');
+        }
     };
 
     const handleAddReaction = (commentId: number, emoji: string) => {
@@ -229,22 +257,27 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const uploadedFiles = event.target.files;
-        if (!uploadedFiles) return;
+        if (!uploadedFiles || !task?._id) return;
 
-        Array.from(uploadedFiles).forEach(file => {
-            const fileId = Date.now().toString() + file.name;
-            setUploading(prev => ({ ...prev, [fileId]: 0 }));
+        Array.from(uploadedFiles).forEach(async (file) => {
+            const _id = Date.now().toString() + file.name;
+            setUploading(prev => ({ ...prev, [_id]: 0 }));
 
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 10;
-                setUploading(prev => ({ ...prev, [fileId]: progress }));
-                if (progress >= 100) {
-                    clearInterval(interval);
+            try {
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    setUploading(prev => ({ ...prev, [_id]: progress }));
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                    }
+                }, 200);
+
+                setTimeout(() => {
                     setFiles(prev => [
                         ...prev,
                         {
-                            id: fileId,
+                            _id,
                             name: file.name,
                             type: file.type,
                             size: file.size,
@@ -252,13 +285,26 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                             url: URL.createObjectURL(file)
                         }
                     ]);
+
+                    clearInterval(interval);
                     setUploading(prev => {
                         const newUploading = { ...prev };
-                        delete newUploading[fileId];
+                        delete newUploading[_id];
                         return newUploading;
                     });
-                }
-            }, 200);
+
+                    toast.success('File uploaded successfully');
+                }, 2000);
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                toast.error('Failed to upload file');
+
+                setUploading(prev => {
+                    const newUploading = { ...prev };
+                    delete newUploading[_id];
+                    return newUploading;
+                });
+            }
         });
     };
 
@@ -268,19 +314,19 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         if (!uploadedFiles) return;
 
         Array.from(uploadedFiles).forEach(file => {
-            const fileId = Date.now().toString() + file.name;
-            setUploading(prev => ({ ...prev, [fileId]: 0 }));
+            const _id = Date.now().toString() + file.name;
+            setUploading(prev => ({ ...prev, [_id]: 0 }));
 
             let progress = 0;
             const interval = setInterval(() => {
                 progress += 10;
-                setUploading(prev => ({ ...prev, [fileId]: progress }));
+                setUploading(prev => ({ ...prev, [_id]: progress }));
                 if (progress >= 100) {
                     clearInterval(interval);
                     setFiles(prev => [
                         ...prev,
                         {
-                            id: fileId,
+                            _id,
                             name: file.name,
                             type: file.type,
                             size: file.size,
@@ -290,7 +336,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     ]);
                     setUploading(prev => {
                         const newUploading = { ...prev };
-                        delete newUploading[fileId];
+                        delete newUploading[_id];
                         return newUploading;
                     });
                 }
@@ -300,27 +346,38 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     const handleDeleteFile = (fileId: string) => {
         if (window.confirm('Voulez-vous vraiment supprimer ce fichier ?')) {
-            setFiles(prev => prev.filter(file => file.id !== fileId));
+            setFiles(prev => prev.filter(file => file._id !== fileId));
         }
     };
 
     const handleProgressUpdate = async (newProgress: number) => {
         setProgress(newProgress);
+        if (!task?._id) return;
+
         try {
-            await dispatch(updateTask({ ...task, progress: newProgress }));
+            await dispatch(updateTask({
+                ...task,
+                progress: newProgress
+            }));
         } catch (err) {
-            console.error('Erreur lors de la mise à jour du progrès', err);
+            console.error('Error updating progress:', err);
+            toast.error('Failed to update task progress');
         }
     };
 
     const handleSubtaskToggle = async (subtaskId: string) => {
-        const updatedSubtasks = (task.subtasks || []).map((subtask: Subtask) =>
-            subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
-        );
+        if (!task?._id || !task.subtasks) return;
+
         try {
-            await dispatch(updateTask({ ...task, subtasks: updatedSubtasks }));
+            await dispatch(toggleSubtask({
+                taskId: task._id,
+                subtaskId
+            }));
+
+            toast.success('Sous-tâche mise à jour');
         } catch (err) {
-            console.error('Erreur lors de la mise à jour des sous-tâches', err);
+            console.error('Error updating subtasks:', err);
+            toast.error('Échec de la mise à jour de la sous-tâche');
         }
     };
 
@@ -334,16 +391,58 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
-    const subtasks: Subtask[] = task.subtasks || [
-        { id: '1', text: 'Pagination', completed: false },
-        { id: '2', text: 'Avatar', completed: false },
-        { id: '3', text: 'Aecorelien', completed: true }
+    const getSubtaskId = (subtask: TaskSubtask | LocalSubtask): string => {
+        return '_id' in subtask ? subtask._id : (subtask as unknown as LocalSubtask)._id;
+    };
+
+    const defaultSubtasks: LocalSubtask[] = [
+        {
+            _id: 'default-1',
+            text: 'Analyser les besoins des utilisateurs',
+            completed: true
+        },
+        {
+            _id: 'default-2',
+            text: 'Créer des wireframes',
+            completed: false
+        }
     ];
 
-    const statusHistory = [
-        { user: 'Rahmadini', status: 'todo', newStatus: 'inProgress', date: new Date('2024-01-08T09:00:00') },
-        { user: 'Rahmadini', status: 'created', newStatus: 'todo', date: new Date('2024-01-07T14:00:00') }
+    const subtasks = task?.subtasks || [];
+
+    const statusHistory: StatusHistoryEntry[] = [
+        { user: 'Utilisateur', status: 'todo', newStatus: 'inProgress', date: new Date('2024-01-08T09:00:00') },
+        { user: 'Utilisateur', status: 'created', newStatus: 'todo', date: new Date('2024-01-07T14:00:00') }
     ];
+
+    const handleApproveFile = async (fileId: string) => {
+        if (!task?._id) return;
+
+        try {
+            const updatedFiles = task.files?.map(file => {
+                if (file._id === fileId) {
+                    return { ...file, approved: true };
+                }
+                return file;
+            });
+
+            await dispatch(updateTask({
+                ...task,
+                files: updatedFiles
+            }));
+
+            setFiles(files.map(file =>
+                file._id === fileId
+                    ? { ...file, approved: true }
+                    : file
+            ));
+
+            toast.success('Fichier approuvé');
+        } catch (err) {
+            console.error('Error approving file:', err);
+            toast.error('Échec de l\'approbation du fichier');
+        }
+    };
 
     return (
         <>
@@ -374,7 +473,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     </div>
                     {isExpanded ? (
                         <div className="grid grid-cols-2 gap-6">
-                            {/* Left Column */}
                             <div className="space-y-6">
                                 <div>
                                     <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
@@ -385,7 +483,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                     {files.length > 0 ? (
                                         <div className="flex flex-wrap gap-3">
                                             {files.map(file => (
-                                                <div key={file.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                                <div key={file._id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
                                                     {getFileIcon(file.type)}
                                                     <span className="text-sm text-gray-800">{file.name}</span>
                                                 </div>
@@ -428,15 +526,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
-                                    <div className="flex space-x-2">
-                                        {['Dea Ananda', 'Akmal Nasrullah', 'Aidyyy'].map((assignee, index) => (
-                                            <img
-                                                key={index}
-                                                src={`https://ui-avatars.com/api/?name=${assignee}&background=random`}
-                                                alt={assignee}
-                                                className="w-8 h-8 rounded-full"
-                                            />
-                                        ))}
+                                    <div className="flex items-center mr-4">
+                                        <img
+                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom}+${task.assignee?.nom}&background=random`}
+                                            alt="Avatar"
+                                            className="w-8 h-8 rounded-full mr-2"
+                                        />
+                                        <span className="text-sm font-medium">Assigné à: {task.assignee?.prenom} {task.assignee?.nom}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -466,15 +562,16 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-2">Sous-tâches ({subtasks.filter((s: Subtask) => s.completed).length}/{subtasks.length})</div>
-                                    <div className="space-y-3">
-                                        {subtasks.map((subtask: Subtask) => (
-                                            <div key={subtask.id} className="flex items-center">
+                                    <div className="text-sm font-medium text-gray-500 mb-2">Sous-tâches ({subtasks.filter((s: any) => s.completed).length}/{subtasks.length})</div>
+                                    <div className="space-y-2">
+                                        {subtasks.map((subtask: any) => (
+                                            <div key={getSubtaskId(subtask)} className="flex items-center">
                                                 <input
                                                     type="checkbox"
+                                                    className="form-checkbox h-5 w-5 text-[#F28C38]"
                                                     checked={subtask.completed}
-                                                    onChange={() => handleSubtaskToggle(subtask.id)}
-                                                    className="h-4 w-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                                                    onChange={() => handleSubtaskToggle(getSubtaskId(subtask))}
+                                                    id={`subtask-${getSubtaskId(subtask)}`}
                                                     aria-label={`Marquer ${subtask.text} comme ${subtask.completed ? 'non complété' : 'complété'}`}
                                                 />
                                                 <span className={`ml-3 text-sm ${subtask.completed ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
@@ -486,7 +583,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                     <button className="mt-2 text-sm text-blue-500 hover:underline">+ Ajouter une sous-tâche</button>
                                 </div>
                             </div>
-                            {/* Right Column */}
                             <div className="space-y-6">
                                 <div>
                                     <h3 className="text-lg font-medium text-gray-800 mb-4">Statistiques du projet</h3>
@@ -794,7 +890,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 <div className="space-y-3">
                                                     {files.map(file => (
                                                         <div
-                                                            key={file.id}
+                                                            key={file._id}
                                                             className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
                                                         >
                                                             <div className="flex-shrink-0">{getFileIcon(file.type)}</div>
@@ -803,6 +899,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                                 <p className="text-xs text-gray-500">
                                                                     {(file.size / 1024 / 1024).toFixed(2)} Mo •{' '}
                                                                     {format(new Date(file.uploadedAt), 'dd MMM yyyy', { locale: fr })}
+                                                                    {file.approved && ' • Approuvé'}
                                                                 </p>
                                                             </div>
                                                             <div className="flex space-x-2">
@@ -814,8 +911,18 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                                 >
                                                                     <ChevronDownIcon className="w-5 h-5 text-gray-500" />
                                                                 </a>
+                                                                {(task?.creator?._id === currentUser?._id || task?.assignee?._id === currentUser?._id) &&
+                                                                    !file.approved && (
+                                                                        <button
+                                                                            onClick={() => handleApproveFile(file._id)}
+                                                                            className="p-1 rounded hover:bg-gray-200"
+                                                                            aria-label={`Approuver ${file.name}`}
+                                                                        >
+                                                                            <CheckIcon className="w-5 h-5 text-green-500" />
+                                                                        </button>
+                                                                    )}
                                                                 <button
-                                                                    onClick={() => handleDeleteFile(file.id)}
+                                                                    onClick={() => handleDeleteFile(file._id)}
                                                                     className="p-1 rounded hover:bg-gray-200"
                                                                     aria-label={`Supprimer ${file.name}`}
                                                                 >
@@ -879,13 +986,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 <div>
                                                     <div className="text-sm font-medium text-gray-500 mb-3">Sous-tâches</div>
                                                     <div className="space-y-3">
-                                                        {subtasks.map((subtask: Subtask) => (
-                                                            <div key={subtask.id} className="flex items-center">
+                                                        {subtasks.map((subtask: any) => (
+                                                            <div key={getSubtaskId(subtask)} className="flex items-center">
                                                                 <input
                                                                     type="checkbox"
+                                                                    className="form-checkbox h-5 w-5 text-[#F28C38]"
                                                                     checked={subtask.completed}
-                                                                    onChange={() => handleSubtaskToggle(subtask.id)}
-                                                                    className="h-4 w-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                                                                    onChange={() => handleSubtaskToggle(getSubtaskId(subtask))}
+                                                                    id={`subtask-${getSubtaskId(subtask)}`}
                                                                     aria-label={`Marquer ${subtask.text} comme ${subtask.completed ? 'non complété' : 'complété'}`}
                                                                 />
                                                                 <span className={`ml-3 text-sm ${subtask.completed ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
@@ -924,7 +1032,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     </svg>
                                                     <p className="text-sm font-medium text-gray-900 mb-2">Aucun progrès</p>
                                                     <p className="text-sm text-gray-500">
-                                                        Ajoutez des sous-tâches ou mettez à jour le progrès pour suivre l’avancement.
+                                                        Ajoutez des sous-tâches ou mettez à jour le progrès pour suivre l'avancement.
                                                     </p>
                                                 </div>
                                             )}

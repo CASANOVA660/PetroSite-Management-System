@@ -200,9 +200,12 @@ class GlobalActionService {
                 startDate: savedAction.startDate,
                 endDate: savedAction.endDate,
                 status: 'todo',
-                actionId: savedAction._id,
+                globalActionId: savedAction._id,
                 type: 'realization',
-                projectId: actionData.projectId || null
+                projectId: actionData.projectId || null,
+                category: actionData.projectCategory || actionData.category || null,
+                needsValidation: true,
+                tags: ['Global Action', 'Realization']
             },
             {
                 title: `Suivi: ${savedAction.title}`,
@@ -212,9 +215,12 @@ class GlobalActionService {
                 startDate: savedAction.startDate,
                 endDate: savedAction.endDate,
                 status: 'todo',
-                actionId: savedAction._id,
+                globalActionId: savedAction._id,
                 type: 'followup',
-                projectId: actionData.projectId || null
+                projectId: actionData.projectId || null,
+                category: actionData.projectCategory || actionData.category || null,
+                needsValidation: true,
+                tags: ['Global Action', 'Follow-up']
             }
         ];
 
@@ -259,6 +265,19 @@ class GlobalActionService {
             })
         ]);
 
+        // Update associated tasks if action is completed
+        if (status === 'completed') {
+            // Find associated tasks
+            const tasks = await taskService.getTasksByGlobalActionId(actionId);
+
+            // Update tasks status
+            if (tasks && tasks.length > 0) {
+                for (const task of tasks) {
+                    await taskService.updateTaskStatus(task._id, 'done', action.manager);
+                }
+            }
+        }
+
         // Clear relevant caches
         await this.constructor.clearCache('all');
         await this.constructor.clearCache('search');
@@ -302,6 +321,38 @@ class GlobalActionService {
             { ...actionData, source: projectDetails ? projectDetails.name : 'Global' },
             { new: true }
         ).populate(['responsibleForRealization', 'responsibleForFollowUp', 'manager', 'projectId']);
+
+        // Update associated tasks
+        const tasks = await taskService.getTasksByGlobalActionId(actionId);
+
+        if (tasks && tasks.length > 0) {
+            for (const task of tasks) {
+                // Determine which responsible person this task belongs to
+                const isRealizationTask = task.tags.includes('Realization');
+                const isFollowUpTask = task.tags.includes('Follow-up');
+
+                // Update task data based on its type
+                const taskUpdateData = {
+                    title: isRealizationTask ? `Réalisation: ${actionData.title}` :
+                        isFollowUpTask ? `Suivi: ${actionData.title}` : task.title,
+                    description: actionData.content || task.description,
+                    assignee: isRealizationTask ? actionData.responsibleForRealization || task.assignee :
+                        isFollowUpTask ? actionData.responsibleForFollowUp || task.assignee : task.assignee,
+                    startDate: actionData.startDate || task.startDate,
+                    endDate: actionData.endDate || task.endDate,
+                    projectId: actionData.projectId || task.projectId,
+                    category: actionData.projectCategory || actionData.category || task.category
+                };
+
+                // If action status changed to completed, update task status too
+                if (actionData.status === 'completed' && task.status !== 'done') {
+                    await taskService.updateTaskStatus(task._id, 'done', existingAction.manager);
+                }
+
+                // Update task data
+                await taskService.updateTaskData(task._id, taskUpdateData);
+            }
+        }
 
         // Send notifications based on what changed
         const notifications = [];
@@ -383,6 +434,14 @@ class GlobalActionService {
 
         if (!action) {
             throw new Error('Action not found');
+        }
+
+        // Delete associated tasks
+        const tasks = await taskService.getTasksByGlobalActionId(actionId);
+        if (tasks && tasks.length > 0) {
+            for (const task of tasks) {
+                await taskService.deleteTask(task._id);
+            }
         }
 
         // Notify both users about deletion

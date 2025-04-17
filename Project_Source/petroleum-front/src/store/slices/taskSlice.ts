@@ -1,11 +1,15 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from './../../utils/axios';
-import { RootState } from '../index';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import axios from '../../utils/axios';
 
 export interface Task {
     _id: string;
     title: string;
     description: string;
+    status: 'todo' | 'inProgress' | 'inReview' | 'done';
+    progress: number;
+    priority: 'low' | 'medium' | 'high';
+    startDate?: string;
+    endDate?: string;
     assignee: {
         _id: string;
         nom: string;
@@ -16,64 +20,259 @@ export interface Task {
         nom: string;
         prenom: string;
     };
-    startDate: string;
-    endDate: string;
-    status: 'todo' | 'inProgress' | 'done';
-    progress: number;
+    comments?: Array<{
+        _id: string;
+        text: string;
+        author: {
+            _id: string;
+            nom: string;
+            prenom: string;
+        };
+        createdAt: string;
+    }>;
+    files?: Array<{
+        _id: string;
+        name: string;
+        url: string;
+        type: string;
+        size: number;
+        uploadedBy: string;
+        approved: boolean;
+    }>;
+    subtasks?: Array<{
+        _id: string;
+        text: string;
+        completed: boolean;
+    }>;
+    needsValidation: boolean;
     tags: string[];
+    // Fields for action-generated tasks
     actionId?: string;
+    globalActionId?: string;
+    // For project association
+    projectId?: string;
+    category?: string;
+    // For archived and declined tasks
+    isArchived?: boolean;
+    isDeclined?: boolean;
+    // For history tracking
+    completedAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
-interface TaskState {
+interface TasksState {
     tasks: {
         todo: Task[];
         inProgress: Task[];
+        inReview: Task[];
         done: Task[];
     };
+    history: Task[];
     loading: boolean;
     error: string | null;
 }
 
-const initialState: TaskState = {
+const initialState: TasksState = {
     tasks: {
         todo: [],
         inProgress: [],
+        inReview: [],
         done: []
     },
+    history: [],
     loading: false,
     error: null
 };
 
-// Fetch user's tasks
+// Async thunks
 export const fetchUserTasks = createAsyncThunk(
     'tasks/fetchUserTasks',
-    async () => {
-        console.log('Fetching user tasks from API...');
-        const response = await axios.get('/tasks/user');
-        console.log('API Response:', response.data);
-        return response.data;
-    }
-);
-
-// Update task status
-export const updateTaskStatus = createAsyncThunk(
-    'tasks/updateStatus',
-    async ({ taskId, status }: { taskId: string; status: Task['status'] }) => {
-        console.log('Updating task status:', { taskId, status });
-        const response = await axios.patch(`/tasks/${taskId}/status`, { status });
-        console.log('Update response:', response.data);
-        return response.data;
-    }
-);
-
-export const deleteTask = createAsyncThunk(
-    'tasks/deleteTask',
-    async (taskId: string, { rejectWithValue }) => {
+    async (_, { rejectWithValue }) => {
         try {
-            await axios.delete(`/tasks/${taskId}`);
-            return taskId;
+            console.log('Fetching user tasks from API...');
+            const response = await axios.get('/tasks/user');
+            console.log('User tasks API response:', response.data);
+
+            // Check if the data has the expected structure
+            if (!response.data.data || !response.data.data.todo) {
+                console.error('Unexpected API response format:', response.data);
+                return rejectWithValue('Invalid response format from API');
+            }
+
+            // Count task types in the response
+            const allTasks = [
+                ...(response.data.data.todo || []),
+                ...(response.data.data.inProgress || []),
+                ...(response.data.data.inReview || []),
+                ...(response.data.data.done || [])
+            ];
+
+            const taskTypes = {
+                projectAction: allTasks.filter(t => t.actionId).length,
+                globalAction: allTasks.filter(t => t.globalActionId).length,
+                personal: allTasks.filter(t => !t.actionId && !t.globalActionId).length,
+                total: allTasks.length
+            };
+
+            console.log('Task types in API response:', taskTypes);
+
+            // Check for any tasks with actionId
+            const projectActionTasks = allTasks.filter(t => t.actionId);
+            if (projectActionTasks.length > 0) {
+                console.log('Project action tasks found in response:',
+                    projectActionTasks.map(t => ({
+                        id: t._id,
+                        title: t.title,
+                        actionId: t.actionId,
+                        projectId: t.projectId,
+                        assigneeId: t.assignee?._id,
+                        status: t.status
+                    }))
+                );
+            } else {
+                console.warn('No project action tasks found in the API response!');
+
+                // Force a fresh reload without cache
+                console.log('Trying to force reload without cache...');
+                try {
+                    const freshResponse = await axios.get('/tasks/user', {
+                        headers: {
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache',
+                            'Expires': '0'
+                        }
+                    });
+
+                    console.log('Fresh API response received:', freshResponse.data);
+
+                    if (freshResponse.data.data && freshResponse.data.data.todo) {
+                        const freshAllTasks = [
+                            ...(freshResponse.data.data.todo || []),
+                            ...(freshResponse.data.data.inProgress || []),
+                            ...(freshResponse.data.data.inReview || []),
+                            ...(freshResponse.data.data.done || [])
+                        ];
+
+                        const freshProjectActionTasks = freshAllTasks.filter(t => t.actionId);
+                        if (freshProjectActionTasks.length > 0) {
+                            console.log('Fresh request found project action tasks:',
+                                freshProjectActionTasks.map(t => ({
+                                    id: t._id,
+                                    title: t.title,
+                                    actionId: t.actionId,
+                                    status: t.status
+                                }))
+                            );
+
+                            return freshResponse.data.data;
+                        }
+                    }
+                } catch (freshError) {
+                    console.error('Error in fresh request:', freshError);
+                }
+            }
+
+            return response.data.data;
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.message || 'Failed to delete task');
+            console.error('Error fetching user tasks:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch tasks');
+        }
+    }
+);
+
+export const fetchTaskHistory = createAsyncThunk(
+    'tasks/fetchTaskHistory',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await axios.get('/tasks/history');
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch task history');
+        }
+    }
+);
+
+export const createPersonalTask = createAsyncThunk(
+    'tasks/createPersonalTask',
+    async (taskData: any, { rejectWithValue }) => {
+        try {
+            const response = await axios.post('/tasks/personal', taskData);
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to create task');
+        }
+    }
+);
+
+export const updateTaskStatus = createAsyncThunk(
+    'tasks/updateTaskStatus',
+    async ({ taskId, status }: { taskId: string, status: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.patch(`/tasks/${taskId}/status`, { status });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update task status');
+        }
+    }
+);
+
+export const updateTaskProgress = createAsyncThunk(
+    'tasks/updateTaskProgress',
+    async ({ taskId, progress }: { taskId: string, progress: number }, { rejectWithValue }) => {
+        try {
+            const response = await axios.patch(`/tasks/${taskId}/progress`, { progress });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update task progress');
+        }
+    }
+);
+
+export const addComment = createAsyncThunk(
+    'tasks/addComment',
+    async ({ taskId, text }: { taskId: string, text: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.post(`/tasks/${taskId}/comments`, { text });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to add comment');
+        }
+    }
+);
+
+export const addSubtask = createAsyncThunk(
+    'tasks/addSubtask',
+    async ({ taskId, text }: { taskId: string, text: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.post(`/tasks/${taskId}/subtasks`, { text });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to add subtask');
+        }
+    }
+);
+
+export const toggleSubtask = createAsyncThunk(
+    'tasks/toggleSubtask',
+    async ({ taskId, subtaskId }: { taskId: string, subtaskId: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.patch(`/tasks/${taskId}/subtasks/${subtaskId}/toggle`);
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to toggle subtask');
+        }
+    }
+);
+
+export const reviewTask = createAsyncThunk(
+    'tasks/reviewTask',
+    async ({ taskId, decision, feedback }: { taskId: string, decision: 'accept' | 'decline' | 'return', feedback?: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.post(`/tasks/${taskId}/review`, { decision, feedback });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to review task');
         }
     }
 );
@@ -82,106 +281,167 @@ const taskSlice = createSlice({
     name: 'tasks',
     initialState,
     reducers: {
-        addNewTask: (state, action) => {
-            console.log('Adding new task:', action.payload);
+        addNewTask: (state, action: PayloadAction<Task>) => {
             const task = action.payload;
-            if (task.status && typeof task.status === 'string') {
-                const status = task.status as keyof typeof state.tasks;
-                if (status in state.tasks) {
-                    state.tasks[status].push(task);
-                    console.log('Task added to status:', status);
-                } else {
-                    console.warn('Invalid status for task:', task.status);
-                }
-            } else {
-                console.warn('Task has no valid status:', task);
+            if (task.status === 'todo') {
+                state.tasks.todo.push(task);
+            } else if (task.status === 'inProgress') {
+                state.tasks.inProgress.push(task);
+            } else if (task.status === 'inReview') {
+                state.tasks.inReview.push(task);
+            } else if (task.status === 'done') {
+                state.tasks.done.push(task);
             }
         },
-        updateTask: (state, action) => {
-            console.log('Updating task:', action.payload);
-            const updatedTask = action.payload;
+        updateTask: (state, action: PayloadAction<Task>) => {
+            const task = action.payload;
+
             // Remove from all status arrays
-            Object.keys(state.tasks).forEach((status) => {
-                const previousLength = state.tasks[status as keyof typeof state.tasks].length;
-                state.tasks[status as keyof typeof state.tasks] = state.tasks[status as keyof typeof state.tasks]
-                    .filter(task => task._id !== updatedTask._id);
-                const newLength = state.tasks[status as keyof typeof state.tasks].length;
-                if (previousLength !== newLength) {
-                    console.log(`Removed task from ${status} array`);
-                }
-            });
-            // Add to correct status array
-            if (updatedTask.status && updatedTask.status in state.tasks) {
-                state.tasks[updatedTask.status as keyof typeof state.tasks].push(updatedTask);
-                console.log('Added task to', updatedTask.status, 'array');
-            } else {
-                console.warn('Invalid status for updated task:', updatedTask.status);
+            state.tasks.todo = state.tasks.todo.filter(t => t._id !== task._id);
+            state.tasks.inProgress = state.tasks.inProgress.filter(t => t._id !== task._id);
+            state.tasks.inReview = state.tasks.inReview.filter(t => t._id !== task._id);
+            state.tasks.done = state.tasks.done.filter(t => t._id !== task._id);
+
+            // Add to appropriate status array
+            if (task.status === 'todo') {
+                state.tasks.todo.push(task);
+            } else if (task.status === 'inProgress') {
+                state.tasks.inProgress.push(task);
+            } else if (task.status === 'inReview') {
+                state.tasks.inReview.push(task);
+            } else if (task.status === 'done') {
+                state.tasks.done.push(task);
             }
         }
     },
     extraReducers: (builder) => {
         builder
+            // fetchUserTasks
             .addCase(fetchUserTasks.pending, (state) => {
-                console.log('Fetching tasks - pending');
                 state.loading = true;
                 state.error = null;
             })
             .addCase(fetchUserTasks.fulfilled, (state, action) => {
-                console.log('Fetching tasks - fulfilled:', action.payload);
                 state.loading = false;
-                if (action.payload && typeof action.payload === 'object') {
-                    state.tasks = {
-                        todo: Array.isArray(action.payload.todo) ? action.payload.todo : [],
-                        inProgress: Array.isArray(action.payload.inProgress) ? action.payload.inProgress : [],
-                        done: Array.isArray(action.payload.done) ? action.payload.done : []
-                    };
-                    console.log('Updated tasks state:', state.tasks);
-                } else {
-                    console.warn('Invalid payload received:', action.payload);
-                }
-                state.error = null;
+                state.tasks = action.payload;
             })
             .addCase(fetchUserTasks.rejected, (state, action) => {
-                console.error('Fetching tasks - rejected:', action.error);
                 state.loading = false;
-                state.error = action.error.message || 'Failed to fetch tasks';
+                state.error = action.payload as string;
             })
-            .addCase(updateTaskStatus.pending, (state) => {
+
+            // fetchTaskHistory
+            .addCase(fetchTaskHistory.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
+            .addCase(fetchTaskHistory.fulfilled, (state, action) => {
+                state.loading = false;
+                state.history = action.payload;
+            })
+            .addCase(fetchTaskHistory.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // createPersonalTask
+            .addCase(createPersonalTask.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(createPersonalTask.fulfilled, (state, action) => {
+                state.loading = false;
+                state.tasks.todo.push(action.payload);
+            })
+            .addCase(createPersonalTask.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // updateTaskStatus
             .addCase(updateTaskStatus.fulfilled, (state, action) => {
                 const updatedTask = action.payload;
-                // Remove from all status arrays
-                Object.keys(state.tasks).forEach((status) => {
-                    state.tasks[status as keyof typeof state.tasks] = state.tasks[status as keyof typeof state.tasks]
-                        .filter(task => task._id !== updatedTask._id);
-                });
-                // Add to new status array
-                if (updatedTask.status && updatedTask.status in state.tasks) {
-                    state.tasks[updatedTask.status as keyof typeof state.tasks].push(updatedTask);
+
+                // Remove the task from all status arrays
+                state.tasks.todo = state.tasks.todo.filter(task => task._id !== updatedTask._id);
+                state.tasks.inProgress = state.tasks.inProgress.filter(task => task._id !== updatedTask._id);
+                state.tasks.inReview = state.tasks.inReview.filter(task => task._id !== updatedTask._id);
+                state.tasks.done = state.tasks.done.filter(task => task._id !== updatedTask._id);
+
+                // Add the task to the appropriate status array
+                if (updatedTask.status === 'todo') {
+                    state.tasks.todo.push(updatedTask);
+                } else if (updatedTask.status === 'inProgress') {
+                    state.tasks.inProgress.push(updatedTask);
+                } else if (updatedTask.status === 'inReview') {
+                    state.tasks.inReview.push(updatedTask);
+                } else if (updatedTask.status === 'done') {
+                    state.tasks.done.push(updatedTask);
                 }
             })
-            .addCase(updateTaskStatus.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Failed to update task status';
+
+            // All other updates
+            .addCase(updateTaskProgress.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+                const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
+                const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
+
+                if (index !== -1) {
+                    state.tasks[statusKey][index] = updatedTask;
+                }
             })
-            .addCase(deleteTask.fulfilled, (state, action) => {
-                const taskId = action.payload;
-                state.tasks = {
-                    todo: state.tasks.todo.filter(task => task._id !== taskId),
-                    inProgress: state.tasks.inProgress.filter(task => task._id !== taskId),
-                    done: state.tasks.done.filter(task => task._id !== taskId)
-                };
+            .addCase(addComment.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+                const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
+                const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
+
+                if (index !== -1) {
+                    state.tasks[statusKey][index] = updatedTask;
+                }
+            })
+            .addCase(addSubtask.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+                const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
+                const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
+
+                if (index !== -1) {
+                    state.tasks[statusKey][index] = updatedTask;
+                }
+            })
+            .addCase(toggleSubtask.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+                const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
+                const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
+
+                if (index !== -1) {
+                    state.tasks[statusKey][index] = updatedTask;
+                }
+            })
+            .addCase(reviewTask.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+
+                // Remove from all status arrays first
+                state.tasks.todo = state.tasks.todo.filter(task => task._id !== updatedTask._id);
+                state.tasks.inProgress = state.tasks.inProgress.filter(task => task._id !== updatedTask._id);
+                state.tasks.inReview = state.tasks.inReview.filter(task => task._id !== updatedTask._id);
+                state.tasks.done = state.tasks.done.filter(task => task._id !== updatedTask._id);
+
+                // Add to the appropriate array based on new status
+                if (updatedTask.status === 'todo') {
+                    state.tasks.todo.push(updatedTask);
+                } else if (updatedTask.status === 'inProgress') {
+                    state.tasks.inProgress.push(updatedTask);
+                } else if (updatedTask.status === 'inReview') {
+                    state.tasks.inReview.push(updatedTask);
+                } else if (updatedTask.status === 'done') {
+                    state.tasks.done.push(updatedTask);
+                }
             });
     }
 });
 
-// Selectors
-export const selectTasks = (state: RootState) => state.tasks.tasks;
-export const selectTaskLoading = (state: RootState) => state.tasks.loading;
-export const selectTaskError = (state: RootState) => state.tasks.error;
-
+// Export all the action creators
 export const { addNewTask, updateTask } = taskSlice.actions;
 
+// Export the reducer
 export default taskSlice.reducer; 
