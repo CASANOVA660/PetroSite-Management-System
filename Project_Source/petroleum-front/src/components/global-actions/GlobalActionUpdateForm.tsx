@@ -173,18 +173,18 @@ const GlobalActionUpdateForm: React.FC<GlobalActionUpdateFormProps> = ({ action,
             </div>
 
             <div>
-                <FormSelectInput
-                    label="Statut"
-                    value={formData.status}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, status: e.target.value })}
-                    options={[
-                        { value: 'pending', label: 'À faire' },
-                        { value: 'in_progress', label: 'En cours' },
-                        { value: 'completed', label: 'Terminé' },
-                        { value: 'cancelled', label: 'Annulé' }
-                    ]}
-                    required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                <div className="flex items-center">
+                    <div className="px-3 py-2 border border-gray-300 bg-gray-100 rounded-md text-gray-700 w-full">
+                        {formData.status === 'pending' && 'À faire'}
+                        {formData.status === 'in_progress' && 'En cours'}
+                        {formData.status === 'completed' && 'Terminé'}
+                        {formData.status === 'cancelled' && 'Annulé'}
+                    </div>
+                </div>
+                <p className="mt-1 text-sm text-gray-500 italic">
+                    Le statut ne peut être modifié que depuis le tableau des tâches en déplaçant la tâche associée.
+                </p>
             </div>
 
             <div className="flex items-center mt-3">

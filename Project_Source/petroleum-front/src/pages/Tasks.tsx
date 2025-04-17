@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { RootState, AppDispatch } from '../store';
 import { toast, Toaster } from 'react-hot-toast';
 import socket from '../utils/socket';
@@ -11,11 +12,11 @@ import CreatePersonalTaskForm from '../components/tasks/CreatePersonalTaskForm';
 import TaskDetailPanel from '../components/tasks/TaskDetailPanel';
 import TaskHistory from '../components/tasks/TaskHistory';
 import { fetchUserTasks, fetchProjectActionTasks, fetchGlobalActionTasks, updateTaskStatus, addNewTask, updateTask, Task } from '../store/slices/taskSlice';
-import ApiTest from '../components/ApiTest';
-import TaskDebugger from '../components/TaskDebugger';
 
-// Update the Task interface to include inReview status
-
+// Define drag item types
+const ItemTypes = {
+    TASK_CARD: 'taskCard'
+};
 
 interface TaskTag {
     id: string;
@@ -86,8 +87,22 @@ const ProgressDots = ({ percentage, total = 10 }: { percentage: number, total?: 
     );
 };
 
-const TaskCard = ({ task, index, onViewDetails }: { task: Task, index: number, onViewDetails: (task: Task) => void }) => {
+// Draggable task card component
+const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails: (task: Task) => void }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const dragRef = React.useRef(null);
+
+    // Setup drag functionality with React DnD
+    const [{ isDragging }, drag] = useDrag<{ id: string; status: string }, unknown, { isDragging: boolean }>(() => ({
+        type: ItemTypes.TASK_CARD,
+        item: { id: task._id, status: task.status },
+        collect: (monitor) => ({
+            isDragging: !!monitor.isDragging(),
+        }),
+    }));
+
+    // Connect the drag ref to the DOM node
+    drag(dragRef);
 
     // Generate tags from task properties
     const tags: TaskTag[] = [];
@@ -147,7 +162,10 @@ const TaskCard = ({ task, index, onViewDetails }: { task: Task, index: number, o
     const { days, overdue } = task.endDate ? getDaysRemaining(task.endDate) : { days: 0, overdue: false };
 
     return (
-        <div className="bg-white rounded-xl shadow p-4 mb-3 border border-gray-200">
+        <div
+            ref={dragRef}
+            className={`bg-white rounded-xl shadow p-4 mb-3 border border-gray-200 ${isDragging ? 'opacity-50' : 'opacity-100'} cursor-move`}
+        >
             {/* Title and collapse button */}
             <div className="flex justify-between items-start mb-3">
                 <h3 className="font-medium text-gray-900">{task.title}</h3>
@@ -240,7 +258,14 @@ const TaskCard = ({ task, index, onViewDetails }: { task: Task, index: number, o
     );
 };
 
-const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: string, tasks: Task[], droppableId: string, onViewDetails: (task: Task) => void }) => {
+// Droppable task column component
+const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask }: {
+    title: string,
+    tasks: Task[],
+    columnId: string,
+    onViewDetails: (task: Task) => void,
+    onDropTask: (taskId: string, newStatus: string) => void
+}) => {
     const statusLabels = {
         todo: "À faire",
         inProgress: "En cours",
@@ -248,10 +273,28 @@ const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: strin
         done: "Terminé"
     };
 
-    const frenchTitle = statusLabels[droppableId as keyof typeof statusLabels] || title;
+    const frenchTitle = statusLabels[columnId as keyof typeof statusLabels] || title;
+    const dropRef = React.useRef(null);
+
+    // Setup drop zone with React DnD
+    const [{ isOver }, drop] = useDrop<{ id: string }, unknown, { isOver: boolean }>(() => ({
+        accept: ItemTypes.TASK_CARD,
+        drop: (item: { id: string }) => {
+            onDropTask(item.id, columnId);
+        },
+        collect: (monitor) => ({
+            isOver: !!monitor.isOver(),
+        }),
+    }));
+
+    // Connect the drop ref to the DOM node
+    drop(dropRef);
 
     return (
-        <div className="bg-gray-50 rounded-xl border border-gray-200">
+        <div
+            ref={dropRef}
+            className={`bg-gray-50 rounded-xl border border-gray-200 ${isOver ? 'border-[#F28C38] ring-2 ring-[#F28C38] ring-opacity-50' : ''}`}
+        >
             <div className="p-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-gray-700">{frenchTitle}</h2>
@@ -270,30 +313,20 @@ const TaskColumn = ({ title, tasks, droppableId, onViewDetails }: { title: strin
                 </div>
             </div>
 
-            <Droppable droppableId={droppableId}>
-                {(provided) => (
-                    <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className="p-3 min-h-[200px] max-h-[70vh] overflow-y-auto"
-                    >
-                        {tasks.map((task, index) => (
-                            <Draggable key={task._id} draggableId={task._id} index={index}>
-                                {(provided) => (
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                    >
-                                        <TaskCard task={task} index={index} onViewDetails={onViewDetails} />
-                                    </div>
-                                )}
-                            </Draggable>
-                        ))}
-                        {provided.placeholder}
+            <div className="p-3 min-h-[200px] max-h-[70vh] overflow-y-auto">
+                {tasks.map((task) => (
+                    <DraggableTaskCard
+                        key={task._id}
+                        task={task}
+                        onViewDetails={onViewDetails}
+                    />
+                ))}
+                {tasks.length === 0 && (
+                    <div className="flex items-center justify-center h-20 border-2 border-dashed border-gray-200 rounded-lg">
+                        <p className="text-gray-400 text-sm">Déposez des tâches ici</p>
                     </div>
                 )}
-            </Droppable>
+            </div>
         </div>
     );
 };
@@ -466,14 +499,10 @@ const Tasks: React.FC = () => {
         };
     }, [dispatch, user?._id]);
 
-    const handleDragEnd = useCallback(async (result: any) => {
-        if (!result.destination) return;
-
-        const { draggableId, destination } = result;
-        const newStatus = destination.droppableId;
-
+    // Handle dropping a task to change its status
+    const handleDropTask = useCallback(async (taskId: string, newStatus: string) => {
         try {
-            await dispatch(updateTaskStatus({ taskId: draggableId, status: newStatus })).unwrap();
+            await dispatch(updateTaskStatus({ taskId, status: newStatus })).unwrap();
             toast.success('Statut de la tâche mis à jour');
         } catch (err) {
             toast.error('Erreur lors de la mise à jour du statut');
@@ -592,42 +621,46 @@ const Tasks: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Task Board */}
-                <DragDropContext onDragEnd={handleDragEnd}>
+                {/* Task Board with DND Provider */}
+                <DndProvider backend={HTML5Backend}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Todo Column */}
                         <TaskColumn
                             title="À faire"
                             tasks={taskData.todo || []}
-                            droppableId="todo"
+                            columnId="todo"
                             onViewDetails={handleViewTaskDetails}
+                            onDropTask={handleDropTask}
                         />
 
                         {/* In Progress Column */}
                         <TaskColumn
                             title="En cours"
                             tasks={taskData.inProgress || []}
-                            droppableId="inProgress"
+                            columnId="inProgress"
                             onViewDetails={handleViewTaskDetails}
+                            onDropTask={handleDropTask}
                         />
 
                         {/* In Review Column */}
                         <TaskColumn
                             title="En revue"
                             tasks={taskData.inReview || []}
-                            droppableId="inReview"
+                            columnId="inReview"
                             onViewDetails={handleViewTaskDetails}
+                            onDropTask={handleDropTask}
                         />
 
                         {/* Done Column */}
                         <TaskColumn
                             title="Terminé"
                             tasks={taskData.done || []}
-                            droppableId="done"
+                            columnId="done"
                             onViewDetails={handleViewTaskDetails}
+                            onDropTask={handleDropTask}
                         />
                     </div>
-                </DragDropContext>
+                </DndProvider>
             </div>
 
             {isAddTaskModalOpen && (
@@ -647,9 +680,6 @@ const Tasks: React.FC = () => {
                 isOpen={showHistory}
                 onClose={() => setShowHistory(false)}
             />
-
-            <ApiTest />
-            <TaskDebugger />
         </>
     );
 };

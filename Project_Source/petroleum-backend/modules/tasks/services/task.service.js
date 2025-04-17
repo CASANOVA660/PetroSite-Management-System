@@ -290,10 +290,59 @@ class TaskService {
                 }
             }
 
+            // Update associated action status if this task is related to an action
+            await this.updateAssociatedActionStatus(task, status);
+
             return updatedTask;
         } catch (error) {
             console.error('TaskService - Error updating task status:', error);
             throw error;
+        }
+    }
+
+    // Update the status of the action associated with a task
+    async updateAssociatedActionStatus(task, taskStatus) {
+        try {
+            // Don't proceed if task isn't associated with an action
+            if (!task.actionId && !task.globalActionId) {
+                return;
+            }
+
+            // Map task status to action status
+            let actionStatus;
+            switch (taskStatus) {
+                case 'todo':
+                    actionStatus = 'pending';
+                    break;
+                case 'inProgress':
+                    actionStatus = 'in_progress';
+                    break;
+                case 'inReview':
+                    actionStatus = 'in_progress'; // Keep as in_progress while in review
+                    break;
+                case 'done':
+                    actionStatus = 'completed';
+                    break;
+                default:
+                    return; // Don't update if unknown status
+            }
+
+            // Update project action
+            if (task.actionId) {
+                console.log(`TaskService - Updating project action ${task.actionId} status to ${actionStatus}`);
+                const Action = require('../../actions/models/action.model');
+                await Action.findByIdAndUpdate(task.actionId, { status: actionStatus });
+            }
+
+            // Update global action
+            if (task.globalActionId) {
+                console.log(`TaskService - Updating global action ${task.globalActionId} status to ${actionStatus}`);
+                const GlobalAction = require('../../actions/models/globalAction.model');
+                await GlobalAction.findByIdAndUpdate(task.globalActionId, { status: actionStatus });
+            }
+        } catch (error) {
+            // Log but don't throw to prevent task update failure
+            console.error('TaskService - Error updating associated action status:', error);
         }
     }
 

@@ -463,7 +463,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
         if (!updateFormData.responsibleForRealization) missingFields.push('responsable de réalisation');
         if (!updateFormData.startDate) missingFields.push('date de début');
         if (!updateFormData.endDate) missingFields.push('date de fin');
-        if (!updateFormData.status) missingFields.push('statut');
+        // Status is now managed by task updates, so we don't check it here
 
         if (missingFields.length > 0) {
             alert(`Veuillez remplir les champs obligatoires: ${missingFields.join(', ')}`);
@@ -491,11 +491,11 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 responsible: updateFormData.responsibleForRealization,
                 startDate: new Date(updateFormData.startDate).toISOString(),
                 endDate: new Date(updateFormData.endDate).toISOString(),
-                status: updateFormData.status,
                 needsValidation: updateFormData.needsValidation,
-                // Keep the existing source and projectId
+                // Keep the existing source, projectId and status
                 source: selectedActionForUpdate.source || 'Project',
                 projectId: selectedActionForUpdate.projectId,
+                status: selectedActionForUpdate.status, // Preserve original status
                 // Add flag for notification
                 sendNotification: responsibleChanged
             };
@@ -530,6 +530,8 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                     // Show notification feedback if responsible changed
                     if (responsibleChanged) {
                         alert('Action mise à jour et notification envoyée au(x) nouveau(x) responsable(s)');
+                    } else {
+                        alert('Action mise à jour avec succès');
                     }
                 })
                 .catch(error => {
@@ -547,8 +549,8 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 responsibleForFollowUp: updateFormData.responsibleForFollowUp,
                 startDate: new Date(updateFormData.startDate).toISOString(),
                 endDate: new Date(updateFormData.endDate).toISOString(),
-                status: updateFormData.status,
                 needsValidation: updateFormData.needsValidation,
+                status: selectedActionForUpdate.status, // Preserve original status
                 // Add flag for notification
                 sendNotification: responsibleChanged
             };
@@ -594,13 +596,14 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                 // Show notification feedback if responsible changed
                 if (responsibleChanged) {
                     alert('Action mise à jour et notification envoyée au(x) nouveau(x) responsable(s)');
+                } else {
+                    alert('Action mise à jour avec succès');
                 }
             }).catch((error: any) => {
                 console.error('Error updating global action:', error);
+                alert('Erreur lors de la mise à jour de l\'action: ' + (error.message || 'Erreur inconnue'));
             });
         }
-
-        // The setIsUpdateModalOpen(false) is now called earlier for better UX
     };
 
     // Force refresh function
@@ -950,17 +953,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                                 </button>
                                                 {(action.status === 'pending' || action.status === 'in_progress') && (
                                                     <>
-                                                        <button
-                                                            onClick={() => handleUpdateStatus(action._id, action.status === 'pending' ? 'in_progress' : 'completed', action.source === 'Project')}
-                                                            className="p-1 hover:bg-green-50 rounded-full transition-colors text-green-600"
-                                                            title={action.status === 'pending' ? 'Démarrer' : 'Terminer'}
-                                                        >
-                                                            {action.status === 'pending' ? (
-                                                                <Calendar className="size-4" />
-                                                            ) : (
-                                                                <CheckCircle className="size-4" />
-                                                            )}
-                                                        </button>
                                                         <button
                                                             onClick={() => handleOpenUpdateModal(action)}
                                                             className="p-1 hover:bg-blue-50 rounded-full transition-colors text-blue-600"
