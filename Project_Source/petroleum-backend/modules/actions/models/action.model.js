@@ -34,7 +34,7 @@ const actionSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'in_progress', 'completed', 'cancelled'],
+        enum: ['pending', 'in_progress', 'inReview', 'completed', 'cancelled'],
         default: 'pending'
     },
     category: {

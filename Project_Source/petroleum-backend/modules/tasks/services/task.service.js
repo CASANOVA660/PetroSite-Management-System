@@ -318,7 +318,7 @@ class TaskService {
                     actionStatus = 'in_progress';
                     break;
                 case 'inReview':
-                    actionStatus = 'in_progress'; // Keep as in_progress while in review
+                    actionStatus = 'inReview';
                     break;
                 case 'done':
                     actionStatus = 'completed';
@@ -329,14 +329,14 @@ class TaskService {
 
             // Update project action
             if (task.actionId) {
-                console.log(`TaskService - Updating project action ${task.actionId} status to ${actionStatus}`);
+                console.log(`TaskService - Updating project action ${task.actionId} status to ${actionStatus} from task status ${taskStatus}`);
                 const Action = require('../../actions/models/action.model');
                 await Action.findByIdAndUpdate(task.actionId, { status: actionStatus });
             }
 
             // Update global action
             if (task.globalActionId) {
-                console.log(`TaskService - Updating global action ${task.globalActionId} status to ${actionStatus}`);
+                console.log(`TaskService - Updating global action ${task.globalActionId} status to ${actionStatus} from task status ${taskStatus}`);
                 const GlobalAction = require('../../actions/models/globalAction.model');
                 await GlobalAction.findByIdAndUpdate(task.globalActionId, { status: actionStatus });
             }
