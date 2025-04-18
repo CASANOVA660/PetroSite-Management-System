@@ -28,7 +28,8 @@ import {
     updateTask,
     updateTaskStatus,
     addComment,
-    toggleSubtask
+    toggleSubtask,
+    uploadTaskFile
 } from '../../store/slices/taskSlice';
 
 interface TaskDetailPanelProps {
@@ -215,10 +216,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
         try {
             if (task?._id) {
-                await dispatch(addComment({
+                const result = await dispatch(addComment({
                     taskId: task._id,
                     text: commentText
-                }));
+                })).unwrap();
+
+                // Update comments with the latest from the server response
+                if (result && result.comments) {
+                    setComments(result.comments);
+                }
 
                 setCommentText('');
                 toast.success('Commentaire ajouté');
@@ -264,40 +270,58 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             setUploading(prev => ({ ...prev, [_id]: 0 }));
 
             try {
+                // Show progress animation
                 let progress = 0;
                 const interval = setInterval(() => {
-                    progress += 10;
-                    setUploading(prev => ({ ...prev, [_id]: progress }));
-                    if (progress >= 100) {
+                    progress += 5;
+                    setUploading(prev => ({ ...prev, [_id]: Math.min(progress, 95) }));
+                    if (progress >= 95) {
                         clearInterval(interval);
                     }
                 }, 200);
 
-                setTimeout(() => {
-                    setFiles(prev => [
-                        ...prev,
-                        {
-                            _id,
-                            name: file.name,
-                            type: file.type,
-                            size: file.size,
-                            uploadedAt: new Date().toISOString(),
-                            url: URL.createObjectURL(file)
-                        }
-                    ]);
+                // Upload file to backend
+                const result = await dispatch(uploadTaskFile({
+                    taskId: task._id,
+                    file
+                })).unwrap();
 
-                    clearInterval(interval);
+                clearInterval(interval);
+                setUploading(prev => ({ ...prev, [_id]: 100 }));
+
+                // Update local state with the new task data
+                if (result && result.files) {
+                    setFiles(result.files.map((file: {
+                        _id: string;
+                        name: string;
+                        url: string;
+                        type: string;
+                        size: number;
+                        uploadedBy: string;
+                        approved: boolean;
+                    }) => ({
+                        _id: file._id,
+                        name: file.name,
+                        type: file.type || 'application/octet-stream',
+                        size: file.size || 0,
+                        uploadedAt: new Date().toISOString(),
+                        url: file.url,
+                        approved: !!file.approved
+                    })));
+                }
+
+                // Remove from uploading state after a brief delay to show completion
+                setTimeout(() => {
                     setUploading(prev => {
                         const newUploading = { ...prev };
                         delete newUploading[_id];
                         return newUploading;
                     });
-
-                    toast.success('File uploaded successfully');
-                }, 2000);
+                    toast.success('Fichier téléchargé avec succès');
+                }, 500);
             } catch (error) {
                 console.error('Error uploading file:', error);
-                toast.error('Failed to upload file');
+                toast.error('Échec du téléchargement du fichier');
 
                 setUploading(prev => {
                     const newUploading = { ...prev };
@@ -311,36 +335,72 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         const uploadedFiles = event.dataTransfer.files;
-        if (!uploadedFiles) return;
+        if (!uploadedFiles || !task?._id) return;
 
-        Array.from(uploadedFiles).forEach(file => {
+        Array.from(uploadedFiles).forEach(async (file) => {
             const _id = Date.now().toString() + file.name;
             setUploading(prev => ({ ...prev, [_id]: 0 }));
 
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 10;
-                setUploading(prev => ({ ...prev, [_id]: progress }));
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setFiles(prev => [
-                        ...prev,
-                        {
-                            _id,
-                            name: file.name,
-                            type: file.type,
-                            size: file.size,
-                            uploadedAt: new Date().toISOString(),
-                            url: URL.createObjectURL(file)
-                        }
-                    ]);
+            try {
+                // Show progress animation
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    setUploading(prev => ({ ...prev, [_id]: Math.min(progress, 95) }));
+                    if (progress >= 95) {
+                        clearInterval(interval);
+                    }
+                }, 200);
+
+                // Upload file to backend
+                const result = await dispatch(uploadTaskFile({
+                    taskId: task._id,
+                    file
+                })).unwrap();
+
+                clearInterval(interval);
+                setUploading(prev => ({ ...prev, [_id]: 100 }));
+
+                // Update local state with the new task data
+                if (result && result.files) {
+                    setFiles(result.files.map((file: {
+                        _id: string;
+                        name: string;
+                        url: string;
+                        type: string;
+                        size: number;
+                        uploadedBy: string;
+                        approved: boolean;
+                    }) => ({
+                        _id: file._id,
+                        name: file.name,
+                        type: file.type || 'application/octet-stream',
+                        size: file.size || 0,
+                        uploadedAt: new Date().toISOString(),
+                        url: file.url,
+                        approved: !!file.approved
+                    })));
+                }
+
+                // Remove from uploading state after a brief delay to show completion
+                setTimeout(() => {
                     setUploading(prev => {
                         const newUploading = { ...prev };
                         delete newUploading[_id];
                         return newUploading;
                     });
-                }
-            }, 200);
+                    toast.success('Fichier téléchargé avec succès');
+                }, 500);
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                toast.error('Échec du téléchargement du fichier');
+
+                setUploading(prev => {
+                    const newUploading = { ...prev };
+                    delete newUploading[_id];
+                    return newUploading;
+                });
+            }
         });
     };
 
@@ -476,7 +536,29 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                             <div className="space-y-6">
                                 <div>
                                     <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
-                                    <p className="text-sm text-gray-600">{task.description || "Le système de design dans la version web a besoin d'améliorations et inclut l'ajout de plusieurs autres composants."}</p>
+                                    <p className="text-sm text-gray-600">{task.description || "Aucune description fournie."}</p>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
+                                    <div className="flex items-center mr-4">
+                                        <img
+                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom}+${task.assignee?.nom}&background=random`}
+                                            alt="Avatar"
+                                            className="w-8 h-8 rounded-full mr-2"
+                                        />
+                                        <span className="text-sm font-medium">{task.assignee?.prenom} {task.assignee?.nom}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-sm font-medium text-gray-500 mb-2">Suivi par</div>
+                                    <div className="flex items-center mr-4">
+                                        <img
+                                            src={`https://ui-avatars.com/api/?name=${task.creator?.prenom}+${task.creator?.nom}&background=random`}
+                                            alt="Avatar"
+                                            className="w-8 h-8 rounded-full mr-2"
+                                        />
+                                        <span className="text-sm font-medium">{task.creator?.prenom} {task.creator?.nom}</span>
+                                    </div>
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 mb-2">Pièces jointes</div>
@@ -522,17 +604,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 </div>
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
-                                    <div className="flex items-center mr-4">
-                                        <img
-                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom}+${task.assignee?.nom}&background=random`}
-                                            alt="Avatar"
-                                            className="w-8 h-8 rounded-full mr-2"
-                                        />
-                                        <span className="text-sm font-medium">Assigné à: {task.assignee?.prenom} {task.assignee?.nom}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -649,10 +720,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
                                 <div className="text-sm text-gray-600">
                                     <span className="font-medium">Assigné à: </span>
-                                    <span>Ethan Carter</span>
+                                    <span>{task.assignee?.prenom} {task.assignee?.nom}</span>
                                     <span className="mx-2">|</span>
                                     <span className="font-medium">Suivi par: </span>
-                                    <span>Moi</span>
+                                    <span>{task.creator?.prenom} {task.creator?.nom}</span>
                                 </div>
                             </div>
                             <div className="mb-4">
@@ -777,54 +848,33 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     </button>
                                                 </div>
                                             </div>
-                                            {comments.length > 0 && (
+                                            {comments && comments.length > 0 ? (
                                                 <div className="space-y-4">
                                                     {comments.map(comment => (
-                                                        <div key={comment.id} className="flex items-start">
+                                                        <div key={comment._id} className="flex items-start">
                                                             <img
-                                                                src={comment.user.avatar}
-                                                                alt={comment.user.name}
+                                                                src={`https://ui-avatars.com/api/?name=${comment.author?.prenom}+${comment.author?.nom}&background=random`}
+                                                                alt={`${comment.author?.prenom} ${comment.author?.nom}`}
                                                                 className="w-8 h-8 rounded-full mr-3 flex-shrink-0"
                                                             />
                                                             <div className="flex-1">
                                                                 <div className="flex items-center mb-1">
-                                                                    <span className="font-medium text-sm text-gray-800 mr-2">{comment.user.name}</span>
+                                                                    <span className="font-medium text-sm text-gray-800 mr-2">
+                                                                        {comment.author?.prenom} {comment.author?.nom}
+                                                                    </span>
                                                                     <span className="text-xs text-gray-500">
-                                                                        {formatDistanceToNow(new Date(comment.timestamp), { locale: fr, addSuffix: true })}
+                                                                        {formatDistanceToNow(new Date(comment.createdAt), { locale: fr, addSuffix: true })}
                                                                     </span>
                                                                 </div>
                                                                 <p className="text-sm text-gray-700">{comment.text}</p>
-                                                                <div className="flex items-center mt-2 space-x-2">
-                                                                    {comment.reactions.map((reaction: any, index: number) => (
-                                                                        <button
-                                                                            key={index}
-                                                                            className="flex items-center px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600 hover:bg-gray-200"
-                                                                        >
-                                                                            <span className="mr-1">{reaction.emoji}</span>
-                                                                            <span>{reaction.count}</span>
-                                                                        </button>
-                                                                    ))}
-                                                                    <button
-                                                                        onClick={() => handleAddReaction(comment.id, '🔥')}
-                                                                        className="p-1 rounded hover:bg-gray-100"
-                                                                        aria-label="Ajouter une réaction feu"
-                                                                    >
-                                                                        <FireIcon className="w-4 h-4 text-gray-500" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleAddReaction(comment.id, '⚡')}
-                                                                        className="p-1 rounded hover:bg-gray-100"
-                                                                        aria-label="Ajouter une réaction éclair"
-                                                                    >
-                                                                        <BoltIcon className="w-4 h-4 text-gray-500" />
-                                                                    </button>
-                                                                    <button className="text-xs text-gray-500 hover:text-gray-700 ml-2">
-                                                                        Répondre
-                                                                    </button>
-                                                                </div>
                                                             </div>
                                                         </div>
                                                     ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-6">
+                                                    <ChatBubbleLeftRightIcon className="w-12 h-12 mx-auto text-gray-300" />
+                                                    <p className="mt-2 text-sm text-gray-500">Aucun commentaire pour le moment</p>
                                                 </div>
                                             )}
                                         </div>

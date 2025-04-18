@@ -222,6 +222,25 @@ export const updateTaskProgress = createAsyncThunk(
     }
 );
 
+export const uploadTaskFile = createAsyncThunk(
+    'tasks/uploadTaskFile',
+    async ({ taskId, file }: { taskId: string, file: File }, { rejectWithValue }) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await axios.post(`/tasks/${taskId}/files`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
+        }
+    }
+);
+
 export const addComment = createAsyncThunk(
     'tasks/addComment',
     async ({ taskId, text }: { taskId: string, text: string }, { rejectWithValue }) => {
@@ -442,6 +461,15 @@ const taskSlice = createSlice({
                 }
             })
             .addCase(addComment.fulfilled, (state, action) => {
+                const updatedTask = action.payload;
+                const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
+                const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
+
+                if (index !== -1) {
+                    state.tasks[statusKey][index] = updatedTask;
+                }
+            })
+            .addCase(uploadTaskFile.fulfilled, (state, action) => {
                 const updatedTask = action.payload;
                 const statusKey = updatedTask.status as 'todo' | 'inProgress' | 'inReview' | 'done';
                 const index = state.tasks[statusKey].findIndex(task => task._id === updatedTask._id);
