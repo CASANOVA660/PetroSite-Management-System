@@ -81,6 +81,7 @@ class TaskService {
             const tasks = await Task.find(query)
                 .populate('assignee', 'nom prenom')
                 .populate('creator', 'nom prenom')
+                .populate('comments.author', 'nom prenom')
                 .populate('actionId')
                 .populate('globalActionId')
                 .sort({ createdAt: -1 }); // Sort by creation date, newest first
@@ -824,6 +825,7 @@ class TaskService {
             })
                 .populate('assignee', 'nom prenom')
                 .populate('creator', 'nom prenom')
+                .populate('comments.author', 'nom prenom')
                 .populate('actionId')
                 .sort({ createdAt: -1 }); // Sort by creation date, newest first
 
@@ -862,6 +864,7 @@ class TaskService {
             })
                 .populate('assignee', 'nom prenom')
                 .populate('creator', 'nom prenom')
+                .populate('comments.author', 'nom prenom')
                 .populate('globalActionId')
                 .sort({ createdAt: -1 }); // Sort by creation date, newest first
 
@@ -985,6 +988,7 @@ class TaskService {
             const task = await Task.findById(taskId)
                 .populate('assignee', 'nom prenom')
                 .populate('creator', 'nom prenom')
+                .populate('comments.author', 'nom prenom')
                 .populate('actionId')
                 .populate('globalActionId');
 

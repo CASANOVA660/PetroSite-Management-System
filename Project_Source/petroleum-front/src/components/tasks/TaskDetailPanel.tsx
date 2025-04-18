@@ -853,14 +853,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     {comments.map(comment => (
                                                         <div key={comment._id} className="flex items-start">
                                                             <img
-                                                                src={`https://ui-avatars.com/api/?name=${comment.author?.prenom}+${comment.author?.nom}&background=random`}
-                                                                alt={`${comment.author?.prenom} ${comment.author?.nom}`}
+                                                                src={`https://ui-avatars.com/api/?name=${comment.author?.prenom || ''}+${comment.author?.nom || ''}&background=random`}
+                                                                alt={comment.author ? `${comment.author.prenom} ${comment.author.nom}` : "Utilisateur"}
                                                                 className="w-8 h-8 rounded-full mr-3 flex-shrink-0"
                                                             />
                                                             <div className="flex-1">
                                                                 <div className="flex items-center mb-1">
                                                                     <span className="font-medium text-sm text-gray-800 mr-2">
-                                                                        {comment.author?.prenom} {comment.author?.nom}
+                                                                        {comment.author ? `${comment.author.prenom} ${comment.author.nom}` : "Utilisateur"}
                                                                     </span>
                                                                     <span className="text-xs text-gray-500">
                                                                         {formatDistanceToNow(new Date(comment.createdAt), { locale: fr, addSuffix: true })}
