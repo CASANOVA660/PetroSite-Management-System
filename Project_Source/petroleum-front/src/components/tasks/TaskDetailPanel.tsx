@@ -30,7 +30,8 @@ import {
     addComment,
     toggleSubtask,
     uploadTaskFile,
-    getTaskWithLinkedData
+    getTaskWithLinkedData,
+    updateTaskProgress
 } from '../../store/slices/taskSlice';
 
 interface TaskDetailPanelProps {
@@ -162,7 +163,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         if (task) {
             setProgress(task.progress || 0);
         }
-    }, [task?.progress]);
+    }, [task]);
 
     useEffect(() => {
         if (task?._id) {
@@ -549,17 +550,34 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     };
 
     const handleProgressUpdate = async (newProgress: number) => {
+        // Update local state immediately for responsive UI
         setProgress(newProgress);
+
+        // Don't proceed if no task ID
         if (!task?._id) return;
 
         try {
-            await dispatch(updateTask({
-                ...task,
+            // Use the updateTaskProgress action instead of updateTask for better specificity
+            await dispatch(updateTaskProgress({
+                taskId: task._id,
                 progress: newProgress
-            }));
+            })).unwrap();
+
+            // Refresh the task data to ensure consistent state
+            if (task._id) {
+                dispatch(getTaskWithLinkedData({ taskId: task._id }))
+                    .unwrap()
+                    .catch(error => {
+                        console.error('Error refreshing task data after progress update:', error);
+                    });
+            }
+
+            toast.success('Progrès mis à jour');
         } catch (err) {
             console.error('Error updating progress:', err);
-            toast.error('Failed to update task progress');
+            toast.error('Échec de la mise à jour du progrès');
+            // Revert to previous progress if there was an error
+            setProgress(task.progress || 0);
         }
     };
 
