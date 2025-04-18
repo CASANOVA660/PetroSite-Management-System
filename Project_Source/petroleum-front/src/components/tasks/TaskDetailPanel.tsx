@@ -170,7 +170,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             dispatch(getTaskWithLinkedData({ taskId: task._id }))
                 .unwrap()
                 .then((data) => {
-                    setLinkedTaskData(data);
+                    // Check if we received linked task data and it's different from the current task
+                    if (data.linkedTask && data.linkedTask._id !== task._id) {
+                        console.log("Linked task found:", data.linkedTask.title);
+                        setLinkedTaskData(data.linkedTask);
+                    } else {
+                        console.log("No linked task found or linked task is incorrect");
+                        setLinkedTaskData(null);
+                    }
 
                     // Use combined comments if available
                     if (data.allComments && data.allComments.length > 0) {
@@ -635,6 +642,86 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
+    // Function to render the header with roles
+    const renderRolesHeader = () => {
+        // Determine task types
+        const isCurrentTaskSuivi = task?.title?.startsWith('Suivi:') || false;
+        const isCurrentTaskRealization = task?.title?.startsWith('Réalisation:') || false;
+
+        // For logging purposes
+        console.log('Current task title:', task?.title);
+        console.log('Is current task Suivi:', isCurrentTaskSuivi);
+        console.log('Is current task Realization:', isCurrentTaskRealization);
+        console.log('Linked task found:', linkedTaskData ? 'Yes' : 'No');
+
+        if (linkedTaskData) {
+            console.log('Linked task title:', linkedTaskData.title);
+            console.log('Linked task assignee:', linkedTaskData.assignee?.prenom, linkedTaskData.assignee?.nom);
+        }
+
+        // Get the linked task's suivi/realization type
+        const isLinkedTaskSuivi = linkedTaskData?.title?.startsWith('Suivi:') || false;
+        const isLinkedTaskRealization = linkedTaskData?.title?.startsWith('Réalisation:') || false;
+
+        return (
+            <div className="text-sm text-gray-600">
+                {/* Realization Person */}
+                <div className="mb-1">
+                    <span className="font-medium">Responsable de réalisation: </span>
+                    <span>
+                        {isCurrentTaskRealization ? (
+                            // Current task is realization, so assignee is the realization person
+                            currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                ? 'Moi'
+                                : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
+                        ) : isCurrentTaskSuivi && isLinkedTaskRealization && linkedTaskData?.assignee ? (
+                            // Current task is suivi and linked task is realization
+                            // So linked task's assignee is the realization person
+                            currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                                ? 'Moi'
+                                : `${linkedTaskData.assignee.prenom || ''} ${linkedTaskData.assignee.nom || 'Non assigné'}`
+                        ) : (
+                            // Default if no specific condition is met
+                            'Non assigné'
+                        )}
+                    </span>
+                </div>
+
+                {/* Suivi Person */}
+                <div className="mb-1">
+                    <span className="font-medium">Responsable de suivi: </span>
+                    <span>
+                        {isCurrentTaskSuivi ? (
+                            // Current task is suivi, so assignee is the suivi person
+                            currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                ? 'Moi'
+                                : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
+                        ) : isCurrentTaskRealization && isLinkedTaskSuivi && linkedTaskData?.assignee ? (
+                            // Current task is realization and linked task is suivi
+                            // So linked task's assignee is the suivi person
+                            currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                                ? 'Moi'
+                                : `${linkedTaskData.assignee.prenom || ''} ${linkedTaskData.assignee.nom || 'Non assigné'}`
+                        ) : (
+                            // Default if no specific condition is met
+                            'Non assigné'
+                        )}
+                    </span>
+                </div>
+
+                {/* Creator */}
+                <div>
+                    <span className="font-medium">Créé par: </span>
+                    <span>
+                        {currentUser && task?.creator && currentUser._id === task?.creator._id
+                            ? 'Moi'
+                            : `${task?.creator?.prenom || ''} ${task?.creator?.nom || ''}`}
+                    </span>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <>
             <div style={backdropStyles} onClick={handleBackdropClick} />
@@ -667,37 +754,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                             <div className="space-y-6">
                                 <div>
                                     <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
-                                    <p className="text-sm text-gray-600">{task.description || "Aucune description fournie."}</p>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
-                                    <div className="flex items-center mr-4">
-                                        <img
-                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom || ''}+${task.assignee?.nom || ''}&background=random`}
-                                            alt="Avatar"
-                                            className="w-8 h-8 rounded-full mr-2"
-                                        />
-                                        <span className="text-sm font-medium">
-                                            {currentUser && task.assignee && currentUser._id === task.assignee._id
-                                                ? 'Moi'
-                                                : `${task.assignee?.prenom || ''} ${task.assignee?.nom || ''}`}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium text-gray-500 mb-2">Suivi par</div>
-                                    <div className="flex items-center mr-4">
-                                        <img
-                                            src={`https://ui-avatars.com/api/?name=${task.creator?.prenom || ''}+${task.creator?.nom || ''}&background=random`}
-                                            alt="Avatar"
-                                            className="w-8 h-8 rounded-full mr-2"
-                                        />
-                                        <span className="text-sm font-medium">
-                                            {currentUser && task.creator && currentUser._id === task.creator._id
-                                                ? 'Moi'
-                                                : `${task.creator?.prenom || ''} ${task.creator?.nom || ''}`}
-                                        </span>
-                                    </div>
+                                    {renderRolesHeader()}
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 mb-2">Pièces jointes</div>
@@ -857,21 +914,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         <div className="flex flex-col h-full">
                             <div className="mb-4">
                                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
-                                <div className="text-sm text-gray-600">
-                                    <span className="font-medium">Assigné à: </span>
-                                    <span>
-                                        {currentUser && task.assignee && currentUser._id === task.assignee._id
-                                            ? 'Moi'
-                                            : `${task.assignee?.prenom || ''} ${task.assignee?.nom || ''}`}
-                                    </span>
-                                    <span className="mx-2">|</span>
-                                    <span className="font-medium">Suivi par: </span>
-                                    <span>
-                                        {currentUser && task.creator && currentUser._id === task.creator._id
-                                            ? 'Moi'
-                                            : `${task.creator?.prenom || ''} ${task.creator?.nom || ''}`}
-                                    </span>
-                                </div>
+                                {renderRolesHeader()}
                             </div>
                             <div className="mb-4">
                                 <div className="text-sm font-medium text-gray-500 mb-2">Statut</div>
