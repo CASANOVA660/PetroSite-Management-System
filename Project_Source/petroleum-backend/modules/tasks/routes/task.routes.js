@@ -109,4 +109,7 @@ router.post(
 // Note: This would typically be protected with an admin middleware
 router.post('/archive', taskController.archiveOldTasks);
 
+// Get task with linked data
+router.get('/:taskId/with-linked-data', taskController.getTaskWithLinkedData);
+
 module.exports = router; 

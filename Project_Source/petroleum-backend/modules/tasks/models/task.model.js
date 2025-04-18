@@ -127,6 +127,11 @@ const taskSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'GlobalAction'
     },
+    // For linking tasks from the same action (manager task and responsible task)
+    linkedTaskId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Task'
+    },
     // For project association
     projectId: {
         type: Schema.Types.ObjectId,

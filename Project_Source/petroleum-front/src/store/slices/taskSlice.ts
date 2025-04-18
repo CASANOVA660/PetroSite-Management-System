@@ -49,6 +49,42 @@ export interface Task {
     // Fields for action-generated tasks
     actionId?: string;
     globalActionId?: string;
+    // For linking tasks
+    linkedTaskId?: string;
+    // For combined data from linked tasks
+    allComments?: Array<{
+        _id: string;
+        text: string;
+        author: {
+            _id: string;
+            nom: string;
+            prenom: string;
+        };
+        createdAt: string;
+    }>;
+    allFiles?: Array<{
+        _id: string;
+        name: string;
+        url: string;
+        type: string;
+        size: number;
+        uploadedBy: string;
+        approved: boolean;
+    }>;
+    linkedTask?: {
+        _id: string;
+        title: string;
+        assignee: {
+            _id: string;
+            nom: string;
+            prenom: string;
+        };
+        creator: {
+            _id: string;
+            nom: string;
+            prenom: string;
+        };
+    };
     // For project association
     projectId?: string;
     category?: string;
@@ -285,6 +321,19 @@ export const reviewTask = createAsyncThunk(
             return response.data.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Failed to review task');
+        }
+    }
+);
+
+// Get task with linked data
+export const getTaskWithLinkedData = createAsyncThunk(
+    'tasks/getTaskWithLinkedData',
+    async ({ taskId }: { taskId: string }, { rejectWithValue }) => {
+        try {
+            const response = await axios.get(`/tasks/${taskId}/with-linked-data`);
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch task with linked data');
         }
     }
 );

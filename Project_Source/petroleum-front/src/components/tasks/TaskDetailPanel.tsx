@@ -29,7 +29,8 @@ import {
     updateTaskStatus,
     addComment,
     toggleSubtask,
-    uploadTaskFile
+    uploadTaskFile,
+    getTaskWithLinkedData
 } from '../../store/slices/taskSlice';
 
 interface TaskDetailPanelProps {
@@ -128,6 +129,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const [isExpanded, setIsExpanded] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [linkedTaskData, setLinkedTaskData] = useState<Task | null>(null);
 
     const panelStyles = (expanded: boolean): React.CSSProperties => ({
         position: 'fixed',
@@ -164,23 +166,87 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     useEffect(() => {
         if (task?._id) {
-            setComments(task.comments || []);
-            if (task.files && task.files.length > 0) {
-                const mappedFiles = task.files.map(file => ({
-                    _id: file._id,
-                    name: file.name,
-                    type: file.type || 'application/octet-stream',
-                    size: file.size || 0,
-                    uploadedAt: new Date().toISOString(),
-                    url: file.url,
-                    approved: !!file.approved
-                }));
-                setFiles(mappedFiles);
-            } else {
-                setFiles([]);
-            }
+            // Fetch task with linked data
+            dispatch(getTaskWithLinkedData({ taskId: task._id }))
+                .unwrap()
+                .then((data) => {
+                    setLinkedTaskData(data);
+
+                    // Use combined comments if available
+                    if (data.allComments && data.allComments.length > 0) {
+                        setComments(data.allComments);
+                    } else if (data.comments) {
+                        setComments(data.comments);
+                    } else {
+                        setComments([]);
+                    }
+
+                    // Use combined files if available
+                    if (data.allFiles && data.allFiles.length > 0) {
+                        const mappedFiles = data.allFiles.map((file: {
+                            _id: string;
+                            name: string;
+                            url: string;
+                            type: string;
+                            size: number;
+                            uploadedBy: string;
+                            approved: boolean;
+                        }) => ({
+                            _id: file._id,
+                            name: file.name,
+                            type: file.type || 'application/octet-stream',
+                            size: file.size || 0,
+                            uploadedAt: new Date().toISOString(),
+                            url: file.url,
+                            approved: !!file.approved
+                        }));
+                        setFiles(mappedFiles);
+                    } else if (data.files && data.files.length > 0) {
+                        const mappedFiles = data.files.map((file: {
+                            _id: string;
+                            name: string;
+                            url: string;
+                            type: string;
+                            size: number;
+                            uploadedBy: string;
+                            approved: boolean;
+                        }) => ({
+                            _id: file._id,
+                            name: file.name,
+                            type: file.type || 'application/octet-stream',
+                            size: file.size || 0,
+                            uploadedAt: new Date().toISOString(),
+                            url: file.url,
+                            approved: !!file.approved
+                        }));
+                        setFiles(mappedFiles);
+                    } else {
+                        setFiles([]);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching task with linked data:', error);
+                    // Fallback to original task data
+                    if (task.comments) {
+                        setComments(task.comments);
+                    }
+                    if (task.files && task.files.length > 0) {
+                        const mappedFiles = task.files.map(file => ({
+                            _id: file._id,
+                            name: file.name,
+                            type: file.type || 'application/octet-stream',
+                            size: file.size || 0,
+                            uploadedAt: new Date().toISOString(),
+                            url: file.url,
+                            approved: !!file.approved
+                        }));
+                        setFiles(mappedFiles);
+                    } else {
+                        setFiles([]);
+                    }
+                });
         }
-    }, [task?._id]);
+    }, [task?._id, dispatch]);
 
     useEffect(() => {
         if (isOpen) {
@@ -216,17 +282,28 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
         try {
             if (task?._id) {
-                const result = await dispatch(addComment({
+                await dispatch(addComment({
                     taskId: task._id,
                     text: commentText
                 })).unwrap();
 
-                // Update comments with the latest from the server response
-                if (result && result.comments) {
-                    setComments(result.comments);
-                }
-
+                // Clear comment input
                 setCommentText('');
+
+                // Refresh task data to get all comments (including linked task)
+                dispatch(getTaskWithLinkedData({ taskId: task._id }))
+                    .unwrap()
+                    .then((data) => {
+                        if (data.allComments && data.allComments.length > 0) {
+                            setComments(data.allComments);
+                        } else if (data.comments) {
+                            setComments(data.comments);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing task data:', error);
+                    });
+
                 toast.success('Commentaire ajouté');
             }
         } catch (error) {
@@ -281,7 +358,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 }, 200);
 
                 // Upload file to backend
-                const result = await dispatch(uploadTaskFile({
+                await dispatch(uploadTaskFile({
                     taskId: task._id,
                     file
                 })).unwrap();
@@ -289,26 +366,53 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 clearInterval(interval);
                 setUploading(prev => ({ ...prev, [_id]: 100 }));
 
-                // Update local state with the new task data
-                if (result && result.files) {
-                    setFiles(result.files.map((file: {
-                        _id: string;
-                        name: string;
-                        url: string;
-                        type: string;
-                        size: number;
-                        uploadedBy: string;
-                        approved: boolean;
-                    }) => ({
-                        _id: file._id,
-                        name: file.name,
-                        type: file.type || 'application/octet-stream',
-                        size: file.size || 0,
-                        uploadedAt: new Date().toISOString(),
-                        url: file.url,
-                        approved: !!file.approved
-                    })));
-                }
+                // Refresh task data to get all files (including linked task)
+                dispatch(getTaskWithLinkedData({ taskId: task._id }))
+                    .unwrap()
+                    .then((data) => {
+                        if (data.allFiles && data.allFiles.length > 0) {
+                            const mappedFiles = data.allFiles.map((file: {
+                                _id: string;
+                                name: string;
+                                url: string;
+                                type: string;
+                                size: number;
+                                uploadedBy: string;
+                                approved: boolean;
+                            }) => ({
+                                _id: file._id,
+                                name: file.name,
+                                type: file.type || 'application/octet-stream',
+                                size: file.size || 0,
+                                uploadedAt: new Date().toISOString(),
+                                url: file.url,
+                                approved: !!file.approved
+                            }));
+                            setFiles(mappedFiles);
+                        } else if (data.files && data.files.length > 0) {
+                            const mappedFiles = data.files.map((file: {
+                                _id: string;
+                                name: string;
+                                url: string;
+                                type: string;
+                                size: number;
+                                uploadedBy: string;
+                                approved: boolean;
+                            }) => ({
+                                _id: file._id,
+                                name: file.name,
+                                type: file.type || 'application/octet-stream',
+                                size: file.size || 0,
+                                uploadedAt: new Date().toISOString(),
+                                url: file.url,
+                                approved: !!file.approved
+                            }));
+                            setFiles(mappedFiles);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing task data:', error);
+                    });
 
                 // Remove from uploading state after a brief delay to show completion
                 setTimeout(() => {
@@ -353,7 +457,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 }, 200);
 
                 // Upload file to backend
-                const result = await dispatch(uploadTaskFile({
+                await dispatch(uploadTaskFile({
                     taskId: task._id,
                     file
                 })).unwrap();
@@ -361,26 +465,53 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 clearInterval(interval);
                 setUploading(prev => ({ ...prev, [_id]: 100 }));
 
-                // Update local state with the new task data
-                if (result && result.files) {
-                    setFiles(result.files.map((file: {
-                        _id: string;
-                        name: string;
-                        url: string;
-                        type: string;
-                        size: number;
-                        uploadedBy: string;
-                        approved: boolean;
-                    }) => ({
-                        _id: file._id,
-                        name: file.name,
-                        type: file.type || 'application/octet-stream',
-                        size: file.size || 0,
-                        uploadedAt: new Date().toISOString(),
-                        url: file.url,
-                        approved: !!file.approved
-                    })));
-                }
+                // Refresh task data to get all files (including linked task)
+                dispatch(getTaskWithLinkedData({ taskId: task._id }))
+                    .unwrap()
+                    .then((data) => {
+                        if (data.allFiles && data.allFiles.length > 0) {
+                            const mappedFiles = data.allFiles.map((file: {
+                                _id: string;
+                                name: string;
+                                url: string;
+                                type: string;
+                                size: number;
+                                uploadedBy: string;
+                                approved: boolean;
+                            }) => ({
+                                _id: file._id,
+                                name: file.name,
+                                type: file.type || 'application/octet-stream',
+                                size: file.size || 0,
+                                uploadedAt: new Date().toISOString(),
+                                url: file.url,
+                                approved: !!file.approved
+                            }));
+                            setFiles(mappedFiles);
+                        } else if (data.files && data.files.length > 0) {
+                            const mappedFiles = data.files.map((file: {
+                                _id: string;
+                                name: string;
+                                url: string;
+                                type: string;
+                                size: number;
+                                uploadedBy: string;
+                                approved: boolean;
+                            }) => ({
+                                _id: file._id,
+                                name: file.name,
+                                type: file.type || 'application/octet-stream',
+                                size: file.size || 0,
+                                uploadedAt: new Date().toISOString(),
+                                url: file.url,
+                                approved: !!file.approved
+                            }));
+                            setFiles(mappedFiles);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing task data:', error);
+                    });
 
                 // Remove from uploading state after a brief delay to show completion
                 setTimeout(() => {
@@ -542,22 +673,30 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                     <div className="text-sm font-medium text-gray-500 mb-2">Assigné à</div>
                                     <div className="flex items-center mr-4">
                                         <img
-                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom}+${task.assignee?.nom}&background=random`}
+                                            src={`https://ui-avatars.com/api/?name=${task.assignee?.prenom || ''}+${task.assignee?.nom || ''}&background=random`}
                                             alt="Avatar"
                                             className="w-8 h-8 rounded-full mr-2"
                                         />
-                                        <span className="text-sm font-medium">{task.assignee?.prenom} {task.assignee?.nom}</span>
+                                        <span className="text-sm font-medium">
+                                            {currentUser && task.assignee && currentUser._id === task.assignee._id
+                                                ? 'Moi'
+                                                : `${task.assignee?.prenom || ''} ${task.assignee?.nom || ''}`}
+                                        </span>
                                     </div>
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 mb-2">Suivi par</div>
                                     <div className="flex items-center mr-4">
                                         <img
-                                            src={`https://ui-avatars.com/api/?name=${task.creator?.prenom}+${task.creator?.nom}&background=random`}
+                                            src={`https://ui-avatars.com/api/?name=${task.creator?.prenom || ''}+${task.creator?.nom || ''}&background=random`}
                                             alt="Avatar"
                                             className="w-8 h-8 rounded-full mr-2"
                                         />
-                                        <span className="text-sm font-medium">{task.creator?.prenom} {task.creator?.nom}</span>
+                                        <span className="text-sm font-medium">
+                                            {currentUser && task.creator && currentUser._id === task.creator._id
+                                                ? 'Moi'
+                                                : `${task.creator?.prenom || ''} ${task.creator?.nom || ''}`}
+                                        </span>
                                     </div>
                                 </div>
                                 <div>
@@ -720,10 +859,18 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">{task.title}</h2>
                                 <div className="text-sm text-gray-600">
                                     <span className="font-medium">Assigné à: </span>
-                                    <span>{task.assignee?.prenom} {task.assignee?.nom}</span>
+                                    <span>
+                                        {currentUser && task.assignee && currentUser._id === task.assignee._id
+                                            ? 'Moi'
+                                            : `${task.assignee?.prenom || ''} ${task.assignee?.nom || ''}`}
+                                    </span>
                                     <span className="mx-2">|</span>
                                     <span className="font-medium">Suivi par: </span>
-                                    <span>{task.creator?.prenom} {task.creator?.nom}</span>
+                                    <span>
+                                        {currentUser && task.creator && currentUser._id === task.creator._id
+                                            ? 'Moi'
+                                            : `${task.creator?.prenom || ''} ${task.creator?.nom || ''}`}
+                                    </span>
                                 </div>
                             </div>
                             <div className="mb-4">

@@ -456,6 +456,25 @@ class TaskController {
             });
         }
     }
+
+    // Get task with linked data
+    async getTaskWithLinkedData(req, res) {
+        try {
+            const { taskId } = req.params;
+            const task = await taskService.getTaskWithLinkedData(taskId);
+
+            return res.status(200).json({
+                success: true,
+                data: task
+            });
+        } catch (error) {
+            console.error('TaskController - Error fetching task with linked data:', error);
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
 }
 
 module.exports = new TaskController(); 

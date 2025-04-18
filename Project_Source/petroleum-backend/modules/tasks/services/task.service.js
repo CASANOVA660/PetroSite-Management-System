@@ -958,10 +958,16 @@ class TaskService {
                     tags: ['Project Action Validation', action.category],
                     actionId: action._id,
                     projectId: action.projectId,
-                    category: action.category
+                    category: action.category,
+                    linkedTaskId: responsibleTask._id
                 });
 
                 await managerTask.save();
+
+                // Update the responsible task with the link back to the manager task
+                responsibleTask.linkedTaskId = managerTask._id;
+                await responsibleTask.save();
+
                 tasks.push(managerTask);
             }
 
@@ -999,6 +1005,65 @@ class TaskService {
             return task;
         } catch (error) {
             console.error(`TaskService - Error fetching task with ID ${taskId}:`, error);
+            throw error;
+        }
+    }
+
+    // Get task by ID with data from linked task
+    async getTaskWithLinkedData(taskId) {
+        try {
+            if (!taskId) {
+                throw new Error('Task ID is required');
+            }
+
+            // Get the main task with all populated fields
+            const task = await Task.findById(taskId)
+                .populate('assignee', 'nom prenom')
+                .populate('creator', 'nom prenom')
+                .populate('comments.author', 'nom prenom')
+                .populate('actionId')
+                .populate('globalActionId');
+
+            if (!task) {
+                throw new Error('Task not found');
+            }
+
+            // If the task has a linked task, get its data too
+            if (task.linkedTaskId) {
+                const linkedTask = await Task.findById(task.linkedTaskId)
+                    .populate('assignee', 'nom prenom')
+                    .populate('creator', 'nom prenom')
+                    .populate('comments.author', 'nom prenom');
+
+                if (linkedTask) {
+                    // Combine comments from both tasks
+                    // Add a combined timestamp-sorted array of all comments
+                    const allComments = [...task.comments, ...linkedTask.comments].sort((a, b) => {
+                        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                    });
+
+                    // Add all files from both tasks
+                    const allFiles = [...task.files, ...linkedTask.files];
+
+                    // Create a combined view by setting additional properties
+                    task._doc.allComments = allComments;
+                    task._doc.allFiles = allFiles;
+                    task._doc.linkedTask = {
+                        _id: linkedTask._id,
+                        title: linkedTask.title,
+                        assignee: linkedTask.assignee,
+                        creator: linkedTask.creator,
+                    };
+                }
+            } else {
+                // If no linked task, set allComments and allFiles to the task's own comments and files
+                task._doc.allComments = task.comments;
+                task._doc.allFiles = task.files;
+            }
+
+            return task;
+        } catch (error) {
+            console.error(`TaskService - Error fetching task with linked data for ID ${taskId}:`, error);
             throw error;
         }
     }

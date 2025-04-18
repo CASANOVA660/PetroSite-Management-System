@@ -191,8 +191,9 @@ class GlobalActionService {
         );
 
         // Create tasks for both users
-        const taskData = [
-            {
+        try {
+            // Create realization task
+            const realizationTask = await taskService.createTask({
                 title: `Réalisation: ${savedAction.title}`,
                 description: savedAction.content,
                 assignee: savedAction.responsibleForRealization,
@@ -206,8 +207,10 @@ class GlobalActionService {
                 category: actionData.projectCategory || actionData.category || null,
                 needsValidation: savedAction.needsValidation,
                 tags: ['Global Action', 'Realization']
-            },
-            {
+            });
+
+            // Create follow-up task with link to realization task
+            const followUpTask = await taskService.createTask({
                 title: `Suivi: ${savedAction.title}`,
                 description: savedAction.content,
                 assignee: savedAction.responsibleForFollowUp,
@@ -220,11 +223,18 @@ class GlobalActionService {
                 projectId: actionData.projectId || null,
                 category: actionData.projectCategory || actionData.category || null,
                 needsValidation: savedAction.needsValidation,
-                tags: ['Global Action', 'Follow-up']
-            }
-        ];
+                tags: ['Global Action', 'Follow-up'],
+                linkedTaskId: realizationTask._id
+            });
 
-        await Promise.all(taskData.map(task => taskService.createTask(task)));
+            // Update realization task with link to follow-up task
+            await taskService.updateTaskData(realizationTask._id, {
+                linkedTaskId: followUpTask._id
+            });
+        } catch (error) {
+            console.error('Error creating tasks for global action:', error);
+            // Continue anyway to return the action
+        }
 
         // Clear relevant caches
         await this.constructor.clearCache('all');
