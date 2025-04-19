@@ -503,8 +503,8 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
             <div
                 className="fixed inset-0 transition-opacity"
                 style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    backdropFilter: 'none',
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    backdropFilter: 'blur(2px)',
                     zIndex: 99999
                 }}
                 aria-hidden="true"
@@ -517,88 +517,99 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                 <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
                 {/* Modal panel */}
-                <div
-                    className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full"
-                    style={{ zIndex: 100001, opacity: 1 }}
-                >
+                <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+                    {/* Redesigned Header */}
                     <div className="relative">
-                        <button
-                            type="button"
-                            className="absolute top-4 right-4 p-2 rounded-full text-white hover:bg-white/20 focus:outline-none"
-                            onClick={onClose}
-                            aria-label="Fermer le modal"
-                        >
-                            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                        </button>
-
-                        {/* Header */}
-                        <div className="px-6 py-4 bg-gradient-to-r from-[#F28C38] to-[#f7a254] text-white">
+                        <div className="bg-gradient-to-r from-[#F28C38] to-orange-500 p-5">
                             <div className="flex justify-between items-center">
-                                <h2 className="text-xl font-semibold">{action.title}</h2>
-                                <div className="flex items-center space-x-2">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getSourceColor()}`}>
-                                        {getSourceText()}
-                                    </span>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(action.status)}`}>
-                                        {getStatusLabel(action.status)}
-                                    </span>
-                                </div>
+                                <h3 className="text-white font-bold text-xl tracking-tight">{action.title}</h3>
+                                <button
+                                    onClick={onClose}
+                                    className="p-2.5 bg-white/25 backdrop-blur-sm hover:bg-white/40 rounded-full transition-all duration-200 text-white focus:outline-none focus:ring-2 focus:ring-white/70 shadow-md hover:shadow-lg transform hover:scale-105"
+                                    aria-label="Fermer"
+                                >
+                                    <XMarkIcon className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getSourceColor()}`}>
+                                    {getSourceText()}
+                                </span>
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(action.status)}`}>
+                                    {getStatusLabel(action.status)}
+                                </span>
+                                <span className="inline-flex items-center text-white/80 text-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {format(new Date(action.createdAt), 'dd MMM yyyy', { locale: fr })}
+                                </span>
                             </div>
                         </div>
+                        {/* Gradient shadow effect */}
+                        <div className="absolute -bottom-4 left-0 right-0 h-8 bg-gradient-to-b from-orange-500/0 to-white/80 blur-sm z-0"></div>
+                        <div className="absolute -bottom-4 left-0 right-0 h-4 bg-white z-10"></div>
+                    </div>
 
-                        {/* Tabs */}
-                        <div className="border-b border-gray-200 bg-gray-50">
-                            <div className="px-6">
-                                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                                    <button
-                                        onClick={() => setActiveTab('details')}
-                                        className={`${activeTab === 'details'
-                                            ? 'border-[#F28C38] text-[#F28C38]'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                                        aria-current={activeTab === 'details' ? 'page' : undefined}
-                                    >
-                                        <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
-                                        Détails
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('comments')}
-                                        className={`${activeTab === 'comments'
-                                            ? 'border-[#F28C38] text-[#F28C38]'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                                        aria-current={activeTab === 'comments' ? 'page' : undefined}
-                                    >
-                                        <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
-                                        Commentaires
-                                        <span className="ml-2 rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
-                                            {actionComments?.length || 0}
-                                        </span>
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('files')}
-                                        className={`${activeTab === 'files'
-                                            ? 'border-[#F28C38] text-[#F28C38]'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
-                                        aria-current={activeTab === 'files' ? 'page' : undefined}
-                                    >
-                                        <PaperClipIcon className="h-5 w-5 mr-2" />
-                                        Fichiers
-                                        <span className="ml-2 rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
-                                            {actionFiles?.length || 0}
-                                        </span>
-                                    </button>
-                                </nav>
+                    {/* Tab Navigation */}
+                    <div className="border-b border-gray-200 relative z-20">
+                        <nav className="flex px-6 -mb-px" aria-label="Tabs">
+                            <button
+                                onClick={() => setActiveTab('details')}
+                                className={`${activeTab === 'details'
+                                        ? 'border-[#F28C38] text-[#F28C38]'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
+                            >
+                                <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                                Détails
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('comments')}
+                                className={`${activeTab === 'comments'
+                                        ? 'border-[#F28C38] text-[#F28C38]'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
+                            >
+                                <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
+                                Commentaires
+                                {actionComments.length > 0 && (
+                                    <span className="ml-2 bg-gray-100 text-gray-700 py-0.5 px-2 rounded-full text-xs">
+                                        {actionComments.length}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('files')}
+                                className={`${activeTab === 'files'
+                                        ? 'border-[#F28C38] text-[#F28C38]'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
+                            >
+                                <PaperClipIcon className="h-5 w-5 mr-2" />
+                                Fichiers
+                                {actionFiles.length > 0 && (
+                                    <span className="ml-2 bg-gray-100 text-gray-700 py-0.5 px-2 rounded-full text-xs">
+                                        {actionFiles.length}
+                                    </span>
+                                )}
+                            </button>
+                        </nav>
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="p-6 max-h-[70vh] overflow-y-auto">
+                        {loading ? (
+                            <div className="flex justify-center items-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#F28C38]"></div>
                             </div>
-                        </div>
-
-                        {/* Tab Content */}
-                        <div className="p-6 max-h-[70vh] overflow-y-auto">
-                            {activeTab === 'details' && renderDetailsTab()}
-                            {activeTab === 'comments' && renderCommentsTab()}
-                            {activeTab === 'files' && renderFilesTab()}
-                        </div>
+                        ) : (
+                            <>
+                                {activeTab === 'details' && renderDetailsTab()}
+                                {activeTab === 'comments' && renderCommentsTab()}
+                                {activeTab === 'files' && renderFilesTab()}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
