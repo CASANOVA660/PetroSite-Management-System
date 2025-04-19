@@ -500,7 +500,7 @@ const GlobalActions: React.FC = () => {
                     <div className="p-4">
                         <h2 className="text-lg font-bold mb-3">Détails de l'action</h2>
                         <div className="max-h-[60vh] overflow-y-auto pr-2">
-                            {selectedAction && <GlobalActionView action={selectedAction} />}
+                            {selectedAction && <GlobalActionView action={selectedAction} isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} />}
                         </div>
                         <div className="flex justify-end mt-4">
                             <Button onClick={() => setIsViewModalOpen(false)}>

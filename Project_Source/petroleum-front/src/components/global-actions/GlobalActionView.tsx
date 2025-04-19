@@ -9,15 +9,17 @@ import {
     addCommentToActionTask,
     uploadFileToActionTask
 } from '../../store/slices/taskSlice';
-import { PaperClipIcon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { PaperClipIcon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, DocumentIcon, PhotoIcon, ArrowDownTrayIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface GlobalActionViewProps {
-    action: GlobalAction | any; // Accept any action type
+    action: GlobalAction | any;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 type TabType = 'details' | 'comments' | 'files';
 
-const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
+const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onClose }) => {
     const dispatch = useDispatch<AppDispatch>();
     const { actionTasks, actionComments, actionFiles, loading } = useSelector((state: RootState) => state.tasks);
     const { user } = useSelector((state: RootState) => state.auth);
@@ -38,11 +40,11 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'pending':
-                return 'bg-yellow-100 text-yellow-800';
+                return 'bg-amber-100 text-amber-800';
             case 'in_progress':
                 return 'bg-blue-100 text-blue-800';
             case 'completed':
-                return 'bg-green-100 text-green-800';
+                return 'bg-emerald-100 text-emerald-800';
             case 'cancelled':
                 return 'bg-red-100 text-red-800';
             default:
@@ -68,13 +70,13 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
     const getTaskStatusColor = (status: string) => {
         switch (status) {
             case 'todo':
-                return 'bg-yellow-100 text-yellow-800';
+                return 'bg-amber-100 text-amber-800';
             case 'inProgress':
                 return 'bg-blue-100 text-blue-800';
             case 'inReview':
                 return 'bg-purple-100 text-purple-800';
             case 'done':
-                return 'bg-green-100 text-green-800';
+                return 'bg-emerald-100 text-emerald-800';
             default:
                 return 'bg-gray-100 text-gray-800';
         }
@@ -95,7 +97,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         }
     };
 
-    // Helper function to get user name from either responsible or responsibleForRealization
     const getResponsibleName = () => {
         if (action.source === 'Project' && action.responsible) {
             return `${action.responsible.nom || ''} ${action.responsible.prenom || ''}`.trim();
@@ -105,7 +106,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         return 'Non assigné';
     };
 
-    // Helper function to get follow-up name from either manager or responsibleForFollowUp
     const getFollowUpName = () => {
         if (action.source === 'Project' && action.manager) {
             return `${action.manager.nom || ''} ${action.manager.prenom || ''}`.trim();
@@ -115,7 +115,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         return 'Non assigné';
     };
 
-    // Get the source text to display
     const getSourceText = () => {
         if (action.isProjectAction) {
             return 'Action de projet';
@@ -124,7 +123,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         }
     };
 
-    // Get source badge color
     const getSourceColor = () => {
         if (action.isProjectAction) {
             return 'bg-indigo-100 text-indigo-800';
@@ -138,23 +136,23 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
 
         switch (extension) {
             case 'pdf':
-                return 'file-pdf';
+                return <DocumentIcon className="h-6 w-6 text-red-500" />;
             case 'doc':
             case 'docx':
-                return 'file-word';
+                return <DocumentIcon className="h-6 w-6 text-blue-500" />;
             case 'xls':
             case 'xlsx':
-                return 'file-excel';
+                return <DocumentIcon className="h-6 w-6 text-green-500" />;
             case 'ppt':
             case 'pptx':
-                return 'file-powerpoint';
+                return <DocumentIcon className="h-6 w-6 text-orange-500" />;
             case 'jpg':
             case 'jpeg':
             case 'png':
             case 'gif':
-                return 'file-image';
+                return <PhotoIcon className="h-6 w-6 text-purple-500" />;
             default:
-                return 'file';
+                return <DocumentIcon className="h-6 w-6 text-gray-500" />;
         }
     };
 
@@ -172,7 +170,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
 
         try {
             if (actionTasks.length > 0) {
-                // Add comment to the first task
                 const taskId = actionTasks[0]._id;
 
                 await dispatch(addCommentToActionTask({
@@ -200,7 +197,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
             setUploading(prev => ({ ...prev, [fileId]: 0 }));
 
             try {
-                // Show progress animation
                 let progress = 0;
                 const interval = setInterval(() => {
                     progress += 5;
@@ -220,7 +216,6 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
                 clearInterval(interval);
                 setUploading(prev => ({ ...prev, [fileId]: 100 }));
 
-                // Clear uploaded file after a short delay
                 setTimeout(() => {
                     setUploading(prev => {
                         const newState = { ...prev };
@@ -238,87 +233,102 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
             }
         });
 
-        // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     };
 
     const renderDetailsTab = () => (
-        <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <h3 className="text-sm font-medium text-gray-700">Titre</h3>
-                    <p className="text-sm">{action.title}</p>
-                </div>
+        <div className="space-y-6">
+            <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-3">{action.title}</h2>
+                <p className="text-gray-600 mb-3">{action.content}</p>
 
-                <div>
-                    <h3 className="text-sm font-medium text-gray-700">Catégorie</h3>
-                    <p className="text-sm">{action.category}</p>
-                </div>
-            </div>
-
-            <div>
-                <h3 className="text-sm font-medium text-gray-700">Contenu</h3>
-                <p className="text-sm">{action.content}</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(action.projectId && typeof action.projectId === 'object') && (
-                    <div>
-                        <h3 className="text-sm font-medium text-gray-700">Projet</h3>
-                        <p className="text-sm">{action.projectId.name}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-medium text-gray-500">Catégorie</span>
+                        <span className="text-md text-gray-700">{action.category}</span>
                     </div>
-                )}
 
-                {action.projectCategory && (
-                    <div>
-                        <h3 className="text-sm font-medium text-gray-700">Catégorie du projet</h3>
-                        <p className="text-sm">{action.projectCategory}</p>
+                    {(action.projectId && typeof action.projectId === 'object') && (
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Projet</span>
+                            <span className="text-md text-gray-700">{action.projectId.name}</span>
+                        </div>
+                    )}
+
+                    {action.projectCategory && (
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Catégorie du projet</span>
+                            <span className="text-md text-gray-700">{action.projectCategory}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 shadow-sm">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Responsables</h3>
+
+                    <div className="space-y-3">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Réalisation</span>
+                            <span className="text-md text-gray-700">{getResponsibleName()}</span>
+                        </div>
+
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Suivi</span>
+                            <span className="text-md text-gray-700">{getFollowUpName()}</span>
+                        </div>
                     </div>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <h3 className="text-sm font-medium text-gray-700">Responsable de réalisation</h3>
-                    <p className="text-sm">{getResponsibleName()}</p>
                 </div>
 
-                <div>
-                    <h3 className="text-sm font-medium text-gray-700">Responsable de suivi</h3>
-                    <p className="text-sm">{getFollowUpName()}</p>
-                </div>
-            </div>
+                <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 shadow-sm">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Période</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <h3 className="text-sm font-medium text-gray-700">Dates</h3>
-                    <p className="text-sm">
-                        Du {format(new Date(action.startDate), 'dd/MM/yyyy', { locale: fr })} au{' '}
-                        {format(new Date(action.endDate), 'dd/MM/yyyy', { locale: fr })}
-                    </p>
+                    <div className="space-y-3">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Début</span>
+                            <span className="text-md text-gray-700">
+                                {format(new Date(action.startDate), 'dd MMMM yyyy', { locale: fr })}
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-500">Fin</span>
+                            <span className="text-md text-gray-700">
+                                {format(new Date(action.endDate), 'dd MMMM yyyy', { locale: fr })}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Related Tasks Section */}
-            <div className="border-t border-gray-200 pt-3 mt-3">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Tâches associées ({loading ? '...' : actionTasks.length})</h3>
+            <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 shadow-sm">
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700">Tâches associées</h3>
+                    <span className="px-2 py-1 bg-gray-200 rounded-full text-xs font-medium text-gray-700">
+                        {loading ? '...' : actionTasks.length}
+                    </span>
+                </div>
 
                 {loading ? (
-                    <p className="text-sm text-gray-500">Chargement des tâches...</p>
+                    <div className="flex justify-center items-center h-20">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#F28C38]"></div>
+                    </div>
                 ) : actionTasks.length > 0 ? (
                     <div className="space-y-2">
                         {actionTasks.map((task) => (
-                            <div key={task._id} className="p-2 border border-gray-200 rounded-md bg-gray-50">
+                            <div key={task._id} className="p-3 border border-gray-200 rounded-lg bg-white transition-all hover:shadow-md">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="text-sm font-medium">{task.title}</p>
-                                        <p className="text-xs text-gray-500">
-                                            Assigné à: {task.assignee.nom} {task.assignee.prenom}
+                                        <p className="text-sm font-medium text-gray-800">{task.title}</p>
+                                        <p className="text-xs text-gray-500 mt-1 flex items-center">
+                                            <span className="inline-block w-2 h-2 rounded-full bg-gray-300 mr-1"></span>
+                                            {task.assignee.nom} {task.assignee.prenom}
                                         </p>
                                     </div>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTaskStatusColor(task.status)}`}>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTaskStatusColor(task.status)}`}>
                                         {getTaskStatusLabel(task.status)}
                                     </span>
                                 </div>
@@ -326,7 +336,9 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-500">Aucune tâche associée à cette action.</p>
+                    <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                        <p className="text-sm text-gray-500">Aucune tâche associée à cette action.</p>
+                    </div>
                 )}
             </div>
         </div>
@@ -334,58 +346,61 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
 
     const renderCommentsTab = () => (
         <div className="space-y-4">
-            <div className="space-y-3">
-                {loading ? (
-                    <div className="text-center py-4">
-                        <p className="text-sm text-gray-500">Chargement des commentaires...</p>
-                    </div>
-                ) : actionComments && actionComments.length > 0 ? (
-                    actionComments.map((comment, index) => (
-                        <div key={comment._id || index} className="bg-gray-50 p-3 rounded-lg">
-                            <div className="flex items-start space-x-3">
-                                <div className="flex-shrink-0">
-                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium">
-                                        {comment.author.prenom ? comment.author.prenom.charAt(0) : '?'}
+            {loading ? (
+                <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#F28C38]"></div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {actionComments && actionComments.length > 0 ? (
+                        actionComments.map((comment, index) => (
+                            <div key={comment._id || index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md">
+                                <div className="flex items-start space-x-3">
+                                    <div className="flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-[#F28C38] bg-opacity-20 flex items-center justify-center text-[#F28C38] text-sm font-medium">
+                                            {comment.author.prenom ? comment.author.prenom.charAt(0).toUpperCase() : '?'}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between">
-                                        <h4 className="text-sm font-medium text-gray-900">
-                                            {comment.author.prenom} {comment.author.nom}
-                                        </h4>
-                                        <span className="text-xs text-gray-500">
-                                            {format(new Date(comment.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr })}
-                                        </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <h4 className="text-sm font-semibold text-gray-800">
+                                                {comment.author.prenom} {comment.author.nom}
+                                            </h4>
+                                            <span className="text-xs text-gray-500">
+                                                {format(new Date(comment.createdAt), 'dd MMM yyyy, HH:mm', { locale: fr })}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{comment.text}</p>
                                     </div>
-                                    <p className="text-sm text-gray-700 mt-1">{comment.text}</p>
                                 </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <ChatBubbleLeftRightIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">Aucun commentaire pour le moment.</p>
                         </div>
-                    ))
-                ) : (
-                    <div className="text-center py-4">
-                        <p className="text-sm text-gray-500">Aucun commentaire pour le moment.</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
 
             {actionTasks.length > 0 && (
                 <form onSubmit={handleCommentSubmit} className="mt-4">
-                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                         <textarea
-                            rows={3}
-                            className="w-full px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                            rows={4}
+                            className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#F28C38] focus:border-transparent resize-none"
                             placeholder="Ajouter un commentaire..."
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                         />
-                        <div className="flex justify-end border-t border-gray-200 bg-gray-50 p-2">
+                        <div className="flex justify-end border-t border-gray-100 bg-gray-50 p-3">
                             <button
                                 type="submit"
-                                className="px-4 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                className="px-4 py-2 text-sm font-medium text-white bg-[#F28C38] rounded-md hover:bg-[#e07c28] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F28C38] disabled:opacity-50"
                                 disabled={!commentText.trim() || loading}
                             >
-                                {loading ? 'Envoi...' : 'Envoyer'}
+                                {loading ? 'Envoi...' : 'Envoyer le commentaire'}
                             </button>
                         </div>
                     </div>
@@ -396,52 +411,55 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
 
     const renderFilesTab = () => (
         <div className="space-y-4">
-            <div className="space-y-3">
-                {loading ? (
-                    <div className="text-center py-4">
-                        <p className="text-sm text-gray-500">Chargement des fichiers...</p>
-                    </div>
-                ) : actionFiles && actionFiles.length > 0 ? (
-                    actionFiles.map((file, index) => (
-                        <div key={file._id || index} className="flex items-center justify-between p-3 border border-gray-200 rounded-md">
-                            <div className="flex items-center space-x-3">
-                                <PaperClipIcon className="h-5 w-5 text-gray-400" />
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-900">{file.name}</h4>
-                                    <p className="text-xs text-gray-500">
-                                        {formatFileSize(file.size)} · Ajouté le {format(new Date(file.uploadedAt || file.createdAt), 'dd/MM/yyyy', { locale: fr })}
-                                    </p>
+            {loading ? (
+                <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#F28C38]"></div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {actionFiles && actionFiles.length > 0 ? (
+                        actionFiles.map((file, index) => (
+                            <div key={file._id || index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-white transition-all hover:shadow-md">
+                                <div className="flex items-center space-x-3">
+                                    {getFileIcon(file.name)}
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-800">{file.name}</h4>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {formatFileSize(file.size)} · {format(new Date(file.uploadedAt || file.createdAt), 'dd MMM yyyy', { locale: fr })}
+                                        </p>
+                                    </div>
                                 </div>
+                                <a
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center px-3 py-1.5 text-xs font-medium text-[#F28C38] hover:text-[#e07c28] transition-colors"
+                                >
+                                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                                    Télécharger
+                                </a>
                             </div>
-                            <a
-                                href={file.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-medium text-blue-600 hover:text-blue-500"
-                            >
-                                Télécharger
-                            </a>
+                        ))
+                    ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <PaperClipIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">Aucun fichier attaché pour le moment.</p>
                         </div>
-                    ))
-                ) : (
-                    <div className="text-center py-4">
-                        <p className="text-sm text-gray-500">Aucun fichier attaché pour le moment.</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            )}
 
-            {/* Show upload progress */}
             {Object.keys(uploading).length > 0 && (
-                <div className="space-y-2 mt-2">
+                <div className="space-y-3 mt-4">
                     {Object.entries(uploading).map(([id, progress]) => (
-                        <div key={id} className="bg-gray-100 rounded-md p-2">
-                            <div className="flex justify-between text-xs text-gray-700 mb-1">
-                                <span>{id.substring(13)}</span>
+                        <div key={id} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                            <div className="flex justify-between text-xs text-gray-700 mb-1.5">
+                                <span className="font-medium">{id.substring(13)}</span>
                                 <span>{progress}%</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                 <div
-                                    className="bg-blue-600 h-2 rounded-full"
+                                    className="bg-[#F28C38] h-2 rounded-full transition-all duration-300 ease-out"
                                     style={{ width: `${progress}%` }}
                                 ></div>
                             </div>
@@ -451,9 +469,10 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
             )}
 
             {actionTasks.length > 0 && (
-                <div className="mt-4">
-                    <label htmlFor="file-upload" className="relative cursor-pointer">
-                        <div className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <div className="mt-6 text-center">
+                    <label htmlFor="file-upload" className="relative cursor-pointer inline-block">
+                        <div className="flex items-center justify-center px-6 py-3 border border-gray-200 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F28C38]">
+                            <PaperClipIcon className="h-5 w-5 text-[#F28C38] mr-2" />
                             <span>Ajouter des fichiers</span>
                             <input
                                 id="file-upload"
@@ -464,10 +483,11 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
                                 onChange={handleFileUpload}
                                 ref={fileInputRef}
                                 disabled={loading}
+                                aria-label="Téléverser des fichiers"
                             />
                         </div>
                     </label>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500">
                         PNG, JPG, PDF, DOCX, XLSX jusqu'à 10MB
                     </p>
                 </div>
@@ -475,67 +495,115 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action }) => {
         </div>
     );
 
+    if (!isOpen) return null;
+
     return (
-        <div className="space-y-3">
-            <div className="flex justify-between items-center mb-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSourceColor()}`}>
-                    {getSourceText()}
-                </span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(action.status)}`}>
-                    {getStatusLabel(action.status)}
-                </span>
-            </div>
+        <>
+            {/* Background overlay */}
+            <div
+                className="fixed inset-0 transition-opacity"
+                style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    backdropFilter: 'none',
+                    zIndex: 99999
+                }}
+                aria-hidden="true"
+                onClick={onClose}
+            ></div>
 
-            {/* Tabs */}
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                        onClick={() => setActiveTab('details')}
-                        className={`${activeTab === 'details'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center`}
-                    >
-                        <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
-                        Détails
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('comments')}
-                        className={`${activeTab === 'comments'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center`}
-                    >
-                        <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
-                        Commentaires
-                        <span className="ml-2 rounded-full bg-gray-100 text-gray-600 text-xs px-2 py-0.5">
-                            {actionComments?.length || 0}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('files')}
-                        className={`${activeTab === 'files'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm flex items-center`}
-                    >
-                        <PaperClipIcon className="h-5 w-5 mr-2" />
-                        Fichiers
-                        <span className="ml-2 rounded-full bg-gray-100 text-gray-600 text-xs px-2 py-0.5">
-                            {actionFiles?.length || 0}
-                        </span>
-                    </button>
-                </nav>
-            </div>
+            {/* Modal container */}
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                {/* Center alignment helper */}
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
 
-            {/* Tab Content */}
-            <div className="py-2">
-                {activeTab === 'details' && renderDetailsTab()}
-                {activeTab === 'comments' && renderCommentsTab()}
-                {activeTab === 'files' && renderFilesTab()}
+                {/* Modal panel */}
+                <div
+                    className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full"
+                    style={{ zIndex: 100001, opacity: 1 }}
+                >
+                    <div className="relative">
+                        <button
+                            type="button"
+                            className="absolute top-4 right-4 p-2 rounded-full text-white hover:bg-white/20 focus:outline-none"
+                            onClick={onClose}
+                            aria-label="Fermer le modal"
+                        >
+                            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+
+                        {/* Header */}
+                        <div className="px-6 py-4 bg-gradient-to-r from-[#F28C38] to-[#f7a254] text-white">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-semibold">{action.title}</h2>
+                                <div className="flex items-center space-x-2">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getSourceColor()}`}>
+                                        {getSourceText()}
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(action.status)}`}>
+                                        {getStatusLabel(action.status)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="border-b border-gray-200 bg-gray-50">
+                            <div className="px-6">
+                                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                                    <button
+                                        onClick={() => setActiveTab('details')}
+                                        className={`${activeTab === 'details'
+                                            ? 'border-[#F28C38] text-[#F28C38]'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
+                                        aria-current={activeTab === 'details' ? 'page' : undefined}
+                                    >
+                                        <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                                        Détails
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('comments')}
+                                        className={`${activeTab === 'comments'
+                                            ? 'border-[#F28C38] text-[#F28C38]'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
+                                        aria-current={activeTab === 'comments' ? 'page' : undefined}
+                                    >
+                                        <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
+                                        Commentaires
+                                        <span className="ml-2 rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
+                                            {actionComments?.length || 0}
+                                        </span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('files')}
+                                        className={`${activeTab === 'files'
+                                            ? 'border-[#F28C38] text-[#F28C38]'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors`}
+                                        aria-current={activeTab === 'files' ? 'page' : undefined}
+                                    >
+                                        <PaperClipIcon className="h-5 w-5 mr-2" />
+                                        Fichiers
+                                        <span className="ml-2 rounded-full bg-gray-200 text-gray-700 text-xs px-2 py-0.5">
+                                            {actionFiles?.length || 0}
+                                        </span>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="p-6 max-h-[70vh] overflow-y-auto">
+                            {activeTab === 'details' && renderDetailsTab()}
+                            {activeTab === 'comments' && renderCommentsTab()}
+                            {activeTab === 'files' && renderFilesTab()}
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 
-export default GlobalActionView; 
+export default GlobalActionView;
