@@ -104,10 +104,13 @@ interface TasksState {
         inReview: Task[];
         done: Task[];
     };
-    history: Task[];
+    currentTask: Task | null;
+    history: any[];
     loading: boolean;
     error: string | null;
     actionTasks: Task[];
+    actionComments: any[];
+    actionFiles: any[];
 }
 
 const initialState: TasksState = {
@@ -117,10 +120,13 @@ const initialState: TasksState = {
         inReview: [],
         done: []
     },
+    currentTask: null,
     history: [],
     loading: false,
     error: null,
-    actionTasks: []
+    actionTasks: [],
+    actionComments: [],
+    actionFiles: []
 };
 
 // Async thunks
@@ -388,6 +394,164 @@ export const getTaskWithLinkedData = createAsyncThunk(
     }
 );
 
+// Fetch tasks for a specific global action with their comments and files
+export const fetchTasksWithCommentsForAction = createAsyncThunk(
+    'tasks/fetchTasksWithCommentsForAction',
+    async ({ actionId, isProjectAction }: { actionId: string, isProjectAction: boolean }, { dispatch, rejectWithValue }) => {
+        try {
+            console.log(`Fetching tasks with comments for ${isProjectAction ? 'project' : 'global'} action: ${actionId}`);
+
+            // First fetch the tasks based on action type
+            let tasks;
+            if (isProjectAction) {
+                const response = await dispatch(fetchTasksByActionId(actionId)).unwrap();
+                tasks = response;
+            } else {
+                const response = await dispatch(fetchTasksByGlobalActionId(actionId)).unwrap();
+                tasks = response;
+            }
+
+            if (!tasks || tasks.length === 0) {
+                return {
+                    tasks: [],
+                    allComments: [],
+                    allFiles: []
+                };
+            }
+
+            // Then fetch detailed data for each task including comments
+            const taskDetails = await Promise.all(
+                tasks.map(async (task: any) => {
+                    try {
+                        const timestamp = new Date().getTime();
+                        const response = await axios.get(`/tasks/${task._id}/with-linked-data?_t=${timestamp}`);
+                        return response.data.data;
+                    } catch (error) {
+                        console.error(`Error fetching details for task ${task._id}:`, error);
+                        return task; // Return original task if fetch fails
+                    }
+                })
+            );
+
+            // Combine all comments and files from all tasks with deduplication
+            let allComments: any[] = [];
+            let allFiles: any[] = [];
+
+            // Track seen comment and file IDs to avoid duplicates
+            const seenCommentIds = new Set<string>();
+            const seenFileIds = new Set<string>();
+
+            taskDetails.forEach(task => {
+                if (task.allComments) {
+                    task.allComments.forEach((comment: any) => {
+                        if (comment._id && !seenCommentIds.has(comment._id)) {
+                            seenCommentIds.add(comment._id);
+                            allComments.push(comment);
+                        }
+                    });
+                } else if (task.comments) {
+                    task.comments.forEach((comment: any) => {
+                        if (comment._id && !seenCommentIds.has(comment._id)) {
+                            seenCommentIds.add(comment._id);
+                            allComments.push(comment);
+                        }
+                    });
+                }
+
+                if (task.allFiles) {
+                    task.allFiles.forEach((file: any) => {
+                        if (file._id && !seenFileIds.has(file._id)) {
+                            seenFileIds.add(file._id);
+                            allFiles.push(file);
+                        }
+                    });
+                } else if (task.files) {
+                    task.files.forEach((file: any) => {
+                        if (file._id && !seenFileIds.has(file._id)) {
+                            seenFileIds.add(file._id);
+                            allFiles.push(file);
+                        }
+                    });
+                }
+            });
+
+            // Sort comments by date
+            allComments.sort((a, b) => {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+
+            // Sort files by date
+            allFiles.sort((a, b) => {
+                const dateA = a.uploadedAt ? new Date(a.uploadedAt) : new Date(0);
+                const dateB = b.uploadedAt ? new Date(b.uploadedAt) : new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            return {
+                tasks: taskDetails,
+                allComments,
+                allFiles
+            };
+        } catch (error: any) {
+            console.error('Error fetching tasks with comments:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch task details');
+        }
+    }
+);
+
+// Add comment to a task for action view
+export const addCommentToActionTask = createAsyncThunk(
+    'tasks/addCommentToActionTask',
+    async (
+        { taskId, text, actionId, isProjectAction }:
+            { taskId: string, text: string, actionId: string, isProjectAction: boolean },
+        { dispatch, rejectWithValue }
+    ) => {
+        try {
+            // First add the comment to the task
+            await dispatch(addComment({ taskId, text })).unwrap();
+
+            // Then refresh all task data for the action view
+            return await dispatch(fetchTasksWithCommentsForAction({
+                actionId,
+                isProjectAction
+            })).unwrap();
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to add comment');
+        }
+    }
+);
+
+// Upload file to a task for action view
+export const uploadFileToActionTask = createAsyncThunk(
+    'tasks/uploadFileToActionTask',
+    async (
+        { taskId, file, actionId, isProjectAction }:
+            { taskId: string, file: File, actionId: string, isProjectAction: boolean },
+        { dispatch, rejectWithValue }
+    ) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // First upload the file
+            await axios.post(`/tasks/${taskId}/files`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            // Then refresh all task data for the action view
+            return await dispatch(fetchTasksWithCommentsForAction({
+                actionId,
+                isProjectAction
+            })).unwrap();
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to upload file');
+        }
+    }
+);
+
 const taskSlice = createSlice({
     name: 'tasks',
     initialState,
@@ -644,7 +808,53 @@ const taskSlice = createSlice({
                 } else if (updatedTask.status === 'done') {
                     state.tasks.done.push(updatedTask);
                 }
-            });
+            })
+
+            // fetchTasksWithCommentsForAction
+            .addCase(fetchTasksWithCommentsForAction.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchTasksWithCommentsForAction.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actionTasks = action.payload.tasks;
+                state.actionComments = action.payload.allComments;
+                state.actionFiles = action.payload.allFiles;
+            })
+            .addCase(fetchTasksWithCommentsForAction.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // addCommentToActionTask
+            .addCase(addCommentToActionTask.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(addCommentToActionTask.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actionTasks = action.payload.tasks;
+                state.actionComments = action.payload.allComments;
+                state.actionFiles = action.payload.allFiles;
+            })
+            .addCase(addCommentToActionTask.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // uploadFileToActionTask
+            .addCase(uploadFileToActionTask.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(uploadFileToActionTask.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actionTasks = action.payload.tasks;
+                state.actionComments = action.payload.allComments;
+                state.actionFiles = action.payload.allFiles;
+            })
+            .addCase(uploadFileToActionTask.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
     }
 });
 
