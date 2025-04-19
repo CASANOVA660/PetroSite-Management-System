@@ -97,6 +97,64 @@ class TaskController {
         }
     }
 
+    // Get tasks by global action ID
+    async getTasksByGlobalActionId(req, res) {
+        try {
+            const { globalActionId } = req.params;
+
+            if (!globalActionId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'L\'ID de l\'action globale est requis'
+                });
+            }
+
+            console.log('TaskController - getTasksByGlobalActionId called for action:', globalActionId);
+            const tasks = await taskService.getTasksByGlobalActionId(globalActionId);
+
+            return res.status(200).json({
+                success: true,
+                data: tasks
+            });
+        } catch (error) {
+            console.error(`TaskController - Error fetching tasks for global action ${req.params.globalActionId}:`, error);
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des tâches liées à cette action globale.',
+                error: error.message
+            });
+        }
+    }
+
+    // Get tasks by project action ID
+    async getTasksByActionId(req, res) {
+        try {
+            const { actionId } = req.params;
+
+            if (!actionId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'L\'ID de l\'action de projet est requis'
+                });
+            }
+
+            console.log('TaskController - getTasksByActionId called for action:', actionId);
+            const tasks = await taskService.getTasksByActionId(actionId);
+
+            return res.status(200).json({
+                success: true,
+                data: tasks
+            });
+        } catch (error) {
+            console.error(`TaskController - Error fetching tasks for project action ${req.params.actionId}:`, error);
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des tâches liées à cette action de projet.',
+                error: error.message
+            });
+        }
+    }
+
     // Create a personal task
     async createPersonalTask(req, res) {
         const errors = validationResult(req);

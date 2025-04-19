@@ -107,6 +107,7 @@ interface TasksState {
     history: Task[];
     loading: boolean;
     error: string | null;
+    actionTasks: Task[];
 }
 
 const initialState: TasksState = {
@@ -118,7 +119,8 @@ const initialState: TasksState = {
     },
     history: [],
     loading: false,
-    error: null
+    error: null,
+    actionTasks: []
 };
 
 // Async thunks
@@ -206,6 +208,54 @@ export const fetchGlobalActionTasks = createAsyncThunk(
         } catch (error: any) {
             console.error('Error fetching global action tasks:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch global action tasks');
+        }
+    }
+);
+
+// Fetch tasks for a specific global action
+export const fetchTasksByGlobalActionId = createAsyncThunk(
+    'tasks/fetchTasksByGlobalActionId',
+    async (globalActionId: string, { rejectWithValue }) => {
+        try {
+            console.log(`Fetching tasks for global action: ${globalActionId}`);
+            const timestamp = new Date().getTime();
+            const response = await axios.get(`/tasks/by-global-action/${globalActionId}?_t=${timestamp}`);
+
+            console.log('Tasks by global action response:', response.data);
+
+            if (!response.data.data) {
+                console.error('Invalid tasks response:', response.data);
+                return rejectWithValue('Invalid response format from API');
+            }
+
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error fetching tasks for global action:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch tasks for this global action');
+        }
+    }
+);
+
+// Fetch tasks for a specific project action
+export const fetchTasksByActionId = createAsyncThunk(
+    'tasks/fetchTasksByActionId',
+    async (actionId: string, { rejectWithValue }) => {
+        try {
+            console.log(`Fetching tasks for project action: ${actionId}`);
+            const timestamp = new Date().getTime();
+            const response = await axios.get(`/tasks/by-action/${actionId}?_t=${timestamp}`);
+
+            console.log('Tasks by project action response:', response.data);
+
+            if (!response.data.data) {
+                console.error('Invalid tasks response:', response.data);
+                return rejectWithValue('Invalid response format from API');
+            }
+
+            return response.data.data;
+        } catch (error: any) {
+            console.error('Error fetching tasks for project action:', error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch tasks for this project action');
         }
     }
 );
@@ -447,6 +497,36 @@ const taskSlice = createSlice({
             .addCase(fetchGlobalActionTasks.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+            })
+
+            // fetchTasksByGlobalActionId
+            .addCase(fetchTasksByGlobalActionId.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchTasksByGlobalActionId.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actionTasks = action.payload;
+            })
+            .addCase(fetchTasksByGlobalActionId.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+                state.actionTasks = [];
+            })
+
+            // fetchTasksByActionId
+            .addCase(fetchTasksByActionId.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchTasksByActionId.fulfilled, (state, action) => {
+                state.loading = false;
+                state.actionTasks = action.payload;
+            })
+            .addCase(fetchTasksByActionId.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+                state.actionTasks = [];
             })
 
             // fetchTaskHistory

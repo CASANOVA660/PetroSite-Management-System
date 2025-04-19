@@ -16,6 +16,12 @@ router.get('/project-actions', taskController.getProjectActionTasks);
 // Get only global action tasks for the current user
 router.get('/global-actions', taskController.getGlobalActionTasks);
 
+// Get tasks by global action ID
+router.get('/by-global-action/:globalActionId', taskController.getTasksByGlobalActionId);
+
+// Get tasks by project action ID
+router.get('/by-action/:actionId', taskController.getTasksByActionId);
+
 // Force create tasks from a project action (manual trigger)
 router.post('/project-action/:actionId', taskController.createTasksFromProjectAction);
 
