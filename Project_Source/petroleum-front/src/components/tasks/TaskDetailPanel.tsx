@@ -665,11 +665,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         // Determine task types
         const isCurrentTaskSuivi = task?.title?.startsWith('Suivi:') || false;
         const isCurrentTaskRealization = task?.title?.startsWith('Réalisation:') || false;
+        const isProjectAction = task?.actionId ? true : false;
 
         // For logging purposes
         console.log('Current task title:', task?.title);
         console.log('Is current task Suivi:', isCurrentTaskSuivi);
         console.log('Is current task Realization:', isCurrentTaskRealization);
+        console.log('Is project action:', isProjectAction);
         console.log('Linked task found:', linkedTaskData ? 'Yes' : 'No');
 
         if (linkedTaskData) {
@@ -680,6 +682,43 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         // Get the linked task's suivi/realization type
         const isLinkedTaskSuivi = linkedTaskData?.title?.startsWith('Suivi:') || false;
         const isLinkedTaskRealization = linkedTaskData?.title?.startsWith('Réalisation:') || false;
+
+        // For project actions, the assignee is always the realization person and creator/manager is the suivi person
+        if (isProjectAction) {
+            return (
+                <div className="text-sm text-gray-600">
+                    {/* Realization Person */}
+                    <div className="mb-1">
+                        <span className="font-medium">Responsable de réalisation: </span>
+                        <span>
+                            {currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                ? 'Moi'
+                                : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`}
+                        </span>
+                    </div>
+
+                    {/* Suivi Person */}
+                    <div className="mb-1">
+                        <span className="font-medium">Responsable de suivi: </span>
+                        <span>
+                            {currentUser && task?.creator && currentUser._id === task?.creator._id
+                                ? 'Moi'
+                                : `${task?.creator?.prenom || ''} ${task?.creator?.nom || 'Non assigné'}`}
+                        </span>
+                    </div>
+
+                    {/* Creator */}
+                    <div>
+                        <span className="font-medium">Créé par: </span>
+                        <span>
+                            {currentUser && task?.creator && currentUser._id === task?.creator._id
+                                ? 'Moi'
+                                : `${task?.creator?.prenom || ''} ${task?.creator?.nom || ''}`}
+                        </span>
+                    </div>
+                </div>
+            );
+        }
 
         return (
             <div className="text-sm text-gray-600">
