@@ -347,6 +347,11 @@ const Tasks: React.FC = () => {
     const filterTasksByCurrentUser = (tasksObj: { todo: Task[], inProgress: Task[], inReview: Task[], done: Task[] }) => {
         if (!user || !user._id) return { todo: [], inProgress: [], inReview: [], done: [] };
 
+        // Add debug logs for user role
+        console.log('Current user:', user);
+        console.log('User role:', user.role);
+        console.log('Is manager check:', user.role === 'manager');
+
         // Create a deep copy of the tasks object to avoid mutations
         let filteredTasks = {
             todo: [...(tasksObj.todo || [])],
@@ -355,6 +360,14 @@ const Tasks: React.FC = () => {
             done: [...(tasksObj.done || [])]
         };
 
+        // Log total tasks before any filtering
+        const totalTasksBeforeFilter =
+            filteredTasks.todo.length +
+            filteredTasks.inProgress.length +
+            filteredTasks.inReview.length +
+            filteredTasks.done.length;
+        console.log(`Total tasks before any filtering: ${totalTasksBeforeFilter}`);
+
         // Filter tasks assigned to current user
         Object.keys(filteredTasks).forEach(key => {
             const status = key as keyof typeof filteredTasks;
@@ -362,6 +375,97 @@ const Tasks: React.FC = () => {
                 task.assignee && task.assignee._id === user._id
             );
         });
+
+        // Log total tasks after user assignment filtering
+        const totalTasksAfterUserFilter =
+            filteredTasks.todo.length +
+            filteredTasks.inProgress.length +
+            filteredTasks.inReview.length +
+            filteredTasks.done.length;
+        console.log(`Tasks assigned to current user: ${totalTasksAfterUserFilter}`);
+
+        // Try different role formats and comparisons for manager detection
+        const isManager =
+            user.role === 'manager' ||
+            user.role === 'Manager' ||
+            user.role?.toLowerCase() === 'manager' ||
+            user.role?.includes('manager');
+
+        console.log('Is user a manager (using multiple checks):', isManager);
+
+        // If user is a manager, only show "realisation" tasks (hide "suivie" tasks)
+        if (isManager) {
+            console.log('Filtering tasks for manager role - showing only realisation tasks');
+
+            // Before filtering, log all tasks that might be suivi tasks
+            const potentialSuiviTasks: Array<{ title: string, id: string, reason: string, tags?: string[] }> = [];
+            Object.keys(filteredTasks).forEach(key => {
+                const status = key as keyof typeof filteredTasks;
+                filteredTasks[status].forEach(task => {
+                    if (task.title && task.title.startsWith('Suivi:')) {
+                        potentialSuiviTasks.push({ title: task.title, id: task._id, reason: 'title' });
+                    } else if (task.tags && task.tags.some(tag =>
+                        ['Follow-up', 'Suivi', 'Project Action Validation'].includes(tag))) {
+                        potentialSuiviTasks.push({ title: task.title, id: task._id, reason: 'tags', tags: task.tags });
+                    }
+                });
+            });
+            console.log('Potential suivi tasks found:', potentialSuiviTasks);
+
+            Object.keys(filteredTasks).forEach(key => {
+                const status = key as keyof typeof filteredTasks;
+                filteredTasks[status] = filteredTasks[status].filter(task => {
+                    // Check 1: Don't include tasks with "Suivi:" in the title (case insensitive)
+                    if (task.title &&
+                        (task.title.startsWith('Suivi:') ||
+                            task.title.startsWith('SUIVI:') ||
+                            task.title.startsWith('suivi:') ||
+                            task.title.toLowerCase().includes('suivi') ||
+                            task.title.toLowerCase().includes('follow'))) {
+                        console.log(`Filtering out suivi task by title: ${task.title}`);
+                        return false;
+                    }
+
+                    // Check 2: Don't include tasks with suivi-related tags
+                    if (task.tags) {
+                        const suiviRelatedTags = ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'];
+                        for (const tag of suiviRelatedTags) {
+                            if (task.tags.includes(tag)) {
+                                console.log(`Filtering out suivi task by tag ${tag}: ${task.title}`);
+                                return false;
+                            }
+                        }
+                    }
+
+                    // Check 3: Tasks where the current user is both creator and assignee might be suivi tasks
+                    if (task.creator && task.assignee &&
+                        task.creator._id === user._id &&
+                        task.assignee._id === user._id &&
+                        task.needsValidation === false) {
+                        console.log(`Filtering out potential suivi task by creator/assignee: ${task.title}`);
+                        return false;
+                    }
+
+                    // Check 4: Filter by keyword in description
+                    if (task.description &&
+                        (task.description.includes('suivi') ||
+                            task.description.includes('Suivi') ||
+                            task.description.includes('follow') ||
+                            task.description.includes('Follow'))) {
+                        console.log(`Filtering out suivi task by description keywords: ${task.title}`);
+                        return false;
+                    }
+
+                    return true;
+                });
+            });
+
+            console.log(`After filtering, manager sees ${filteredTasks.todo.length + filteredTasks.inProgress.length +
+                filteredTasks.inReview.length + filteredTasks.done.length} total tasks`);
+        } else {
+            console.log('Showing all tasks for non-manager role');
+            // Non-manager users see all their assigned tasks (no additional filtering)
+        }
 
         // Count tasks by type before filtering by task type
         const countByType = {
