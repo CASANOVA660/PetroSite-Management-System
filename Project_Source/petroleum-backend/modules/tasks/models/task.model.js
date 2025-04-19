@@ -140,6 +140,9 @@ const taskSchema = new Schema({
     category: {
         type: String
     },
+    projectCategory: {
+        type: String
+    },
     // For history/archiving
     isArchived: {
         type: Boolean,
@@ -174,5 +177,6 @@ taskSchema.index({ actionId: 1 }, { sparse: true });
 taskSchema.index({ globalActionId: 1 }, { sparse: true });
 taskSchema.index({ status: 1, completedAt: 1 }, { sparse: true });
 taskSchema.index({ isArchived: 1 });
+taskSchema.index({ projectCategory: 1 }, { sparse: true });
 
 module.exports = mongoose.model('Task', taskSchema); 

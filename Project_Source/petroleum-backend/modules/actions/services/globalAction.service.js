@@ -149,8 +149,10 @@ class GlobalActionService {
                 throw new Error('Project not found');
             }
 
-            // Validate project category if provided
+            // Validate project category if provided - ensuring categories exist
             if (actionData.projectCategory &&
+                projectDetails.categories &&
+                Array.isArray(projectDetails.categories) &&
                 !projectDetails.categories.includes(actionData.projectCategory)) {
                 throw new Error('Invalid project category');
             }
@@ -204,7 +206,8 @@ class GlobalActionService {
                 globalActionId: savedAction._id,
                 type: 'realization',
                 projectId: actionData.projectId || null,
-                category: actionData.projectCategory || actionData.category || null,
+                category: actionData.category || null,
+                projectCategory: actionData.projectCategory || null,
                 needsValidation: savedAction.needsValidation,
                 tags: ['Global Action', 'Realization']
             });
@@ -221,7 +224,8 @@ class GlobalActionService {
                 globalActionId: savedAction._id,
                 type: 'followup',
                 projectId: actionData.projectId || null,
-                category: actionData.projectCategory || actionData.category || null,
+                category: actionData.category || null,
+                projectCategory: actionData.projectCategory || null,
                 needsValidation: savedAction.needsValidation,
                 tags: ['Global Action', 'Follow-up'],
                 linkedTaskId: realizationTask._id
@@ -312,8 +316,10 @@ class GlobalActionService {
                 throw new Error('Project not found');
             }
 
-            // Validate project category if provided
+            // Validate project category if provided - ensuring categories exist
             if (actionData.projectCategory &&
+                projectDetails.categories &&
+                Array.isArray(projectDetails.categories) &&
                 !projectDetails.categories.includes(actionData.projectCategory)) {
                 throw new Error('Invalid project category');
             }

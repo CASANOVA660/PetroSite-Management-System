@@ -13,14 +13,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
     return (
         <Dialog
             as="div"
-            className="fixed inset-0 z-10 overflow-y-auto"
+            className="fixed inset-0 z-50 overflow-y-auto"
             onClose={onClose}
             open={isOpen}
         >
             <div className="min-h-screen px-4 text-center">
-                <div className="fixed inset-0 bg-black opacity-30" />
+                <div className="fixed inset-0 bg-black bg-opacity-30" />
                 <span className="inline-block h-screen align-middle" aria-hidden="true">&#8203;</span>
-                <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl relative z-50">
                     <div className="flex justify-between items-center">
                         <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
                             {title}

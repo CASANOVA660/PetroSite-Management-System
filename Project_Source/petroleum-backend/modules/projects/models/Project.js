@@ -34,6 +34,16 @@ const projectSchema = new mongoose.Schema({
         enum: ['En cours', 'Fermé', 'Annulé'],
         default: 'En cours'
     },
+    categories: {
+        type: [String],
+        default: [
+            'Documents globale',
+            'Dossier Administratif',
+            'Dossier Technique',
+            'Dossier RH',
+            'Dossier HSE'
+        ]
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

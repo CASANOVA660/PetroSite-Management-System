@@ -208,6 +208,7 @@ const GlobalActions: React.FC = () => {
             status: string;
             needsValidation: boolean;
             projectId?: string;
+            projectCategory?: string;
         } = {
             title: formData.title.trim(),
             content: formData.content.trim(),
@@ -224,6 +225,10 @@ const GlobalActions: React.FC = () => {
         // Only add projectId if it has a value
         if (formData.projectId) {
             formattedData.projectId = formData.projectId;
+            // Include projectCategory when a project is selected
+            if (formData.projectCategory) {
+                formattedData.projectCategory = formData.projectCategory;
+            }
         }
 
         console.log('Form data before submission:', formData);

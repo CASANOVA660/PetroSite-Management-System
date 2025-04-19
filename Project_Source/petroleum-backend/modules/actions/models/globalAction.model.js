@@ -82,6 +82,7 @@ globalActionSchema.index({ responsibleForFollowUp: 1 });
 globalActionSchema.index({ status: 1 });
 globalActionSchema.index({ projectId: 1 });
 globalActionSchema.index({ parentActionId: 1 });
+globalActionSchema.index({ projectCategory: 1 });
 
 // Validations
 globalActionSchema.pre('save', function (next) {

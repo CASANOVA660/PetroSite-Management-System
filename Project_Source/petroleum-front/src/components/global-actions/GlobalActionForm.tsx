@@ -37,13 +37,30 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
     if (token) {
         try {
             const decodedToken = jwtDecode<User>(token);
-
             currentUser = decodedToken; // The user data is directly in the decoded token
-
         } catch (error) {
             console.error('Failed to decode token:', error);
         }
     }
+
+    // Get the selected project's available categories
+    const getProjectCategories = (projectId: string) => {
+        if (!projectId) return DOCUMENT_CATEGORIES;
+
+        const selectedProject = projects.find(project => project._id === projectId);
+        // Check if the project exists and has categories defined as an array with values
+        if (selectedProject &&
+            selectedProject.categories &&
+            Array.isArray(selectedProject.categories) &&
+            selectedProject.categories.length > 0) {
+            return selectedProject.categories;
+        }
+        // If project has no categories defined, use the default document categories
+        return DOCUMENT_CATEGORIES;
+    };
+
+    // Get categories based on the selected project
+    const projectCategories = formData.projectId ? getProjectCategories(formData.projectId) : DOCUMENT_CATEGORIES;
 
     return (
         <div className="space-y-3">
@@ -84,7 +101,6 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                     value={formData.projectId}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         const newProjectId = e.target.value;
-                        const selectedProject = projects.find(project => project._id === newProjectId);
 
                         setFormData(prevFormData => ({
                             ...prevFormData,
@@ -109,10 +125,11 @@ const GlobalActionForm: React.FC<GlobalActionFormProps> = ({ formData, setFormDa
                         label="Catégorie du projet"
                         value={formData.projectCategory}
                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, projectCategory: e.target.value })}
-                        options={DOCUMENT_CATEGORIES.map(category => ({
+                        options={projectCategories.map((category: string) => ({
                             value: category,
                             label: category
                         }))}
+                        required={!!formData.projectId}
                         placeholder="Sélectionner une catégorie de projet"
                     />
                 )}
