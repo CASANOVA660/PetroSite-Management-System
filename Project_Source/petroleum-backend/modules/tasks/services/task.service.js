@@ -422,39 +422,93 @@ class TaskService {
                 .populate('creator', 'nom prenom')
                 .populate('comments.author', 'nom prenom');
 
-            // Send notification to relevant users
-            const targetUserId = commentData.author.toString() === task.assignee.toString()
-                ? task.creator.toString()
-                : task.assignee.toString();
-
-            await createNotification({
-                type: 'TASK_COMMENT_ADDED',
-                message: `Nouveau commentaire sur la tâche "${task.title}"`,
-                userId: targetUserId,
-                isRead: false
-            });
-
-            // Real-time notification
-            if (global.io) {
-                global.io.to(targetUserId).emit('notification', {
-                    type: 'NEW_NOTIFICATION',
-                    payload: {
-                        type: 'TASK_COMMENT_ADDED',
-                        message: `Nouveau commentaire sur la tâche "${task.title}"`,
-                        userId: targetUserId
-                    }
-                });
+            // Get linked task if exists
+            let linkedTask = null;
+            if (task.linkedTaskId) {
+                linkedTask = await Task.findById(task.linkedTaskId)
+                    .populate('assignee', 'nom prenom')
+                    .populate('creator', 'nom prenom');
             }
 
-            // Clear user tasks cache
+            // The author of the comment
+            const commentAuthorId = commentData.author.toString();
+
+            // Create a set of users to notify (excluding the comment author)
+            const usersToNotify = new Set();
+
+            // Add task assignee if not the comment author
+            if (task.assignee && task.assignee._id.toString() !== commentAuthorId) {
+                usersToNotify.add(task.assignee._id.toString());
+            }
+
+            // Add task creator if not the comment author
+            if (task.creator && task.creator._id.toString() !== commentAuthorId) {
+                usersToNotify.add(task.creator._id.toString());
+            }
+
+            // If there's a linked task, also notify its assignee if not already in the list and not the comment author
+            if (linkedTask && linkedTask.assignee && linkedTask.assignee._id.toString() !== commentAuthorId) {
+                usersToNotify.add(linkedTask.assignee._id.toString());
+            }
+
+            // Create notification title based on task type
+            let notificationTitle = task.title;
+            if (task.title.startsWith('Réalisation:') || task.title.startsWith('Suivi:')) {
+                notificationTitle = task.title.substring(task.title.indexOf(':') + 1).trim();
+            }
+
+            // Get comment author name
+            const author = await this.getUserById(commentAuthorId);
+            const authorName = author ? `${author.prenom} ${author.nom}` : 'Un utilisateur';
+
+            // Send notifications to all relevant users
+            for (const userId of usersToNotify) {
+                await createNotification({
+                    type: 'TASK_COMMENT_ADDED',
+                    message: `${authorName} a commenté sur la tâche "${notificationTitle}"`,
+                    userId: userId,
+                    isRead: false
+                });
+
+                // Real-time notification
+                if (global.io) {
+                    global.io.to(userId).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'TASK_COMMENT_ADDED',
+                            message: `${authorName} a commenté sur la tâche "${notificationTitle}"`,
+                            userId: userId
+                        }
+                    });
+                }
+            }
+
+            // Clear user tasks cache for all involved users
             if (task.assignee) {
-                await this.clearUserTasksCache(task.assignee.toString());
+                await this.clearUserTasksCache(task.assignee._id.toString());
+            }
+            if (task.creator) {
+                await this.clearUserTasksCache(task.creator._id.toString());
+            }
+            if (linkedTask && linkedTask.assignee) {
+                await this.clearUserTasksCache(linkedTask.assignee._id.toString());
             }
 
             return updatedTask;
         } catch (error) {
             console.error('TaskService - Error adding comment:', error);
             throw error;
+        }
+    }
+
+    // Helper method to get user by ID
+    async getUserById(userId) {
+        try {
+            const User = require('../../users/models/User');
+            return await User.findById(userId);
+        } catch (error) {
+            console.error('Error getting user by ID:', error);
+            return null;
         }
     }
 
