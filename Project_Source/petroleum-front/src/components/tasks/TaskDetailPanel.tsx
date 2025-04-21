@@ -683,8 +683,80 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         const isLinkedTaskSuivi = linkedTaskData?.title?.startsWith('Suivi:') || false;
         const isLinkedTaskRealization = linkedTaskData?.title?.startsWith('Réalisation:') || false;
 
-        // For project actions, the assignee is always the realization person and creator/manager is the suivi person
+        // For project actions, we need to handle differently based on global action tag
         if (isProjectAction) {
+            // For actions with linked tasks, use the linked task's assignee when appropriate
+            if (linkedTaskData) {
+                // Check if current task is the suivi task and linked task is the realization task
+                const currentTaskIsSuivi = isCurrentTaskSuivi || (!isCurrentTaskRealization && !isCurrentTaskSuivi && task.creator?._id === task.assignee?._id);
+                const linkedTaskIsRealization = isLinkedTaskRealization;
+
+                // Check if current task is the realization task and linked task is the suivi task
+                const currentTaskIsRealization = isCurrentTaskRealization || (!isCurrentTaskRealization && !isCurrentTaskSuivi && task.creator?._id !== task.assignee?._id);
+                const linkedTaskIsSuivi = isLinkedTaskSuivi;
+
+                return (
+                    <div className="text-sm text-gray-600">
+                        {/* Realization Person */}
+                        <div className="mb-1">
+                            <span className="font-medium">Responsable de réalisation: </span>
+                            <span>
+                                {currentTaskIsRealization ? (
+                                    // Current task is realization, show its assignee
+                                    currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                        ? 'Moi'
+                                        : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
+                                ) : linkedTaskIsRealization ? (
+                                    // Linked task is realization, show its assignee
+                                    currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                                        ? 'Moi'
+                                        : `${linkedTaskData.assignee?.prenom || ''} ${linkedTaskData.assignee?.nom || 'Non assigné'}`
+                                ) : (
+                                    // Default to task assignee if no specific case is met
+                                    currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                        ? 'Moi'
+                                        : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
+                                )}
+                            </span>
+                        </div>
+
+                        {/* Suivi Person */}
+                        <div className="mb-1">
+                            <span className="font-medium">Responsable de suivi: </span>
+                            <span>
+                                {currentTaskIsSuivi ? (
+                                    // Current task is suivi, show its assignee
+                                    currentUser && task?.assignee && currentUser._id === task?.assignee._id
+                                        ? 'Moi'
+                                        : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
+                                ) : linkedTaskIsSuivi ? (
+                                    // Linked task is suivi, show its assignee
+                                    currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                                        ? 'Moi'
+                                        : `${linkedTaskData.assignee?.prenom || ''} ${linkedTaskData.assignee?.nom || 'Non assigné'}`
+                                ) : (
+                                    // Default to task creator if no specific case is met
+                                    currentUser && task?.creator && currentUser._id === task?.creator._id
+                                        ? 'Moi'
+                                        : `${task?.creator?.prenom || ''} ${task?.creator?.nom || 'Non assigné'}`
+                                )}
+                            </span>
+                        </div>
+
+                        {/* Creator */}
+                        <div>
+                            <span className="font-medium">Créé par: </span>
+                            <span>
+                                {currentUser && task?.creator && currentUser._id === task?.creator._id
+                                    ? 'Moi'
+                                    : `${task?.creator?.prenom || ''} ${task?.creator?.nom || ''}`}
+                            </span>
+                        </div>
+                    </div>
+                );
+            }
+
+            // If no linked task data is available, fall back to the original logic
             return (
                 <div className="text-sm text-gray-600">
                     {/* Realization Person */}
@@ -720,6 +792,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             );
         }
 
+        // For non-project action tasks, keep the existing logic
         return (
             <div className="text-sm text-gray-600">
                 {/* Realization Person */}
