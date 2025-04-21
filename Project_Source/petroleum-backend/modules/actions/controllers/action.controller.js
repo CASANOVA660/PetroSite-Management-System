@@ -73,8 +73,8 @@ class ActionController {
 
             // Validate required fields
             if (!actionData.title || !actionData.content || !actionData.responsible ||
-                !actionData.startDate || !actionData.endDate || !actionData.category ||
-                !actionData.source) {
+                !actionData.responsibleFollowup || !actionData.startDate || !actionData.endDate ||
+                !actionData.category || !actionData.source) {
                 return res.status(400).json({
                     success: false,
                     message: 'Tous les champs requis doivent être remplis'
@@ -84,21 +84,23 @@ class ActionController {
             const action = await actionService.createAction(actionData);
             console.log('Action created:', action); // Debug log
 
-            // Return successful response immediately
+            // Import the task service
+            const taskService = require('../../tasks/services/task.service');
+
+            // Create tasks for the action
+            console.log('ActionController - Creating tasks for action:', action._id);
+            await taskService.createTasksFromProjectAction(action._id);
+
+            // Return response including action data
             const response = {
                 success: true,
                 data: action
             };
             res.status(201).json(response);
 
-            // Create tasks asynchronously after sending the response
+            // Send notifications asynchronously after sending the response
             setTimeout(async () => {
                 try {
-                    // Import the task service
-                    const taskService = require('../../tasks/services/task.service');
-                    console.log('ActionController - Creating tasks for action:', action._id);
-                    await taskService.createTasksFromProjectAction(action._id);
-
                     // Emit socket notification ONLY to responsible user if they are different from the manager
                     if (action.responsible && action.responsible._id &&
                         action.responsible._id.toString() !== action.manager.toString()) {
@@ -113,8 +115,24 @@ class ActionController {
                             }
                         });
                     }
-                } catch (taskError) {
-                    console.error('ActionController - Error creating tasks for action:', taskError);
+
+                    // Emit socket notification to responsibleFollowup user if different from manager and responsible
+                    if (action.responsibleFollowup && action.responsibleFollowup._id &&
+                        action.responsibleFollowup._id.toString() !== action.manager.toString() &&
+                        action.responsibleFollowup._id.toString() !== action.responsible._id.toString()) {
+
+                        // Emit socket notification
+                        global.io.to(String(action.responsibleFollowup._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_ASSIGNED_FOLLOWUP',
+                                message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
+                                userId: action.responsibleFollowup._id
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('ActionController - Error sending notifications for action:', error);
                 }
             }, 0);
 
@@ -134,7 +152,7 @@ class ActionController {
             const { status } = req.body;
             const action = await actionService.updateActionStatus(actionId, status);
 
-            // Send notification only to the responsible user
+            // Send notification to the responsible user
             if (action.responsible?._id && action.responsible._id !== action.manager._id) {
                 const socketId = global.userSockets.get(action.responsible._id);
                 if (socketId) {
@@ -144,6 +162,23 @@ class ActionController {
                             type: 'action_status_changed',
                             message: `Le statut de l'action "${action.title}" a été mis à jour: ${status}`,
                             userId: action.responsible._id
+                        }
+                    });
+                }
+            }
+
+            // Send notification to the responsibleFollowup user if different from manager and responsible
+            if (action.responsibleFollowup?._id &&
+                action.responsibleFollowup._id.toString() !== action.manager._id.toString() &&
+                action.responsibleFollowup._id.toString() !== action.responsible._id.toString()) {
+                const socketId = global.userSockets.get(action.responsibleFollowup._id);
+                if (socketId) {
+                    global.io.to(socketId).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'action_status_changed',
+                            message: `Le statut de l'action "${action.title}" a été mis à jour: ${status}`,
+                            userId: action.responsibleFollowup._id
                         }
                     });
                 }
@@ -184,6 +219,7 @@ class ActionController {
             // Find the existing action first
             const existingAction = await Action.findById(actionId)
                 .populate('responsible', 'nom prenom')
+                .populate('responsibleFollowup', 'nom prenom')
                 .populate('manager', 'nom prenom');
 
             if (!existingAction) {
@@ -198,11 +234,14 @@ class ActionController {
 
             // Check if responsible has changed
             const responsibleChanged = existingAction.responsible._id.toString() !== actionData.responsible;
+            const responsibleFollowupChanged = existingAction.responsibleFollowup &&
+                existingAction.responsibleFollowup._id.toString() !== actionData.responsibleFollowup;
             const statusChanged = existingAction.status !== actionData.status;
             const contentChanged = existingAction.content !== actionData.content;
 
             console.log('ActionController - Field changes detected:', {
                 responsibleChanged,
+                responsibleFollowupChanged,
                 statusChanged,
                 contentChanged
             });
@@ -215,6 +254,7 @@ class ActionController {
             // Always get the updated action with populated fields for notifications
             const updatedAction = await Action.findById(actionId)
                 .populate('responsible', 'nom prenom')
+                .populate('responsibleFollowup', 'nom prenom')
                 .populate('manager', 'nom prenom');
 
             console.log('ActionController - Populated updated action for notifications:', updatedAction);
@@ -244,6 +284,34 @@ class ActionController {
                     }
                 } catch (notifError) {
                     console.error('Error sending notification to responsible:', notifError);
+                }
+            }
+
+            if (responsibleFollowupChanged) {
+                // Notification is always sent to the new responsible followup
+                try {
+                    await createNotification({
+                        type: 'ACTION_ASSIGNED_FOLLOWUP',
+                        message: `L'action "${updatedAction.title}" vous a été assignée pour suivi`,
+                        userId: updatedAction.responsibleFollowup._id,
+                        isRead: false
+                    });
+                    console.log('ActionController - Followup notification sent to:', updatedAction.responsibleFollowup._id);
+
+                    // Send a real-time notification via socket if available
+                    if (global.io && updatedAction.responsibleFollowup) {
+                        global.io.to(String(updatedAction.responsibleFollowup._id)).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                type: 'ACTION_ASSIGNED_FOLLOWUP',
+                                message: `L'action "${updatedAction.title}" vous a été assignée pour suivi`,
+                                userId: updatedAction.responsibleFollowup._id
+                            }
+                        });
+                        console.log('ActionController - Socket notification sent to followup responsible');
+                    }
+                } catch (notifError) {
+                    console.error('Error sending notification to followup responsible:', notifError);
                 }
             }
 
@@ -319,7 +387,7 @@ class ActionController {
             const { actionId } = req.params;
             const action = await actionService.deleteAction(actionId);
 
-            // Send notification only to the responsible user
+            // Send notification to the responsible user if different from manager
             if (action.responsible?._id && action.responsible._id !== action.manager._id) {
                 const socketId = global.userSockets.get(action.responsible._id);
                 if (socketId) {
@@ -329,6 +397,23 @@ class ActionController {
                             type: 'ACTION_DELETED',
                             message: `L'action "${action.title}" a été supprimée`,
                             userId: action.responsible._id
+                        }
+                    });
+                }
+            }
+
+            // Send notification to the responsibleFollowup user if different from manager and responsible
+            if (action.responsibleFollowup?._id &&
+                action.responsibleFollowup._id.toString() !== action.manager._id.toString() &&
+                action.responsibleFollowup._id.toString() !== action.responsible._id.toString()) {
+                const socketId = global.userSockets.get(action.responsibleFollowup._id);
+                if (socketId) {
+                    global.io.to(socketId).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'ACTION_DELETED',
+                            message: `L'action "${action.title}" a été supprimée`,
+                            userId: action.responsibleFollowup._id
                         }
                     });
                 }

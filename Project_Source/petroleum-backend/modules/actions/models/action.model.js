@@ -19,6 +19,11 @@ const actionSchema = new Schema({
         ref: 'User',
         required: true
     },
+    responsibleFollowup: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
     manager: {
         type: Schema.Types.ObjectId,
         ref: 'User',
@@ -57,6 +62,7 @@ const actionSchema = new Schema({
 // Add index for faster queries
 actionSchema.index({ projectId: 1 });
 actionSchema.index({ responsible: 1 });
+actionSchema.index({ responsibleFollowup: 1 });
 actionSchema.index({ manager: 1 });
 actionSchema.index({ status: 1 });
 

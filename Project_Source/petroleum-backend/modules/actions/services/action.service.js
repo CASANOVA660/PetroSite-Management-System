@@ -6,6 +6,7 @@ class ActionService {
     async getAllActions() {
         return await Action.find()
             .populate('responsible', 'nom prenom')
+            .populate('responsibleFollowup', 'nom prenom')
             .populate('manager', 'nom prenom')
             .sort({ createdAt: -1 });
     }
@@ -13,6 +14,7 @@ class ActionService {
     async getProjectActions(projectId) {
         return await Action.find({ projectId })
             .populate('responsible', 'nom prenom')
+            .populate('responsibleFollowup', 'nom prenom')
             .populate('manager', 'nom prenom')
             .sort({ createdAt: -1 });
     }
@@ -20,6 +22,7 @@ class ActionService {
     async getCategoryActions(projectId, category) {
         return await Action.find({ projectId, category })
             .populate('responsible', 'nom prenom')
+            .populate('responsibleFollowup', 'nom prenom')
             .populate('manager', 'nom prenom')
             .sort({ createdAt: -1 });
     }
@@ -27,23 +30,7 @@ class ActionService {
     async createAction(actionData) {
         try {
             const action = await new Action(actionData).save();
-            const populatedAction = await action.populate(['responsible', 'manager']);
-
-            // Create corresponding task with project info if available
-            const task = await taskService.createTask({
-                title: action.title,
-                description: action.content,
-                assignee: action.responsible,
-                creator: action.manager,
-                startDate: action.startDate,
-                endDate: action.endDate,
-                status: 'todo',
-                actionId: action._id,
-                tags: ['Action'],
-                projectId: action.projectId || null,
-                category: action.category || null,
-                needsValidation: action.needsValidation
-            });
+            const populatedAction = await action.populate(['responsible', 'responsibleFollowup', 'manager']);
 
             // Create notification for the responsible user if they are different from the manager
             if (action.responsible && action.responsible._id &&
@@ -56,9 +43,30 @@ class ActionService {
                     userId: action.responsible._id,
                     isRead: false
                 });
+            }
 
-                // Emit socket event for new task
-                global.io.to(String(action.responsible._id)).emit('newTask', task);
+            // Create notification for the responsibleFollowup user if they are different from the manager and responsible
+            if (action.responsibleFollowup && action.responsibleFollowup._id &&
+                action.responsibleFollowup._id.toString() !== action.manager.toString() &&
+                action.responsibleFollowup._id.toString() !== action.responsible._id.toString()) {
+
+                // Create notification in database
+                await createNotification({
+                    type: 'ACTION_ASSIGNED_FOLLOWUP',
+                    message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
+                    userId: action.responsibleFollowup._id,
+                    isRead: false
+                });
+
+                // Emit socket event for follow-up notification
+                global.io.to(String(action.responsibleFollowup._id)).emit('notification', {
+                    type: 'NEW_NOTIFICATION',
+                    payload: {
+                        type: 'ACTION_ASSIGNED_FOLLOWUP',
+                        message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
+                        userId: action.responsibleFollowup._id
+                    }
+                });
             }
 
             return populatedAction;
@@ -73,6 +81,7 @@ class ActionService {
             { status },
             { new: true }
         ).populate('responsible', 'nom prenom')
+            .populate('responsibleFollowup', 'nom prenom')
             .populate('manager', 'nom prenom');
 
         if (!action) {
@@ -122,6 +131,8 @@ class ActionService {
         // Specifically log the responsible field to help debug notifications
         console.log('ActionService - Original responsible:', action.responsible);
         console.log('ActionService - New responsible:', actionData.responsible);
+        console.log('ActionService - Original responsibleFollowup:', action.responsibleFollowup);
+        console.log('ActionService - New responsibleFollowup:', actionData.responsibleFollowup);
 
         try {
             // Update the action with new data
@@ -130,6 +141,7 @@ class ActionService {
                 actionData,
                 { new: true, runValidators: true }
             ).populate('responsible', 'nom prenom')
+                .populate('responsibleFollowup', 'nom prenom')
                 .populate('manager', 'nom prenom');
 
             console.log('ActionService - Updated action result:', updatedAction);
@@ -174,6 +186,7 @@ class ActionService {
     async deleteAction(actionId) {
         const action = await Action.findById(actionId)
             .populate('responsible', 'nom prenom')
+            .populate('responsibleFollowup', 'nom prenom')
             .populate('manager', 'nom prenom');
 
         if (!action) {

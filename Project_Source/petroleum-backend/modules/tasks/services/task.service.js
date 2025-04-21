@@ -964,6 +964,7 @@ class TaskService {
             const Action = require('../../actions/models/action.model');
             const action = await Action.findById(actionId)
                 .populate('responsible')
+                .populate('responsibleFollowup')
                 .populate('manager');
 
             if (!action) {
@@ -975,8 +976,8 @@ class TaskService {
             // Create tasks based on action type
             let tasks = [];
 
-            // Create a task for the responsible person
-            const responsibleTask = new Task({
+            // Create a task for the responsible person (realization)
+            const realizationTask = new Task({
                 title: `Réalisation: ${action.title}`,
                 description: action.content,
                 status: 'todo',
@@ -987,48 +988,48 @@ class TaskService {
                 assignee: action.responsible._id,
                 creator: action.manager._id,
                 needsValidation: action.needsValidation === true,
-                tags: ['Project Action', action.category],
+                tags: ['Project Action', 'Realization', action.category],
                 actionId: action._id,
                 projectId: action.projectId,
-                category: action.category
+                category: action.category,
+                type: 'realization'
             });
 
-            await responsibleTask.save();
-            tasks.push(responsibleTask);
+            await realizationTask.save();
+            tasks.push(realizationTask);
 
-            // Create a task for the manager if they need to validate
-            if (action.needsValidation) {
-                const managerTask = new Task({
-                    title: `Suivi: ${action.title}`,
-                    description: action.content,
-                    status: 'todo',
-                    progress: 0,
-                    priority: 'medium',
-                    startDate: action.startDate,
-                    endDate: action.endDate,
-                    assignee: action.manager._id,
-                    creator: action.manager._id,
-                    needsValidation: false,
-                    tags: ['Project Action Validation', action.category],
-                    actionId: action._id,
-                    projectId: action.projectId,
-                    category: action.category,
-                    linkedTaskId: responsibleTask._id
-                });
+            // Create a task for the follow-up person
+            const followUpTask = new Task({
+                title: `Suivi: ${action.title}`,
+                description: action.content,
+                status: 'todo',
+                progress: 0,
+                priority: 'medium',
+                startDate: action.startDate,
+                endDate: action.endDate,
+                assignee: action.responsibleFollowup._id,
+                creator: action.manager._id,
+                needsValidation: false,
+                tags: ['Project Action', 'Follow-up', action.category],
+                actionId: action._id,
+                projectId: action.projectId,
+                category: action.category,
+                linkedTaskId: realizationTask._id,
+                type: 'followup'
+            });
 
-                await managerTask.save();
+            await followUpTask.save();
+            tasks.push(followUpTask);
 
-                // Update the responsible task with the link back to the manager task
-                responsibleTask.linkedTaskId = managerTask._id;
-                await responsibleTask.save();
-
-                tasks.push(managerTask);
-            }
+            // Update the realization task with the link back to the follow-up task
+            realizationTask.linkedTaskId = followUpTask._id;
+            await realizationTask.save();
 
             console.log(`TaskService - Created ${tasks.length} tasks for action ${actionId}`);
 
             // Clear caches for all users involved
             await this.clearUserTasksCache(action.responsible._id.toString());
+            await this.clearUserTasksCache(action.responsibleFollowup._id.toString());
             await this.clearUserTasksCache(action.manager._id.toString());
 
             return tasks;

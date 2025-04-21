@@ -57,6 +57,7 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
                 category: actionData.category || category,
                 manager: user._id,
                 responsible: actionData.responsible,
+                responsibleFollowup: actionData.responsibleFollowup || actionData.responsible,
                 status: 'pending',
                 needsValidation: actionData.needsValidation
             };
@@ -66,8 +67,8 @@ const Actions: React.FC<ActionsProps> = ({ projectId, category, users }) => {
 
             // Validate required fields
             if (!actionWithUser.title || !actionWithUser.content || !actionWithUser.responsible ||
-                !actionWithUser.startDate || !actionWithUser.endDate || !actionWithUser.category ||
-                !actionWithUser.source) {
+                !actionWithUser.responsibleFollowup || !actionWithUser.startDate || !actionWithUser.endDate ||
+                !actionWithUser.category || !actionWithUser.source) {
                 throw new Error('Tous les champs requis doivent être remplis');
             }
 

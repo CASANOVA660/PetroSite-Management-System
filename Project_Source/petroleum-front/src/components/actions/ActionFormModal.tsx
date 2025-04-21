@@ -29,6 +29,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
         content: '',
         source: isGlobal ? '' : 'Project',
         responsible: '',
+        responsibleFollowup: '',
         manager: user?._id || '',
         startDate: format(new Date(), 'yyyy-MM-dd'),
         endDate: '',
@@ -57,11 +58,13 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
             setIsSubmitting(true);
             toast.loading('Création en cours...', { id: 'action-create' });
 
-            const actionData = {
+            const finalFormData = {
                 ...formData,
-                projectId: projectId || formData.projectId
+                projectId: projectId || formData.projectId,
+                responsibleFollowup: formData.responsibleFollowup || formData.responsible
             };
-            await onSubmit(actionData);
+
+            await onSubmit(finalFormData);
 
             toast.success('Action créée avec succès', { id: 'action-create' });
             onClose();
@@ -81,6 +84,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                 content: '',
                 source: isGlobal ? '' : 'Project',
                 responsible: '',
+                responsibleFollowup: '',
                 manager: user?._id || '',
                 startDate: format(new Date(), 'yyyy-MM-dd'),
                 endDate: '',
@@ -98,7 +102,11 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
             const target = e.target as HTMLInputElement;
             setFormData(prev => ({ ...prev, [name]: target.checked }));
         } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
+            if (name === 'responsible' && !formData.responsibleFollowup) {
+                setFormData(prev => ({ ...prev, [name]: value, responsibleFollowup: value }));
+            } else {
+                setFormData(prev => ({ ...prev, [name]: value }));
+            }
         }
     };
 
@@ -119,17 +127,17 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
             ></div>
 
             {/* Modal container */}
-            <div className="fixed inset-0 z-[100000] flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 z-[100000] flex items-start justify-center pt-10 px-4 pb-4 text-center sm:block sm:p-0">
                 {/* Center alignment helper */}
-                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true"></span>
+                <span className="hidden sm:inline-block sm:align-top sm:h-screen" aria-hidden="true"></span>
 
                 {/* Modal panel */}
                 <div
-                    className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full"
-                    style={{ zIndex: 100001, opacity: 1 }}
+                    className="inline-block align-top bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-4 sm:align-top sm:max-w-md sm:w-full"
+                    style={{ zIndex: 100001, opacity: 1, maxHeight: '90vh' }}
                 >
-                    <div className="bg-white px-6 pt-6 pb-5">
-                        <div className="flex justify-between items-center mb-6">
+                    <div className="bg-white px-6 pt-5 pb-5 overflow-y-auto" style={{ maxHeight: '90vh' }}>
+                        <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-800">Nouvelle Action</h3>
                             <button
                                 type="button"
@@ -141,7 +149,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-500 mb-1.5">Titre</label>
                                 <input
@@ -163,7 +171,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                                     value={formData.content}
                                     onChange={handleChange}
                                     required
-                                    rows={4}
+                                    rows={3}
                                     className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:ring-[#F28C38] focus:border-[#F28C38] text-sm placeholder-gray-400 resize-none transition-colors"
                                     placeholder="Décrivez l'action..."
                                     aria-required="true"
@@ -181,6 +189,25 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                                     aria-required="true"
                                 >
                                     <option value="" disabled>Sélectionner un responsable</option>
+                                    {users.map(user => (
+                                        <option key={user._id} value={user._id}>
+                                            {`${user.prenom} ${user.nom}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-1.5">Responsable de suivi</label>
+                                <select
+                                    name="responsibleFollowup"
+                                    value={formData.responsibleFollowup}
+                                    onChange={handleChange}
+                                    required
+                                    className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg shadow-sm focus:ring-[#F28C38] focus:border-[#F28C38] text-sm text-gray-600 bg-white transition-colors"
+                                    aria-required="true"
+                                >
+                                    <option value="" disabled>Sélectionner un responsable de suivi</option>
                                     {users.map(user => (
                                         <option key={user._id} value={user._id}>
                                             {`${user.prenom} ${user.nom}`}
@@ -281,7 +308,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                             )}
 
                             {!isGlobal && (
-                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                                     <p className="text-sm text-gray-600 leading-relaxed">
                                         <span className="block"><strong>Projet :</strong> {projectName}</span>
                                         <span className="block"><strong>Catégorie :</strong> {formData.category}</span>
@@ -290,7 +317,7 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, onClose, proj
                                 </div>
                             )}
 
-                            <div className="flex justify-end gap-3 mt-6">
+                            <div className="flex justify-end gap-3 mt-4">
                                 <button
                                     type="button"
                                     onClick={onClose}

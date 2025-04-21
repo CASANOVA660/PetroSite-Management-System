@@ -10,6 +10,7 @@ const createActionValidation = [
     body('title').notEmpty().withMessage('Le titre est requis'),
     body('content').notEmpty().withMessage('Le contenu est requis'),
     body('responsible').notEmpty().withMessage('Le responsable est requis'),
+    body('responsibleFollowup').notEmpty().withMessage('Le responsable de suivi est requis'),
     body('startDate').notEmpty().withMessage('La date de début est requise'),
     body('endDate').notEmpty().withMessage('La date de fin est requise'),
     body('category').notEmpty().withMessage('La catégorie est requise'),
@@ -22,6 +23,7 @@ const updateActionValidation = [
     body('title').notEmpty().withMessage('Le titre est requis'),
     body('content').notEmpty().withMessage('Le contenu est requis'),
     body('responsible').notEmpty().withMessage('Le responsable est requis'),
+    body('responsibleFollowup').notEmpty().withMessage('Le responsable de suivi est requis'),
     body('startDate').notEmpty().withMessage('La date de début est requise'),
     body('endDate').notEmpty().withMessage('La date de fin est requise'),
     validateRequest

@@ -17,6 +17,11 @@ export interface Action {
         nom: string;
         prenom: string;
     };
+    responsibleFollowup: {
+        _id: string;
+        nom: string;
+        prenom: string;
+    };
     startDate: string;
     endDate: string;
     status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -39,6 +44,7 @@ export interface CreateActionPayload {
     source: string;
     manager: string;
     responsible: string;
+    responsibleFollowup: string;
     startDate: string;
     endDate: string;
     category: string;
