@@ -208,7 +208,7 @@ class GlobalActionService {
                 projectId: actionData.projectId || null,
                 category: actionData.category || null,
                 projectCategory: actionData.projectCategory || null,
-                needsValidation: savedAction.needsValidation,
+                needsValidation: false,
                 tags: ['Global Action', 'Realization']
             });
 
@@ -357,9 +357,15 @@ class GlobalActionService {
                     startDate: actionData.startDate || task.startDate,
                     endDate: actionData.endDate || task.endDate,
                     projectId: actionData.projectId || task.projectId,
-                    category: actionData.projectCategory || actionData.category || task.category,
-                    needsValidation: actionData.needsValidation !== undefined ? actionData.needsValidation : task.needsValidation
+                    category: actionData.projectCategory || actionData.category || task.category
                 };
+
+                // Handle needsValidation based on task type
+                if (isRealizationTask) {
+                    taskUpdateData.needsValidation = false;
+                } else if (isFollowUpTask && actionData.needsValidation !== undefined) {
+                    taskUpdateData.needsValidation = actionData.needsValidation;
+                }
 
                 // If action status changed to completed, update task status too
                 if (actionData.status === 'completed' && task.status !== 'done') {

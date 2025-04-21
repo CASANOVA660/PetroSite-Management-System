@@ -987,7 +987,7 @@ class TaskService {
                 endDate: action.endDate,
                 assignee: action.responsible._id,
                 creator: action.manager._id,
-                needsValidation: action.needsValidation === true,
+                needsValidation: false, // Always false for realization task
                 tags: ['Project Action', 'Realization', action.category],
                 actionId: action._id,
                 projectId: action.projectId,
@@ -1009,7 +1009,7 @@ class TaskService {
                 endDate: action.endDate,
                 assignee: action.responsibleFollowup._id,
                 creator: action.manager._id,
-                needsValidation: false,
+                needsValidation: action.needsValidation === true, // Only true if action needs validation
                 tags: ['Project Action', 'Follow-up', action.category],
                 actionId: action._id,
                 projectId: action.projectId,
