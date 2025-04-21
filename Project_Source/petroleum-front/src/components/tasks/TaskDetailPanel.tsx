@@ -31,7 +31,8 @@ import {
     toggleSubtask,
     uploadTaskFile,
     getTaskWithLinkedData,
-    updateTaskProgress
+    updateTaskProgress,
+    reviewTask
 } from '../../store/slices/taskSlice';
 
 interface TaskDetailPanelProps {
@@ -158,6 +159,66 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const toggleExpand = () => {
         setIsExpanded(prev => !prev);
     };
+
+    // Determine if this is a suivi task
+    const isSuiviTask = React.useMemo(() => {
+        if (!task) return false;
+        return (
+            (task.title && task.title.startsWith('Suivi:')) ||
+            (task.tags && task.tags.includes('Follow-up'))
+        );
+    }, [task]);
+
+    // Determine if this is a realization task
+    const isRealizationTask = React.useMemo(() => {
+        if (!task) return false;
+        return (
+            (task.title && task.title.startsWith('Réalisation:')) ||
+            (task.tags && task.tags.includes('Realization'))
+        );
+    }, [task]);
+
+    // Determine if current user is the suivi person
+    const isCurrentUserSuivi = React.useMemo(() => {
+        if (!task || !currentUser) return false;
+        return task.assignee && task.assignee._id === currentUser._id && isSuiviTask;
+    }, [task, currentUser, isSuiviTask]);
+
+    // Determine if task is in review state
+    const isTaskInReview = React.useMemo(() => {
+        return task?.status === 'inReview';
+    }, [task]);
+
+    // Check if validation button should be shown
+    const showValidationButton = isCurrentUserSuivi && isTaskInReview;
+
+    // Handle task validation
+    const handleValidateTask = async () => {
+        if (!task) return;
+
+        try {
+            await dispatch(reviewTask({
+                taskId: task._id,
+                decision: 'accept',
+                feedback: 'Tâche validée'
+            })).unwrap();
+
+            toast.success('Tâche validée avec succès');
+            onClose();
+        } catch (error) {
+            console.error("Error validating task:", error);
+            toast.error('Erreur lors de la validation de la tâche');
+        }
+    };
+
+    // Check if task status should be locked (can't be changed)
+    const isStatusLocked = React.useMemo(() => {
+        if (!task) return false;
+        return (
+            task.status === 'inReview' &&
+            (task.needsValidation || isRealizationTask)
+        );
+    }, [task, isRealizationTask]);
 
     useEffect(() => {
         if (task) {
@@ -858,27 +919,67 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             <div ref={panelRef} className="task-detail-panel" style={panelStyles(isExpanded)}>
                 <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between mb-4">
-                        <button
-                            onClick={toggleExpand}
-                            className="p-2 rounded-full hover:bg-gray-100"
-                            style={{ zIndex: 100001 }}
-                            aria-label={isExpanded ? "Réduire le panneau" : "Agrandir le panneau"}
-                        >
-                            {isExpanded ? (
-                                <ArrowsPointingInIcon className="w-6 h-6 text-gray-500" />
-                            ) : (
-                                <ArrowsPointingOutIcon className="w-6 h-6 text-gray-500" />
-                            )}
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="p-2 rounded-full hover:bg-gray-100"
-                            style={{ zIndex: 100001 }}
-                            aria-label="Fermer le panneau"
-                        >
-                            <XMarkIcon className="w-6 h-6 text-gray-500" />
-                        </button>
+                        <div className="flex">
+                            <button
+                                onClick={toggleExpand}
+                                className="p-2 rounded-full hover:bg-gray-100"
+                                style={{ zIndex: 100001 }}
+                                aria-label={isExpanded ? "Réduire le panneau" : "Agrandir le panneau"}
+                            >
+                                {isExpanded ? (
+                                    <ArrowsPointingInIcon className="w-6 h-6 text-gray-500" />
+                                ) : (
+                                    <ArrowsPointingOutIcon className="w-6 h-6 text-gray-500" />
+                                )}
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="p-2 rounded-full hover:bg-gray-100"
+                                style={{ zIndex: 100001 }}
+                                aria-label="Fermer le panneau"
+                            >
+                                <XMarkIcon className="w-6 h-6 text-gray-500" />
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Validation section */}
+                    {isTaskInReview && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-sm font-medium text-blue-800">Cette tâche est en attente de validation</h3>
+                                    <div className="mt-2 text-sm text-blue-700">
+                                        {isRealizationTask ? (
+                                            <p>Cette tâche de réalisation est en cours de révision et ne peut pas être modifiée tant que le responsable de suivi ne l'a pas validée.</p>
+                                        ) : isSuiviTask ? (
+                                            <p>La tâche a été marquée comme prête à être révisée. En tant que responsable de suivi, vous devez valider cette tâche.</p>
+                                        ) : (
+                                            <p>La tâche a été marquée comme prête à être révisée par le responsable.</p>
+                                        )}
+
+                                        {isCurrentUserSuivi && (
+                                            <div className="mt-3">
+                                                <button
+                                                    onClick={handleValidateTask}
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                                >
+                                                    <CheckIcon className="h-5 w-5 mr-2" />
+                                                    Valider cette tâche
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {isExpanded ? (
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-6">
@@ -905,16 +1006,23 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                     <div className="text-sm font-medium text-gray-500 mb-2">Statut</div>
                                     <div className="relative">
                                         <button
-                                            className={`flex items-center px-3 py-1.5 rounded-md text-sm ${getCurrentStatus().color}`}
-                                            onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                                            className={`flex items-center px-3 py-1.5 rounded-md text-sm ${getCurrentStatus().color} ${isStatusLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                            onClick={() => !isStatusLocked && setStatusDropdownOpen(!statusDropdownOpen)}
                                             aria-expanded={statusDropdownOpen}
+                                            disabled={isStatusLocked}
                                         >
                                             <span>{getCurrentStatus().name}</span>
-                                            <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                            </svg>
+                                            {!isStatusLocked ? (
+                                                <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
                                         </button>
-                                        {statusDropdownOpen && (
+                                        {statusDropdownOpen && !isStatusLocked && (
                                             <div className="absolute z-10 mt-1 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" style={{ zIndex: 100001 }}>
                                                 <div className="py-1" role="menu" aria-orientation="vertical">
                                                     {statusOptions.map(option => (
@@ -1050,16 +1158,23 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 <div className="text-sm font-medium text-gray-500 mb-2">Statut</div>
                                 <div className="relative">
                                     <button
-                                        className={`flex items-center px-3 py-1.5 rounded-md text-sm ${getCurrentStatus().color}`}
-                                        onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                                        className={`flex items-center px-3 py-1.5 rounded-md text-sm ${getCurrentStatus().color} ${isStatusLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        onClick={() => !isStatusLocked && setStatusDropdownOpen(!statusDropdownOpen)}
                                         aria-expanded={statusDropdownOpen}
+                                        disabled={isStatusLocked}
                                     >
                                         <span>{getCurrentStatus().name}</span>
-                                        <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                        </svg>
+                                        {!isStatusLocked ? (
+                                            <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-4 h-4 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
                                     </button>
-                                    {statusDropdownOpen && (
+                                    {statusDropdownOpen && !isStatusLocked && (
                                         <div className="absolute z-10 mt-1 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5" style={{ zIndex: 100001 }}>
                                             <div className="py-1" role="menu" aria-orientation="vertical">
                                                 {statusOptions.map(option => (
