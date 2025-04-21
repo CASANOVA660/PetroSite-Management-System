@@ -557,8 +557,8 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                             <button
                                 onClick={() => setActiveTab('details')}
                                 className={`${activeTab === 'details'
-                                        ? 'border-[#F28C38] text-[#F28C38]'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-[#F28C38] text-[#F28C38]'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
                             >
                                 <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
@@ -567,8 +567,8 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                             <button
                                 onClick={() => setActiveTab('comments')}
                                 className={`${activeTab === 'comments'
-                                        ? 'border-[#F28C38] text-[#F28C38]'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-[#F28C38] text-[#F28C38]'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
                             >
                                 <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
@@ -582,8 +582,8 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                             <button
                                 onClick={() => setActiveTab('files')}
                                 className={`${activeTab === 'files'
-                                        ? 'border-[#F28C38] text-[#F28C38]'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-[#F28C38] text-[#F28C38]'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center transition-all duration-200`}
                             >
                                 <PaperClipIcon className="h-5 w-5 mr-2" />
