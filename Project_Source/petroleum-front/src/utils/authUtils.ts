@@ -45,12 +45,21 @@ export const isTokenExpired = (): boolean => {
  * @returns boolean - true if token is valid, false if expired
  */
 export const verifyTokenOrLogout = (): boolean => {
+    // Skip token verification completely for activation page
+    if (window.location.pathname === '/activate' || window.location.pathname.includes('activate')) {
+        console.log('Skipping token verification for activation page');
+        return true;
+    }
+
     if (isTokenExpired()) {
         // Dispatch logout action
+        console.log('Token expired, logging out');
         store.dispatch(logoutUser() as unknown as AnyAction);
 
         // If not already on login page, redirect
-        if (window.location.pathname !== '/signin') {
+        // But skip the redirect for activation page
+        if (window.location.pathname !== '/signin' &&
+            !window.location.pathname.startsWith('/activate')) {
             window.location.href = '/signin';
         }
 
@@ -65,11 +74,16 @@ export const verifyTokenOrLogout = (): boolean => {
  * Checks token validity every minute
  */
 export const setupTokenExpirationChecker = (): void => {
+    // Clear any existing interval
+    if ((window as any).tokenCheckInterval) {
+        clearInterval((window as any).tokenCheckInterval);
+    }
+
     // First check immediately
     verifyTokenOrLogout();
 
     // Then check periodically (every minute)
-    setInterval(() => {
+    (window as any).tokenCheckInterval = setInterval(() => {
         verifyTokenOrLogout();
     }, 60 * 1000); // 60 seconds
 }; 

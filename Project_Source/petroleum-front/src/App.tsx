@@ -38,7 +38,35 @@ import { setupTokenExpirationChecker } from "./utils/authUtils";
 // Initialize token expiration checking
 const AppInitializer = () => {
   useEffect(() => {
-    setupTokenExpirationChecker();
+    // Only setup token expiration checker if not on activation page
+    if (window.location.pathname !== '/activate') {
+      setupTokenExpirationChecker();
+    }
+
+    // Listen to route changes to conditionally enable/disable token checking
+    const handleRouteChange = () => {
+      // Clear any existing interval
+      if ((window as any).tokenCheckInterval) {
+        clearInterval((window as any).tokenCheckInterval);
+        (window as any).tokenCheckInterval = null;
+      }
+
+      // Don't check tokens on activation page
+      if (window.location.pathname !== '/activate') {
+        setupTokenExpirationChecker();
+      }
+    };
+
+    // Add event listener for popstate (browser back/forward)
+    window.addEventListener('popstate', handleRouteChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      if ((window as any).tokenCheckInterval) {
+        clearInterval((window as any).tokenCheckInterval);
+      }
+    };
   }, []);
 
   return null;

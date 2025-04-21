@@ -4,6 +4,7 @@ import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { activateAccount } from '../../store/slices/userSlice';
 import Button from '../../components/ui/button/Button';
 import Alert from '../../components/ui/alert/Alert';
+import axios from 'axios';
 
 export default function ActivationPage() {
     const [searchParams] = useSearchParams();
@@ -13,14 +14,31 @@ export default function ActivationPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [userInfo, setUserInfo] = useState<{ email?: string, nom?: string, prenom?: string }>({});
+    const [activationSuccess, setActivationSuccess] = useState(false);
 
     const token = searchParams.get('token');
 
     useEffect(() => {
-        if (!token) {
-            navigate('/signin');
-        }
-    }, [token, navigate]);
+        // If token is present, get the user info but never redirect
+        const getUserInfo = async () => {
+            if (!token) return;
+
+            setLoading(true);
+            try {
+
+                const response = await axios.get(`http://localhost:5000/api/users/activate/${token}`);
+                setUserInfo(response.data);
+            } catch (err: any) {
+                console.error('Token validation error:', err);
+                setError('Le lien d\'activation est invalide ou a expiré');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        getUserInfo();
+    }, [token]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,18 +61,74 @@ export default function ActivationPage() {
         setLoading(true);
         try {
             await dispatch(activateAccount({ token, newPassword: password })).unwrap();
-            // Show success message and redirect to login
-            navigate('/login', {
-                state: {
-                    message: 'Compte activé avec succès. Vous pouvez maintenant vous connecter.'
-                }
-            });
+
+            // Show success message but don't redirect yet
+            setError('');
+            setPassword('');
+            setConfirmPassword('');
+            setActivationSuccess(true);
         } catch (err: any) {
             setError(err.message || 'Erreur lors de l\'activation du compte');
         } finally {
             setLoading(false);
         }
     };
+
+    // Show success page after activation
+    if (activationSuccess) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-navy-900">
+                <div className="w-full max-w-md p-6">
+                    <div className="mt-7 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-navy-800 dark:border-navy-700">
+                        <div className="p-4 sm:p-7">
+                            <div className="text-center">
+                                <h1 className="block text-2xl font-bold text-gray-800 dark:text-white">
+                                    Activation réussie!
+                                </h1>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Votre compte a été activé avec succès
+                                </p>
+                                <div className="mt-5 text-center">
+                                    <Button
+                                        variant="primary"
+                                        className="w-full"
+                                        onClick={() => navigate('/signin')}
+                                    >
+                                        Aller à la page de connexion
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-navy-900">
+                <div className="w-full max-w-md p-6">
+                    <div className="mt-7 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-navy-800 dark:border-navy-700">
+                        <div className="p-4 sm:p-7">
+                            <div className="text-center">
+                                <h1 className="block text-2xl font-bold text-gray-800 dark:text-white">
+                                    {token ? 'Traitement en cours' : 'Chargement'}
+                                </h1>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Veuillez patienter...
+                                </p>
+                                <div className="mt-5 flex justify-center">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-navy-900">
@@ -66,7 +140,9 @@ export default function ActivationPage() {
                                 Activation de votre compte
                             </h1>
                             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                Veuillez définir votre nouveau mot de passe pour activer votre compte
+                                {userInfo.prenom && userInfo.nom ?
+                                    `Bienvenue ${userInfo.prenom} ${userInfo.nom}! Veuillez définir votre mot de passe` :
+                                    'Veuillez définir votre nouveau mot de passe pour activer votre compte'}
                             </p>
                         </div>
 
@@ -117,7 +193,7 @@ export default function ActivationPage() {
                                     className="w-full"
                                     disabled={loading}
                                 >
-                                    {loading ? 'Activation en cours...' : 'Activer mon compte'}
+                                    Activer mon compte
                                 </Button>
                             </form>
                         </div>

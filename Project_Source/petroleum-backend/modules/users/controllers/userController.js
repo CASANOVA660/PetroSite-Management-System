@@ -98,7 +98,46 @@ const createUser = async (req, res) => {
 
 const activateAccount = async (req, res) => {
   try {
+    console.log('Request method:', req.method);
+    console.log('Request params:', req.params);
+    console.log('Request body:', req.body);
+
+    // Handle GET request for token validation
+    if (req.method === 'GET') {
+      const token = req.params.token;
+      console.log('Token from params:', token);
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token manquant' });
+      }
+
+      // Find account with valid token
+      const account = await Account.findOne({
+        activationToken: token,
+        activationTokenExpiry: { $gt: new Date() }
+      }).populate('utilisateurAssocie');
+
+      console.log('Account found:', account ? 'Yes' : 'No');
+
+      if (!account) {
+        return res.status(400).json({ error: 'Token invalide ou expiré' });
+      }
+
+      // Return basic user info
+      return res.status(200).json({
+        message: 'Token valide',
+        email: account.email,
+        nom: account.utilisateurAssocie.nom,
+        prenom: account.utilisateurAssocie.prenom
+      });
+    }
+
+    // Handle POST request for account activation
     const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token et mot de passe requis' });
+    }
 
     // Find account with valid token
     const account = await Account.findOne({
@@ -138,10 +177,12 @@ const activateAccount = async (req, res) => {
       });
 
       // Emit socket event for real-time table update
-      global.io.emit('userStatusUpdate', {
-        userId: user._id,
-        estActif: true
-      });
+      if (global.io) {
+        global.io.emit('userStatusUpdate', {
+          userId: user._id,
+          estActif: true
+        });
+      }
     }
 
     res.json({ message: 'Compte activé avec succès' });
