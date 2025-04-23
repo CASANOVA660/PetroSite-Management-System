@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../store';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -9,9 +9,13 @@ import {
     CalendarIcon,
     CheckIcon,
     FunnelIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { debounce } from 'lodash';
+import { fetchTaskHistory } from '../../store/slices/taskSlice';
+import { toast } from 'react-hot-toast';
 
 interface HistoryItem {
     _id: string;
@@ -88,7 +92,8 @@ const backdropStyles: React.CSSProperties = {
 };
 
 const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
-    const { tasks } = useSelector((state: RootState) => state.tasks);
+    const dispatch = useDispatch<AppDispatch>();
+    const { tasks, history } = useSelector((state: RootState) => state.tasks);
     const { actions: projectActions } = useSelector((state: RootState) => state.actions);
     const { actions: globalActions } = useSelector((state: RootState) => state.globalActions);
     const { user } = useSelector((state: RootState) => state.auth);
@@ -97,20 +102,60 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
     const [filter, setFilter] = useState<'all' | 'tasks' | 'actions'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // Fetch task history when the modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setIsLoading(true);
+            dispatch(fetchTaskHistory())
+                .unwrap()
+                .then(() => {
+                    console.log("Successfully fetched task history");
+                })
+                .catch((error) => {
+                    console.error("Error fetching task history:", error);
+                    toast.error("Impossible de charger l'historique des tâches");
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                });
+        }
+    }, [dispatch, isOpen]);
 
     // Combine and format completed items
     useEffect(() => {
         if (!user?._id) return;
 
-        const completedTasks = tasks.done?.filter(task =>
+        // Active completed tasks from the current task board
+        const activeDoneTasks = tasks.done?.filter(task =>
             task.assignee && task.assignee._id === user._id
         ) || [];
 
-        const formattedTasks = completedTasks.map(task => ({
+        // Archived tasks from history (which are already done/completed)
+        const archivedTasks = history?.filter(task =>
+            task.assignee && task.assignee._id === user._id
+        ) || [];
+
+        console.log(`Combining ${activeDoneTasks.length} active done tasks with ${archivedTasks.length} archived tasks`);
+
+        // Convert both to the history item format
+        const formattedActiveTasks = activeDoneTasks.map(task => ({
             ...task,
             source: 'task'
         }));
 
+        const formattedArchivedTasks = archivedTasks.map(task => ({
+            ...task,
+            source: 'task'
+        }));
+
+        // Get all other action types
         const completedGlobalActions = globalActions
             .filter(action =>
                 action.status === 'completed' &&
@@ -133,21 +178,35 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                 source: 'project'
             }));
 
+        // Combine all items (both active and archived)
         const allCompletedItems = [
-            ...formattedTasks,
+            ...formattedActiveTasks,
+            ...formattedArchivedTasks,
             ...completedGlobalActions,
             ...completedProjectActions
         ];
 
-        const sortedItems = allCompletedItems.sort((a, b) => {
-            const getRelevantDate = (item: HistoryItem) => item.endDate || item.updatedAt || '';
+        // Remove duplicates by ID
+        const uniqueItemsMap = new Map();
+        allCompletedItems.forEach(item => {
+            if (item._id) {
+                uniqueItemsMap.set(item._id, item);
+            }
+        });
+
+        const uniqueItems = Array.from(uniqueItemsMap.values());
+
+        // Sort by completion/update date
+        const sortedItems = uniqueItems.sort((a, b) => {
+            const getRelevantDate = (item: HistoryItem) =>
+                item.completedAt || item.endDate || item.updatedAt || '';
             const dateA = getRelevantDate(a);
             const dateB = getRelevantDate(b);
             return new Date(dateB).getTime() - new Date(dateA).getTime();
         });
 
         setHistoryItems(sortedItems);
-    }, [tasks, globalActions, projectActions, user]);
+    }, [tasks, globalActions, projectActions, user, history]);
 
     // Debounced search handler
     const handleSearch = useCallback(
@@ -157,7 +216,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
         []
     );
 
-    // Apply filters
+    // Apply filters and search
     const filteredHistoryItems = historyItems.filter(item => {
         if (filter === 'tasks' && item.source !== 'task') return false;
         if (filter === 'actions' && item.source === 'task') return false;
@@ -173,6 +232,33 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
 
         return true;
     });
+
+    // Calculate pagination
+    useEffect(() => {
+        setTotalPages(Math.ceil(filteredHistoryItems.length / pageSize));
+        // Reset to first page when filters change
+        if (currentPage > Math.ceil(filteredHistoryItems.length / pageSize)) {
+            setCurrentPage(1);
+        }
+    }, [filteredHistoryItems, pageSize]);
+
+    // Get current page items
+    const currentItems = filteredHistoryItems.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+    );
+
+    // Reset current page when search/filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filter]);
+
+    // Pagination controls
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
@@ -313,71 +399,153 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
 
                 {/* Timeline */}
                 <div className="flex-1 overflow-y-auto">
-                    {filteredHistoryItems.length > 0 ? (
-                        <div className="space-y-6">
-                            {filteredHistoryItems.map((item) => (
-                                <div key={item._id} className="relative pl-10">
-                                    <div className={`absolute left-0 top-2 w-3 h-3 rounded-full ${getItemColor(item.source)}`} />
-                                    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <span className="text-xs font-medium text-gray-500">{getItemTitle(item)}</span>
-                                                <h3 className="text-lg font-semibold text-gray-900 mt-1">{item.title}</h3>
-                                            </div>
-                                            <button
-                                                onClick={() => toggleItemExpansion(item._id)}
-                                                className="text-gray-500 hover:text-gray-700 text-sm"
-                                                aria-expanded={expandedItems.has(item._id)}
-                                                aria-controls={`details-${item._id}`}
-                                            >
-                                                {expandedItems.has(item._id) ? 'Masquer' : 'Détails'}
-                                            </button>
-                                        </div>
-                                        {expandedItems.has(item._id) && (
-                                            <div id={`details-${item._id}`} className="mt-3 space-y-3">
-                                                {(item.description || item.content) && (
-                                                    <p className="text-gray-600 text-sm">{item.description || item.content}</p>
-                                                )}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                                                    {getItemPerson(item) && (
-                                                        <div className="flex items-center">
-                                                            <div className="mr-2 w-6 h-6 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
-                                                                <img
-                                                                    src={`https://ui-avatars.com/api/?name=${getItemPerson(item)?.prenom}+${getItemPerson(item)?.nom}&background=random`}
-                                                                    alt={`${getItemPerson(item)?.prenom} ${getItemPerson(item)?.nom}`}
-                                                                />
-                                                            </div>
-                                                            <span className="text-gray-700">
-                                                                {getItemPerson(item)?.prenom} {getItemPerson(item)?.nom}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {(item.startDate || item.endDate) && (
-                                                        <div className="space-y-1">
-                                                            {item.startDate && (
-                                                                <div className="flex items-center text-gray-600">
-                                                                    <CalendarIcon className="h-4 w-4 mr-2" />
-                                                                    Début: {formatDate(item.startDate)}
-                                                                </div>
-                                                            )}
-                                                            {item.endDate && (
-                                                                <div className="flex items-center text-gray-600">
-                                                                    <ClockIcon className="h-4 w-4 mr-2" />
-                                                                    Fin: {formatDate(item.endDate)}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-40">
+                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#F28C38]"></div>
+                        </div>
+                    ) : filteredHistoryItems.length > 0 ? (
+                        <>
+                            <div className="space-y-6">
+                                {currentItems.map((item) => (
+                                    <div key={item._id} className="relative pl-10">
+                                        <div className={`absolute left-0 top-2 w-3 h-3 rounded-full ${getItemColor(item.source)}`} />
+                                        <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-xs font-medium text-gray-500">{getItemTitle(item)}</span>
+                                                    <h3 className="text-lg font-semibold text-gray-900 mt-1">{item.title}</h3>
                                                 </div>
+                                                <button
+                                                    onClick={() => toggleItemExpansion(item._id)}
+                                                    className="text-gray-500 hover:text-gray-700 text-sm"
+                                                    aria-expanded={expandedItems.has(item._id)}
+                                                    aria-controls={`details-${item._id}`}
+                                                >
+                                                    {expandedItems.has(item._id) ? 'Masquer' : 'Détails'}
+                                                </button>
                                             </div>
-                                        )}
-                                        <div className="mt-2 text-xs text-gray-500">
-                                            Terminé le {formatDate(getRelevantDate(item))}
+                                            {expandedItems.has(item._id) && (
+                                                <div id={`details-${item._id}`} className="mt-3 space-y-3">
+                                                    {(item.description || item.content) && (
+                                                        <p className="text-gray-600 text-sm">{item.description || item.content}</p>
+                                                    )}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                        {getItemPerson(item) && (
+                                                            <div className="flex items-center">
+                                                                <div className="mr-2 w-6 h-6 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                                                                    <img
+                                                                        src={`https://ui-avatars.com/api/?name=${getItemPerson(item)?.prenom}+${getItemPerson(item)?.nom}&background=random`}
+                                                                        alt={`${getItemPerson(item)?.prenom} ${getItemPerson(item)?.nom}`}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-700">
+                                                                    {getItemPerson(item)?.prenom} {getItemPerson(item)?.nom}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {(item.startDate || item.endDate) && (
+                                                            <div className="space-y-1">
+                                                                {item.startDate && (
+                                                                    <div className="flex items-center text-gray-600">
+                                                                        <CalendarIcon className="h-4 w-4 mr-2" />
+                                                                        Début: {formatDate(item.startDate)}
+                                                                    </div>
+                                                                )}
+                                                                {item.endDate && (
+                                                                    <div className="flex items-center text-gray-600">
+                                                                        <ClockIcon className="h-4 w-4 mr-2" />
+                                                                        Fin: {formatDate(item.endDate)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="mt-2 text-xs text-gray-500">
+                                                Terminé le {formatDate(getRelevantDate(item))}
+                                            </div>
                                         </div>
                                     </div>
+                                ))}
+                            </div>
+
+                            {/* Pagination Controls */}
+                            {totalPages > 1 && (
+                                <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                                    <div className="flex items-center text-sm text-gray-500">
+                                        <span>
+                                            Affichage de {(currentPage - 1) * pageSize + 1} à {Math.min(currentPage * pageSize, filteredHistoryItems.length)} sur {filteredHistoryItems.length} éléments
+                                        </span>
+                                        <select
+                                            className="ml-4 rounded-md border-gray-300 py-1 text-sm"
+                                            value={pageSize}
+                                            onChange={(e) => setPageSize(Number(e.target.value))}
+                                            aria-label="Éléments par page"
+                                        >
+                                            {[5, 10, 20, 50].map(size => (
+                                                <option key={size} value={size}>
+                                                    {size} par page
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={() => goToPage(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className={`rounded-md p-1 ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'}`}
+                                            aria-label="Page précédente"
+                                        >
+                                            <ChevronLeftIcon className="h-5 w-5" />
+                                        </button>
+
+                                        {[...Array(totalPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            // Show first page, last page, current page, and one page before and after current
+                                            if (
+                                                page === 1 ||
+                                                page === totalPages ||
+                                                page === currentPage ||
+                                                page === currentPage - 1 ||
+                                                page === currentPage + 1
+                                            ) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => goToPage(page)}
+                                                        className={`px-3 py-1 rounded-md ${currentPage === page
+                                                                ? 'bg-blue-600 text-white'
+                                                                : 'text-gray-500 hover:bg-gray-100'
+                                                            }`}
+                                                        aria-current={currentPage === page ? 'page' : undefined}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (
+                                                (page === 2 && currentPage > 3) ||
+                                                (page === totalPages - 1 && currentPage < totalPages - 2)
+                                            ) {
+                                                // Show ellipsis for skipped pages
+                                                return <span key={page} className="px-2 text-gray-500">...</span>;
+                                            } else {
+                                                return null;
+                                            }
+                                        })}
+
+                                        <button
+                                            onClick={() => goToPage(currentPage + 1)}
+                                            disabled={currentPage === totalPages || totalPages === 0}
+                                            className={`rounded-md p-1 ${currentPage === totalPages || totalPages === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'}`}
+                                            aria-label="Page suivante"
+                                        >
+                                            <ChevronRightIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full py-12 text-center">
                             <svg className="w-16 h-16 mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">

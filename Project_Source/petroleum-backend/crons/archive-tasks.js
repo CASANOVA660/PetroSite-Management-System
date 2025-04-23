@@ -2,25 +2,28 @@
  * Cron job to automatically archive completed tasks that are older than a certain threshold
  */
 const cron = require('node-cron');
-const { connectDB } = require('../config/database');
-const taskService = require('../modules/tasks/services/task.service');
+const TaskService = require('../modules/tasks/services/task.service');
 const logger = require('../utils/logger');
 
-// Connect to the database
-connectDB();
+// Create an instance of the task service
+const taskService = new TaskService();
 
-// Run every day at midnight (0 0 * * *)
-cron.schedule('0 0 * * *', async () => {
+// Archive completed tasks that are older than 24 hours (runs at midnight every day)
+const archiveTasksJob = cron.schedule('0 0 * * *', async () => {
+    logger.info('Running daily task archiving job');
     try {
-        logger.info('Running task archiving cron job');
-
-        // Archive tasks that have been completed for more than 1 day
+        // Archive tasks completed more than 1 day ago
         const archivedCount = await taskService.archiveOldTasks(1);
-
-        logger.info(`Task archiving completed: ${archivedCount} tasks archived`);
+        logger.info(`Successfully archived ${archivedCount} old tasks`);
     } catch (error) {
-        logger.error('Error in task archiving cron job:', error);
+        logger.error('Error running task archiving job:', error);
     }
+}, {
+    scheduled: true,
+    timezone: "Europe/Paris"  // Set to your timezone
 });
 
-logger.info('Task archiving cron job scheduled'); 
+// Start the job
+archiveTasksJob.start();
+
+module.exports = { archiveTasksJob }; 
