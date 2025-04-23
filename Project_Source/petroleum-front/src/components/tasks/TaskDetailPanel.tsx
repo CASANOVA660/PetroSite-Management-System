@@ -162,8 +162,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const isSuiviTask = React.useMemo(() => {
         if (!task) return false;
         return (
-            (task.title && task.title.startsWith('Suivi:')) ||
-            (task.tags && task.tags.includes('Follow-up'))
+            (task.title && (
+                task.title.startsWith('Suivi:') ||
+                task.title.startsWith('SUIVI:') ||
+                task.title.toLowerCase().includes('suivi:')
+            )) ||
+            (task.tags && task.tags.some(tag =>
+                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+            ))
         );
     }, [task]);
 
@@ -223,10 +229,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const isStatusLocked = React.useMemo(() => {
         if (!task) return false;
         return (
-            task.status === 'inReview' &&
-            (task.needsValidation || isRealizationTask)
+            // Lock if it's a Suivi task (follows realization)
+            isSuiviTask ||
+            // Lock if in review and needs validation
+            (task.status === 'inReview' &&
+                (task.needsValidation || isRealizationTask))
         );
-    }, [task, isRealizationTask]);
+    }, [task, isRealizationTask, isSuiviTask]);
 
     useEffect(() => {
         if (task) {
@@ -336,11 +345,29 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const handleStatusChange = async (newStatus: string) => {
         try {
             if (task?._id) {
+                // Update the task's status
                 await dispatch(updateTaskStatus({
                     taskId: task._id,
                     status: newStatus as Task['status']
-                }));
+                })).unwrap();
+
+                // If this task has a linked task, update that one too
+                if (task.linkedTaskId) {
+                    console.log(`Updating linked task from status panel: ${task.linkedTaskId}`);
+                    try {
+                        await dispatch(updateTaskStatus({
+                            taskId: task.linkedTaskId,
+                            status: newStatus as Task['status']
+                        })).unwrap();
+                        console.log(`Successfully updated linked task status to ${newStatus}`);
+                    } catch (linkedError) {
+                        console.error('Error updating linked task status:', linkedError);
+                        toast.error('La tâche liée n\'a pas pu être mise à jour');
+                    }
+                }
+
                 setStatusDropdownOpen(false);
+                toast.success('Statut mis à jour avec succès');
             }
         } catch (err) {
             console.error('Error changing status:', err);
@@ -955,6 +982,55 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Suivi task indicator */}
+                    {isSuiviTask && !isTaskInReview && (
+                        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-sm font-medium text-orange-800">Tâche de suivi liée</h3>
+                                    <p className="mt-2 text-sm text-orange-700">
+                                        Cette tâche de suivi est liée à une tâche de réalisation et suit automatiquement son statut.
+                                        Vous ne pouvez pas la déplacer manuellement.
+                                    </p>
+                                    {linkedTaskData && (
+                                        <p className="mt-2 text-sm text-orange-700">
+                                            <strong>Tâche de réalisation:</strong> {linkedTaskData.title}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Realization task indicator */}
+                    {isRealizationTask && !isTaskInReview && linkedTaskData && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-sm font-medium text-green-800">Tâche de réalisation liée</h3>
+                                    <p className="mt-2 text-sm text-green-700">
+                                        Cette tâche de réalisation mettra automatiquement à jour le statut de la tâche de suivi associée.
+                                    </p>
+                                    {linkedTaskData && (
+                                        <p className="mt-2 text-sm text-green-700">
+                                            <strong>Tâche de suivi:</strong> {linkedTaskData.title}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

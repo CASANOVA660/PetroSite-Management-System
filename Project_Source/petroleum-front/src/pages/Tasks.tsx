@@ -92,8 +92,24 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
     const [isExpanded, setIsExpanded] = useState(false);
     const dragRef = React.useRef(null);
 
+    // Check if this is a suivi task
+    const isSuiviTask = React.useMemo(() => {
+        return (
+            (task.title && (
+                task.title.startsWith('Suivi:') ||
+                task.title.startsWith('SUIVI:') ||
+                task.title.toLowerCase().includes('suivi:')
+            )) ||
+            (task.tags && task.tags.some(tag =>
+                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+            ))
+        );
+    }, [task.title, task.tags]);
+
     // Check if dragging should be prevented
     const canDragTask = !(
+        // Always prevent dragging suivi tasks
+        isSuiviTask ||
         // Prevent if task is in review and needs validation
         (task.status === 'inReview' && task.needsValidation) ||
         // Also prevent if it's a realization task in review
@@ -109,7 +125,7 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging(),
         }),
-        // Disable dragging for tasks in review that need validation
+        // Disable dragging for suivi tasks and tasks in review that need validation
         canDrag: () => canDragTask
     }));
 
@@ -187,7 +203,7 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
-                            En révision
+                            {isSuiviTask ? 'Suit réalisation' : 'En révision'}
                         </span>
                     )}
                 </div>
@@ -632,8 +648,13 @@ const Tasks: React.FC = () => {
             const allTasks = [...taskData.todo, ...taskData.inProgress, ...taskData.inReview, ...taskData.done];
             const taskToUpdate = allTasks.find(t => t._id === taskId);
 
+            if (!taskToUpdate) {
+                toast.error('Tâche non trouvée');
+                return;
+            }
+
             // Check if task is in review status
-            if (taskToUpdate && taskToUpdate.status === 'inReview') {
+            if (taskToUpdate.status === 'inReview') {
                 // Prevent if it has needsValidation
                 if (taskToUpdate.needsValidation) {
                     toast.error('Vous ne pouvez pas déplacer cette tâche car elle est en cours de révision');
@@ -649,25 +670,42 @@ const Tasks: React.FC = () => {
                 }
             }
 
+            // Determine if this is a Suivi/Realization task
+            const isRealizationTask = taskToUpdate.title?.startsWith('Réalisation:') ||
+                (taskToUpdate.tags && taskToUpdate.tags.includes('Realization'));
+
+            const isSuiviTask = (taskToUpdate.title && (
+                taskToUpdate.title.startsWith('Suivi:') ||
+                taskToUpdate.title.startsWith('SUIVI:') ||
+                taskToUpdate.title.toLowerCase().includes('suivi:')
+            )) || (taskToUpdate.tags && taskToUpdate.tags.some(tag =>
+                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+            ));
+
             // First update the task itself
             await dispatch(updateTaskStatus({ taskId, status: newStatus })).unwrap();
-            toast.success('Statut de la tâche mis à jour');
 
-            // If this is a realization task with a linked task, update the linked task too
-            if (taskToUpdate && taskToUpdate.linkedTaskId) {
-                const isRealizationTask = taskToUpdate.title?.startsWith('Réalisation:') ||
-                    (taskToUpdate.tags && taskToUpdate.tags.includes('Realization'));
+            // If this is a task with a linked task, update the linked task too
+            if (taskToUpdate.linkedTaskId) {
+                console.log(`Automatically updating linked task ${taskToUpdate.linkedTaskId} to status: ${newStatus}`);
 
-                if (isRealizationTask) {
-                    // Update the linked suivi task with the same status
+                try {
+                    // Update the linked task with the same status
                     await dispatch(updateTaskStatus({
                         taskId: taskToUpdate.linkedTaskId,
                         status: newStatus
                     })).unwrap();
-                    console.log(`Automatically updated linked task ${taskToUpdate.linkedTaskId} to status: ${newStatus}`);
+
+                    console.log(`Successfully updated linked task ${taskToUpdate.linkedTaskId} to status: ${newStatus}`);
+                } catch (linkedTaskError) {
+                    console.error('Error updating linked task:', linkedTaskError);
+                    toast.error('La tâche liée n\'a pas pu être mise à jour');
                 }
             }
+
+            toast.success('Statut de la tâche mis à jour');
         } catch (err) {
+            console.error('Error updating task status:', err);
             toast.error('Erreur lors de la mise à jour du statut');
         }
     }, [dispatch, taskData]);
