@@ -5,7 +5,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { RootState, AppDispatch } from '../store';
 import { toast, Toaster } from 'react-hot-toast';
 import socket from '../utils/socket';
-import { PlusIcon, CheckIcon, ChatBubbleLeftRightIcon, PaperClipIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ChevronDownIcon, ChevronUpIcon, EyeIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { ClockIcon as ClockIconSolid } from '@heroicons/react/24/solid';
 import PageMeta from '../components/common/PageMeta';
 import CreatePersonalTaskForm from '../components/tasks/CreatePersonalTaskForm';
@@ -271,23 +271,6 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
                                     isRealizationTask && task.status === 'inReview' ? 'En révision' :
                                         !hasTasksInStore ? 'Actualiser nécessaire' :
                                             'Verrouillé'}
-                        </span>
-                    )}
-                    {/* Show completion status badge for done tasks */}
-                    {task.status === 'done' && (
-                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Tâche terminée
-                        </span>
-                    )}
-                    {showStoreWarning && !hasTasksInStore && (
-                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full flex items-center animate-pulse">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            Actualisez la page
                         </span>
                     )}
                 </div>
@@ -1023,16 +1006,7 @@ const Tasks: React.FC = () => {
 
                     {/* User Avatars */}
                     <div className="flex items-center mt-4 md:mt-0">
-                        <div className="flex -space-x-2 mr-4">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                                <img
-                                    key={i}
-                                    src={`https://ui-avatars.com/api/?name=User+${i}&background=random`}
-                                    alt={`Utilisateur ${i}`}
-                                    className="w-8 h-8 rounded-full border-2 border-white"
-                                />
-                            ))}
-                        </div>
+
 
                         <div className="flex items-center space-x-2">
                             <button
@@ -1058,22 +1032,6 @@ const Tasks: React.FC = () => {
                                 <span>Créer une tâche</span>
                             </button>
 
-                            <button
-                                onClick={testApiConnection}
-                                className="ml-2 bg-gray-500 text-white rounded-md px-3 py-2 flex items-center"
-                            >
-                                <span>Tester API</span>
-                            </button>
-
-                            <button
-                                onClick={refreshTasks}
-                                className="ml-2 bg-green-500 text-white rounded-md px-3 py-2 flex items-center"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                                </svg>
-                                <span>Actualiser</span>
-                            </button>
                         </div>
                     </div>
                 </div>
