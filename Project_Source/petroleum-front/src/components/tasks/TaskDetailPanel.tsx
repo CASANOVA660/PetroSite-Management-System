@@ -220,12 +220,23 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const showValidationButton = isCurrentUserSuivi && isTaskInReview;
 
     const handleReviewTask = (decision: 'accept' | 'decline' | 'return') => {
+        console.log(`handleReviewTask called with decision: ${decision}`, {
+            returnReason,
+            reviewFeedback,
+            showReturnReason
+        });
+
         if (!task) return;
 
         if (
-            (decision === 'decline' || decision === 'return') &&
-            (!reviewFeedback || reviewFeedback.trim() === '')
+            (decision === 'decline' && (!reviewFeedback || reviewFeedback.trim() === '')) ||
+            (decision === 'return' && (!returnReason || returnReason.trim() === ''))
         ) {
+            console.log("Feedback validation failed:", {
+                decision,
+                returnReason: returnReason || "(empty)",
+                reviewFeedback: reviewFeedback || "(empty)"
+            });
             toast.error("Un feedback est requis pour refuser ou retourner une tâche");
             return;
         }
@@ -238,7 +249,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             taskId: task._id,
             taskTitle: task.title,
             decision,
-            feedback: reviewFeedback || undefined,
+            feedback: decision === 'return' ? returnReason : reviewFeedback,
+            returnReason,
+            reviewFeedback,
             isSuiviTask,
             isRealizationTask,
             originalNeedsValidation: task.needsValidation,
@@ -251,117 +264,239 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
         setReviewSubmitting(true);
 
-        // For suivi tasks, we want to ensure both tasks (suivi and realization) are marked as done
-        // So we'll handle this specially
-        if (isSuiviTask && decision === 'accept' && linkedTaskData) {
-            // First update both tasks to done status directly
-            Promise.all([
-                // Update the suivi task
-                dispatch(updateTaskStatus({
-                    taskId: task._id,
-                    status: 'done'
-                })).unwrap(),
+        // For suivi tasks, we handle the accept and return cases specially
+        if (isSuiviTask && linkedTaskData) {
+            // Special handling for "return" action when it's a suivi task
+            if (decision === 'return') {
+                // First update both tasks back to "inProgress" status
+                Promise.all([
+                    // Keep the suivi task in "inReview" status but with updated feedback
+                    Promise.resolve(dispatch(updateTask({
+                        ...task,
+                        reviewFeedback: returnReason
+                    }))),
 
-                // Update the linked realization task if it exists
-                linkedTaskData._id ?
+                    // Return the linked realization task to "inProgress" status
+                    linkedTaskData._id ?
+                        dispatch(updateTaskStatus({
+                            taskId: linkedTaskData._id,
+                            status: 'inProgress'
+                        })).unwrap() :
+                        Promise.resolve()
+                ])
+                    .then(() => {
+                        console.log("Return task Promise.all completed successfully");
+                        toast.success("La tâche de réalisation a été retournée pour modification");
+
+                        // Send notification to the realization task assignee
+                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                            // Send notification about task being returned
+                            const message = `Votre tâche "${linkedTaskData.title}" a été retournée pour modification. Raison: ${returnReason}`;
+
+                            // Make a direct request to the notification API
+                            axiosInstance.post('/notifications', {
+                                type: 'LINKED_TASK_RETURNED',
+                                message,
+                                userId: String(linkedTaskData.assignee._id),
+                                isRead: false,
+                                metadata: {
+                                    taskTitle: linkedTaskData.title,
+                                    feedback: returnReason,
+                                    taskId: linkedTaskData._id,
+                                    linkedTaskId: task._id,
+                                    returnedBy: currentUser?._id
+                                }
+                            })
+                                .then(response => {
+                                    console.log("Return notification sent successfully:", response.data);
+
+                                    // Also try sending via socket
+                                    try {
+                                        // @ts-ignore
+                                        if (window.socket && window.socket.connected) {
+                                            // @ts-ignore
+                                            window.socket.emit('direct-notification', {
+                                                userId: String(linkedTaskData.assignee._id),
+                                                notification: {
+                                                    type: 'LINKED_TASK_RETURNED',
+                                                    message,
+                                                    metadata: {
+                                                        taskTitle: linkedTaskData.title,
+                                                        feedback: returnReason,
+                                                        taskId: linkedTaskData._id
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    } catch (socketError) {
+                                        console.error("Socket notification failed:", socketError);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error sending return notification:", error);
+                                });
+                        }
+
+                        // Reset the return reason form
+                        setReturnReason('');
+                        setShowReturnReason(false);
+
+                        onClose();
+                    })
+                    .catch((error) => {
+                        console.error("Error returning tasks:", error);
+                        if (error.stack) console.error(error.stack);
+                        toast.error(`Erreur lors du retour de la tâche: ${error.message || "Erreur inconnue"}`);
+                    })
+                    .finally(() => {
+                        setReviewSubmitting(false);
+                    });
+
+                return; // Exit early as we've handled the return case specially
+            }
+
+            // For accept case, keep the original logic
+            if (decision === 'accept') {
+                // First update both tasks to done status directly
+                Promise.all([
+                    // Update the suivi task
                     dispatch(updateTaskStatus({
-                        taskId: linkedTaskData._id,
+                        taskId: task._id,
                         status: 'done'
-                    })).unwrap() :
-                    Promise.resolve()
-            ])
-                .then(() => {
-                    toast.success("La tâche de suivi a été validée avec succès");
-                    toast.success("La tâche de réalisation a été automatiquement marquée comme complétée");
+                    })).unwrap(),
 
-                    // First, send notifications to task assignees
-                    if (task.assignee && task.assignee._id) {
-                        sendTaskCompletionNotification(task.title, task.assignee._id, false);
-                    }
+                    // Update the linked realization task if it exists
+                    linkedTaskData._id ?
+                        dispatch(updateTaskStatus({
+                            taskId: linkedTaskData._id,
+                            status: 'done'
+                        })).unwrap() :
+                        Promise.resolve()
+                ])
+                    .then(() => {
+                        toast.success("La tâche de suivi a été validée avec succès");
+                        toast.success("La tâche de réalisation a été automatiquement marquée comme complétée");
 
-                    if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
-                        sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
-                    }
-
-                    // Send single combined notification to manager (if different from assignee)
-                    if (task.creator && task.creator._id) {
-                        // Extract the core task name without the prefix
-                        const baseTaskName = getCleanTaskName(task.title);
-                        sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
-                    }
-
-                    onClose();
-                })
-                .catch((error) => {
-                    console.error("Error updating tasks:", error);
-                    toast.error(`Erreur lors de la validation: ${error.message || "Erreur inconnue"}`);
-                })
-                .finally(() => {
-                    setReviewSubmitting(false);
-                });
-        } else {
-            // Regular flow using reviewTask API
-            dispatch(
-                reviewTask({
-                    taskId: task._id,
-                    decision,
-                    feedback: reviewFeedback || undefined,
-                })
-            )
-                .unwrap()
-                .then(() => {
-                    // Show success message based on decision
-                    if (decision === 'accept') {
-                        toast.success("La tâche a été acceptée avec succès");
-
-                        // Show additional message if the task doesn't require validation
-                        if (!task.needsValidation && task.linkedTaskId) {
-                            toast.success("La tâche liée a été automatiquement marquée comme complétée");
+                        // First, send notifications to task assignees
+                        if (task.assignee && task.assignee._id) {
+                            sendTaskCompletionNotification(task.title, task.assignee._id, false);
                         }
 
-                        // Send notifications for accepted tasks in the normal flow too
-                        try {
-                            console.log("Sending notifications for normal task acceptance flow");
+                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                            sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
+                        }
 
-                            // Clear tracking of sent notifications
-                            window.__sentNotifications = {};
-
-                            // Send to task assignee
-                            if (task.assignee && task.assignee._id) {
-                                sendTaskCompletionNotification(task.title, task.assignee._id, false);
-                            }
-
-                            // Extract clean base task name
+                        // Send single combined notification to manager (if different from assignee)
+                        if (task.creator && task.creator._id) {
+                            // Extract the core task name without the prefix
                             const baseTaskName = getCleanTaskName(task.title);
-
-                            // Send to manager/creator if different from assignee
-                            if (task.creator && task.creator._id &&
-                                (!task.assignee || task.creator._id !== task.assignee._id)) {
-                                sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
-                            }
-
-                            // If there's a linked task, notify its assignee but NOT the manager again
-                            if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
-                                sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
-                            }
-                        } catch (notifError) {
-                            console.error("Error sending notifications:", notifError);
+                            sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
                         }
-                    } else if (decision === 'decline') {
-                        toast.success("La tâche a été refusée");
-                    } else {
-                        toast.success("La tâche a été retournée pour modification");
+
+                        onClose();
+                    })
+                    .catch((error) => {
+                        console.error("Error updating tasks:", error);
+                        toast.error(`Erreur lors de la validation: ${error.message || "Erreur inconnue"}`);
+                    })
+                    .finally(() => {
+                        setReviewSubmitting(false);
+                    });
+
+                return; // Exit early as we've handled the accept case specially
+            }
+        }
+
+        // Regular flow using reviewTask API
+        dispatch(
+            reviewTask({
+                taskId: task._id,
+                decision,
+                feedback: decision === 'return' ? returnReason : reviewFeedback || undefined,
+            })
+        )
+            .unwrap()
+            .then(() => {
+                // Show success message based on decision
+                if (decision === 'accept') {
+                    toast.success("La tâche a été acceptée avec succès");
+
+                    // Show additional message if the task doesn't require validation
+                    if (!task.needsValidation && task.linkedTaskId) {
+                        toast.success("La tâche liée a été automatiquement marquée comme complétée");
                     }
 
-                    onClose();
-                })
-                .catch((error) => {
-                    toast.error(`Erreur lors de la revue: ${error.message}`);
-                })
-                .finally(() => {
-                    setReviewSubmitting(false);
-                });
-        }
+                    // Send notifications for accepted tasks in the normal flow too
+                    try {
+                        console.log("Sending notifications for normal task acceptance flow");
+
+                        // Clear tracking of sent notifications
+                        window.__sentNotifications = {};
+
+                        // Send to task assignee
+                        if (task.assignee && task.assignee._id) {
+                            sendTaskCompletionNotification(task.title, task.assignee._id, false);
+                        }
+
+                        // Extract clean base task name
+                        const baseTaskName = getCleanTaskName(task.title);
+
+                        // Send to manager/creator if different from assignee
+                        if (task.creator && task.creator._id &&
+                            (!task.assignee || task.creator._id !== task.assignee._id)) {
+                            sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
+                        }
+
+                        // If there's a linked task, notify its assignee but NOT the manager again
+                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                            sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
+                        }
+                    } catch (notifError) {
+                        console.error("Error sending notifications:", notifError);
+                    }
+                } else if (decision === 'decline') {
+                    toast.success("La tâche a été refusée");
+                } else if (decision === 'return') {
+                    toast.success("La tâche a été retournée pour modification");
+
+                    // Reset the return reason form
+                    setReturnReason('');
+                    setShowReturnReason(false);
+
+                    // Send notification to the task assignee
+                    if (task.assignee && task.assignee._id) {
+                        const message = `Votre tâche "${task.title}" a été retournée pour modification. Raison: ${returnReason}`;
+
+                        // Make a direct request to the notification API
+                        axiosInstance.post('/notifications', {
+                            type: 'TASK_RETURNED',
+                            message,
+                            userId: String(task.assignee._id),
+                            isRead: false,
+                            metadata: {
+                                taskTitle: task.title,
+                                feedback: returnReason,
+                                taskId: task._id,
+                                returnedBy: currentUser?._id
+                            }
+                        })
+                            .then(response => {
+                                console.log("Return notification sent successfully:", response.data);
+                            })
+                            .catch(error => {
+                                console.error("Error sending return notification:", error);
+                            });
+                    }
+                }
+
+                onClose();
+            })
+            .catch((error) => {
+                toast.error(`Erreur lors de la revue: ${error.message}`);
+            })
+            .finally(() => {
+                setReviewSubmitting(false);
+            });
     };
 
     const isStatusLocked = React.useMemo(() => {
@@ -1214,12 +1349,24 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 />
                                                 <div className="flex space-x-3">
                                                     <button
-                                                        onClick={() => handleReviewTask('return')}
+                                                        onClick={() => {
+                                                            console.log("Confirmer button clicked", {
+                                                                returnReason,
+                                                                returnReasonLength: returnReason?.length,
+                                                                isButtonDisabled: !returnReason.trim()
+                                                            });
+                                                            if (!returnReason.trim()) {
+                                                                toast.error("Un feedback est requis pour retourner une tâche");
+                                                                return;
+                                                            }
+                                                            setReviewSubmitting(true);
+                                                            handleReviewTask('return');
+                                                        }}
                                                         className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm disabled:opacity-50"
-                                                        disabled={!returnReason.trim()}
+                                                        disabled={!returnReason.trim() || reviewSubmitting}
                                                         aria-label="Confirmer le retour pour modification"
                                                     >
-                                                        Confirmer
+                                                        {reviewSubmitting ? 'Traitement...' : 'Confirmer'}
                                                     </button>
                                                     <button
                                                         onClick={() => {

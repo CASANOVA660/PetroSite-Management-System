@@ -95,6 +95,7 @@ export interface Task {
     completedAt?: string;
     createdAt?: string;
     updatedAt?: string;
+    reviewFeedback?: string;
 }
 
 interface TasksState {
