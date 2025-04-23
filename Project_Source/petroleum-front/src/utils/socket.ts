@@ -1,8 +1,11 @@
 import { io } from 'socket.io-client';
 import { API_URL } from '../config';
 
+// Create the base URL (remove '/api' if it exists)
+const SOCKET_URL = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
+
 // Create socket instance with autoConnect disabled
-const socket = io(API_URL, {
+const socket = io(SOCKET_URL, {
     transports: ['websocket', 'polling'],
     withCredentials: true,
     autoConnect: false,
@@ -15,6 +18,7 @@ const socket = io(API_URL, {
 // Function to connect socket with user authentication
 export const connectSocket = (userId: string) => {
     if (!socket.connected) {
+        console.log(`Connecting socket to ${SOCKET_URL} for user ${userId}`);
         socket.connect();
         socket.emit('authenticate', userId);
     }

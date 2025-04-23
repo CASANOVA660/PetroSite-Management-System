@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import socket from '../../utils/socket';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { useAppSelector } from '../../hooks/useAppSelector';
@@ -21,21 +21,61 @@ export default function NotificationDropdown() {
   const dispatch = useAppDispatch();
   const notifications = useAppSelector(state => state.notification.notifications);
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const { user } = useAppSelector(state => state.auth);
 
   useEffect(() => {
-    dispatch(fetchNotifications());
+    console.log('NotificationDropdown mounted, fetching notifications...');
+    console.log('Current user:', user?._id);
+    console.log('Current socket connection status:', socket.connected ? 'Connected' : 'Disconnected');
+    console.log('Current socket ID:', socket.id);
 
+    // Force socket reconnection if not connected
+    if (user?._id && !socket.connected) {
+      console.log('Socket not connected, attempting to reconnect...');
+      socket.connect();
+      socket.emit('authenticate', user._id);
+    }
+
+    // Fetch notifications from the backend
+    dispatch(fetchNotifications())
+      .then((result) => {
+        console.log('Notifications fetch result:', result);
+        if (result.payload) {
+          console.log(`Fetched ${result.payload.length} notifications from the server`);
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching notifications:', error);
+      });
+
+    console.log('Setting up socket notification listener');
+
+    // Remove any existing listeners to avoid duplicates
+    socket.off('notification');
+
+    // Add socket notification listener
     socket.on('notification', (data) => {
-      console.log('New notification received:', data);
-      if (data.type === 'NEW_NOTIFICATION') {
-        dispatch(addNotification(data.payload));
+      console.log('New notification received via socket:', data);
+      try {
+        if (data.type === 'NEW_NOTIFICATION' && data.payload) {
+          console.log('Adding new notification to state:', data.payload);
+          dispatch(addNotification(data.payload));
+        } else {
+          console.warn('Received malformed notification data:', data);
+        }
+      } catch (err) {
+        console.error('Error processing socket notification:', err);
       }
     });
 
+    // Log socket connection status
+    console.log('Current socket connection status:', socket.connected ? 'Connected' : 'Disconnected');
+
     return () => {
+      console.log('NotificationDropdown unmounting, removing socket listener');
       socket.off('notification');
     };
-  }, [dispatch]);
+  }, [dispatch, user?._id]);
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -46,6 +86,7 @@ export default function NotificationDropdown() {
   }
 
   const handleMarkAsRead = async (notificationId: string) => {
+    console.log('Marking notification as read:', notificationId);
     await dispatch(markAsRead(notificationId));
   };
 

@@ -14,6 +14,11 @@ const socket = io(API_URL, {
 // Track the current user ID for reconnection
 let currentUserId: string | null = null;
 
+// Make socket available globally for direct use
+if (typeof window !== 'undefined') {
+    (window as any).socket = socket;
+}
+
 // Socket event listeners for debugging
 socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
@@ -30,6 +35,12 @@ socket.on('connect_error', (error) => {
 
 socket.on('disconnect', (reason) => {
     console.log('Socket disconnected:', reason);
+});
+
+// Add listener for notifications
+socket.on('notification', (data) => {
+    console.log('Received notification via socket:', data);
+    // We could trigger a global notification here if needed
 });
 
 export const connectSocket = (userId: string) => {
@@ -49,6 +60,39 @@ export const disconnectSocket = () => {
     if (socket.connected) {
         socket.disconnect();
         currentUserId = null;
+    }
+};
+
+// Send direct notification to a specific user
+export const sendDirectNotification = (
+    userId: string,
+    notificationType: string,
+    message: string,
+    metadata = {}
+) => {
+    if (!socket.connected) {
+        console.warn('Socket not connected, cannot send direct notification');
+        return false;
+    }
+
+    try {
+        socket.emit('direct-notification', {
+            userId,
+            notification: {
+                type: notificationType,
+                message,
+                metadata: {
+                    ...metadata,
+                    timestamp: new Date().toISOString(),
+                    senderId: currentUserId
+                }
+            }
+        });
+        console.log(`Direct notification sent to user ${userId}`);
+        return true;
+    } catch (error) {
+        console.error('Error sending direct notification:', error);
+        return false;
     }
 };
 

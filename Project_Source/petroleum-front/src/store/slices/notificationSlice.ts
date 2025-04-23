@@ -16,8 +16,49 @@ interface NotificationState {
     error: string | null;
 }
 
+// Helper functions for localStorage persistence
+const loadNotificationsFromStorage = (): Notification[] => {
+    try {
+        const storedNotifications = localStorage.getItem('notifications');
+        if (storedNotifications) {
+            const parsedNotifications = JSON.parse(storedNotifications);
+            console.log(`Loaded ${parsedNotifications.length} notifications from localStorage`);
+
+            // Make sure each notification has the required fields
+            const validNotifications = parsedNotifications.filter((n: any) =>
+                n && n._id && n.type && n.message && n.userId
+            );
+
+            if (validNotifications.length !== parsedNotifications.length) {
+                console.warn(`Filtered out ${parsedNotifications.length - validNotifications.length} invalid notifications`);
+            }
+
+            return validNotifications;
+        } else {
+            console.log('No notifications found in localStorage');
+        }
+    } catch (error) {
+        console.error('Error loading notifications from localStorage:', error);
+    }
+    return [];
+};
+
+const saveNotificationsToStorage = (notifications: Notification[]) => {
+    try {
+        if (!notifications || !Array.isArray(notifications)) {
+            console.error('Invalid notifications array:', notifications);
+            return;
+        }
+
+        localStorage.setItem('notifications', JSON.stringify(notifications));
+        console.log(`Saved ${notifications.length} notifications to localStorage`);
+    } catch (error) {
+        console.error('Error saving notifications to localStorage:', error);
+    }
+};
+
 const initialState: NotificationState = {
-    notifications: [],
+    notifications: loadNotificationsFromStorage(),
     loading: false,
     error: null
 };
@@ -27,6 +68,8 @@ export const fetchNotifications = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await axios.get('/notifications');
+            // Save to localStorage as soon as we get new data
+            saveNotificationsToStorage(response.data);
             return response.data;
         } catch (error: any) {
             return rejectWithValue(
@@ -39,12 +82,20 @@ export const fetchNotifications = createAsyncThunk(
 
 export const markAsRead = createAsyncThunk(
     'notifications/markAsRead',
-    async (notificationId: string, { rejectWithValue }) => {
+    async (notificationId: string, { rejectWithValue, getState }) => {
         try {
             if (!notificationId) {
                 throw new Error('Notification ID is required');
             }
             const response = await axios.put(`/notifications/${notificationId}/read`);
+
+            // Update localStorage after marking notification as read
+            const state = getState() as { notification: NotificationState };
+            const updatedNotifications = state.notification.notifications.map(n =>
+                n._id === notificationId ? { ...n, isRead: true } : n
+            );
+            saveNotificationsToStorage(updatedNotifications);
+
             return response.data;
         } catch (error: any) {
             console.error('Error marking notification as read:', error);
@@ -68,11 +119,17 @@ const notificationSlice = createSlice({
                     createdAt: new Date(action.payload.createdAt).toISOString()
                 };
                 state.notifications.unshift(formattedNotification);
+
+                // Update localStorage
+                saveNotificationsToStorage(state.notifications);
             }
         },
         clearNotifications: (state) => {
             state.notifications = [];
             state.error = null;
+
+            // Clear localStorage
+            localStorage.removeItem('notifications');
         }
     },
     extraReducers: (builder) => {
@@ -89,6 +146,9 @@ const notificationSlice = createSlice({
                     createdAt: new Date(notification.createdAt).toISOString()
                 }));
                 state.error = null;
+
+                // Update localStorage
+                saveNotificationsToStorage(state.notifications);
             })
             .addCase(fetchNotifications.rejected, (state, action) => {
                 state.loading = false;
@@ -98,6 +158,9 @@ const notificationSlice = createSlice({
                 const notification = state.notifications.find(n => n._id === action.payload._id);
                 if (notification) {
                     notification.isRead = true;
+
+                    // Update localStorage
+                    saveNotificationsToStorage(state.notifications);
                 }
             });
     }

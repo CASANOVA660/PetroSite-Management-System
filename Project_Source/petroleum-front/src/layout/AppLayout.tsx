@@ -4,6 +4,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import { connectSocket } from "../utils/socket";
+import socket from "../utils/socket";
 import { useEffect } from "react";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -15,7 +16,15 @@ const LayoutContent: React.FC = () => {
 
   useEffect(() => {
     if (user?._id) {
+      console.log('Connecting socket for user:', user._id);
       connectSocket(user._id);
+
+      // Check if socket is connected after a short delay
+      setTimeout(() => {
+        console.log('Socket connection status after setup:', socket.connected ? 'Connected' : 'Disconnected');
+      }, 1000);
+    } else {
+      console.log('User not authenticated, skipping socket connection');
     }
   }, [user?._id]);
 

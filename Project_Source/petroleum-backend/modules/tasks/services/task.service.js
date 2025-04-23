@@ -4,6 +4,7 @@ const cloudinary = require('../../../config/cloudinary');
 const redis = require('../../../config/redis');
 const { createNotification } = require('../../notifications/controllers/notificationController');
 const mongoose = require('mongoose');
+const Notification = require('../../notifications/models/Notification');
 
 class TaskService {
     // Cache constants
@@ -803,7 +804,10 @@ class TaskService {
 
                             // 1. Send notification to the realization task assignee
                             if (linkedTask.assignee) {
-                                await createNotification({
+                                console.log(`TaskService - Sending notification to realization assignee: ${linkedTask.assignee}`);
+
+                                // Direct DB notification to ensure delivery
+                                const realizationNotif = await Notification.create({
                                     type: 'TASK_VALIDATED',
                                     message: `La tâche "${linkedTask.title}" a été revue et validée par le responsable de suivi`,
                                     userId: linkedTask.assignee.toString(),
@@ -816,62 +820,93 @@ class TaskService {
                                     createdAt: new Date()
                                 });
 
+                                console.log(`TaskService - Created DB notification for realization assignee: ${realizationNotif._id}`);
+
+                                // Real-time notification with forced delivery
+                                if (global.io) {
+                                    try {
+                                        const socketId = global.userSockets?.get(String(linkedTask.assignee));
+                                        console.log(`TaskService - Sending socket notification to realization assignee: ${linkedTask.assignee}, socketId: ${socketId}`);
+
+                                        if (socketId) {
+                                            global.io.to(socketId).emit('notification', {
+                                                type: 'NEW_NOTIFICATION',
+                                                payload: {
+                                                    _id: realizationNotif._id,
+                                                    type: 'TASK_VALIDATED',
+                                                    message: `La tâche "${linkedTask.title}" a été revue et validée par le responsable de suivi`,
+                                                    userId: linkedTask.assignee.toString(),
+                                                    metadata: {
+                                                        taskId: linkedTask._id,
+                                                        linkedTaskId: task._id,
+                                                        reviewerId: userId
+                                                    },
+                                                    isRead: false,
+                                                    createdAt: new Date()
+                                                }
+                                            });
+                                            console.log(`TaskService - Socket notification sent to realization assignee`);
+                                        } else {
+                                            console.warn(`TaskService - Realization assignee ${linkedTask.assignee} not connected to socket`);
+                                        }
+                                    } catch (error) {
+                                        console.error(`TaskService - Error sending socket notification to realization assignee:`, error);
+                                    }
+                                }
+                            }
+
+                            // 2. Send notification to the task creator if different from assignee and reviewer
+                            if (linkedTask.creator &&
+                                linkedTask.creator.toString() !== linkedTask.assignee?.toString() &&
+                                linkedTask.creator.toString() !== userId) {
+
+                                console.log(`TaskService - Sending notification to task creator: ${linkedTask.creator}`);
+
+                                // Direct DB notification to ensure delivery
+                                const creatorNotif = await Notification.create({
+                                    type: 'TASK_COMPLETED',
+                                    message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
+                                    userId: linkedTask.creator.toString(),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: linkedTask._id,
+                                        linkedTaskId: task._id,
+                                        reviewerId: userId
+                                    },
+                                    createdAt: new Date()
+                                });
+
+                                console.log(`TaskService - Created DB notification for creator: ${creatorNotif._id}`);
+
                                 // Real-time notification
                                 if (global.io) {
-                                    global.io.to(linkedTask.assignee.toString()).emit('notification', {
-                                        type: 'NEW_NOTIFICATION',
-                                        payload: {
-                                            type: 'TASK_VALIDATED',
-                                            message: `La tâche "${linkedTask.title}" a été revue et validée par le responsable de suivi`,
-                                            userId: linkedTask.assignee.toString(),
-                                            metadata: {
-                                                taskId: linkedTask._id,
-                                                linkedTaskId: task._id,
-                                                reviewerId: userId
-                                            },
-                                            isRead: false,
-                                            createdAt: new Date()
+                                    try {
+                                        const socketId = global.userSockets?.get(String(linkedTask.creator));
+                                        console.log(`TaskService - Sending socket notification to creator: ${linkedTask.creator}, socketId: ${socketId}`);
+
+                                        if (socketId) {
+                                            global.io.to(socketId).emit('notification', {
+                                                type: 'NEW_NOTIFICATION',
+                                                payload: {
+                                                    _id: creatorNotif._id,
+                                                    type: 'TASK_COMPLETED',
+                                                    message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
+                                                    userId: linkedTask.creator.toString(),
+                                                    metadata: {
+                                                        taskId: linkedTask._id,
+                                                        linkedTaskId: task._id,
+                                                        reviewerId: userId
+                                                    },
+                                                    isRead: false,
+                                                    createdAt: new Date()
+                                                }
+                                            });
+                                            console.log(`TaskService - Socket notification sent to creator`);
+                                        } else {
+                                            console.warn(`TaskService - Creator ${linkedTask.creator} not connected to socket`);
                                         }
-                                    });
-                                    console.log(`Enhanced notification sent to realization person (${linkedTask.assignee.toString()}) about task validation`);
-                                }
-
-                                // 2. Send notification to the task creator if different from assignee and reviewer
-                                if (linkedTask.creator &&
-                                    linkedTask.creator.toString() !== linkedTask.assignee?.toString() &&
-                                    linkedTask.creator.toString() !== userId) {
-
-                                    await createNotification({
-                                        type: 'TASK_COMPLETED',
-                                        message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
-                                        userId: linkedTask.creator.toString(),
-                                        isRead: false,
-                                        metadata: {
-                                            taskId: linkedTask._id,
-                                            linkedTaskId: task._id,
-                                            reviewerId: userId
-                                        },
-                                        createdAt: new Date()
-                                    });
-
-                                    // Real-time notification
-                                    if (global.io) {
-                                        global.io.to(linkedTask.creator.toString()).emit('notification', {
-                                            type: 'NEW_NOTIFICATION',
-                                            payload: {
-                                                type: 'TASK_COMPLETED',
-                                                message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
-                                                userId: linkedTask.creator.toString(),
-                                                metadata: {
-                                                    taskId: linkedTask._id,
-                                                    linkedTaskId: task._id,
-                                                    reviewerId: userId
-                                                },
-                                                isRead: false,
-                                                createdAt: new Date()
-                                            }
-                                        });
-                                        console.log(`Enhanced notification sent to creator (${linkedTask.creator.toString()}) about task completion and validation`);
+                                    } catch (error) {
+                                        console.error(`TaskService - Error sending socket notification to creator:`, error);
                                     }
                                 }
                             }
@@ -946,7 +981,10 @@ class TaskService {
 
                     // Notify task assignee about task acceptance
                     if (task.assignee && task.assignee.toString() !== userId) {
-                        await createNotification({
+                        console.log(`TaskService - Sending notification to task assignee: ${task.assignee}`);
+
+                        // Direct DB notification to ensure delivery
+                        const assigneeNotif = await Notification.create({
                             type: 'TASK_ACCEPTED',
                             message: `Votre tâche "${task.title}" a été acceptée et marquée comme terminée`,
                             userId: task.assignee.toString(),
@@ -957,27 +995,44 @@ class TaskService {
                             createdAt: new Date()
                         });
 
+                        console.log(`TaskService - Created DB notification for assignee: ${assigneeNotif._id}`);
+
                         if (global.io) {
-                            global.io.to(task.assignee.toString()).emit('notification', {
-                                type: 'NEW_NOTIFICATION',
-                                payload: {
-                                    type: 'TASK_ACCEPTED',
-                                    message: `Votre tâche "${task.title}" a été acceptée et marquée comme terminée`,
-                                    userId: task.assignee.toString(),
-                                    metadata: {
-                                        taskId: task._id
-                                    },
-                                    isRead: false,
-                                    createdAt: new Date()
+                            try {
+                                const socketId = global.userSockets?.get(String(task.assignee));
+                                console.log(`TaskService - Sending socket notification to assignee: ${task.assignee}, socketId: ${socketId}`);
+
+                                if (socketId) {
+                                    global.io.to(socketId).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            _id: assigneeNotif._id,
+                                            type: 'TASK_ACCEPTED',
+                                            message: `Votre tâche "${task.title}" a été acceptée et marquée comme terminée`,
+                                            userId: task.assignee.toString(),
+                                            metadata: {
+                                                taskId: task._id
+                                            },
+                                            isRead: false,
+                                            createdAt: new Date()
+                                        }
+                                    });
+                                    console.log(`TaskService - Socket notification sent to assignee`);
+                                } else {
+                                    console.warn(`TaskService - Assignee ${task.assignee} not connected to socket`);
                                 }
-                            });
-                            console.log(`Enhanced notification sent to task assignee about acceptance`);
+                            } catch (error) {
+                                console.error(`TaskService - Error sending socket notification to assignee:`, error);
+                            }
                         }
                     }
 
                     // Notify manager if different from assignee
                     if (task.creator.toString() !== task.assignee?.toString() && task.creator.toString() !== userId) {
-                        await createNotification({
+                        console.log(`TaskService - Sending notification to task creator/manager: ${task.creator}`);
+
+                        // Direct DB notification to ensure delivery
+                        const creatorNotif = await Notification.create({
                             type: 'TASK_COMPLETED',
                             message: `La tâche "${task.title}" a été complétée et acceptée`,
                             userId: task.creator.toString(),
@@ -988,21 +1043,35 @@ class TaskService {
                             createdAt: new Date()
                         });
 
+                        console.log(`TaskService - Created DB notification for creator/manager: ${creatorNotif._id}`);
+
                         if (global.io) {
-                            global.io.to(task.creator.toString()).emit('notification', {
-                                type: 'NEW_NOTIFICATION',
-                                payload: {
-                                    type: 'TASK_COMPLETED',
-                                    message: `La tâche "${task.title}" a été complétée et acceptée`,
-                                    userId: task.creator.toString(),
-                                    metadata: {
-                                        taskId: task._id
-                                    },
-                                    isRead: false,
-                                    createdAt: new Date()
+                            try {
+                                const socketId = global.userSockets?.get(String(task.creator));
+                                console.log(`TaskService - Sending socket notification to creator/manager: ${task.creator}, socketId: ${socketId}`);
+
+                                if (socketId) {
+                                    global.io.to(socketId).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            _id: creatorNotif._id,
+                                            type: 'TASK_COMPLETED',
+                                            message: `La tâche "${task.title}" a été complétée et acceptée`,
+                                            userId: task.creator.toString(),
+                                            metadata: {
+                                                taskId: task._id
+                                            },
+                                            isRead: false,
+                                            createdAt: new Date()
+                                        }
+                                    });
+                                    console.log(`TaskService - Socket notification sent to creator/manager`);
+                                } else {
+                                    console.warn(`TaskService - Creator/manager ${task.creator} not connected to socket`);
                                 }
-                            });
-                            console.log(`Enhanced notification sent to task creator about completion`);
+                            } catch (error) {
+                                console.error(`TaskService - Error sending socket notification to creator/manager:`, error);
+                            }
                         }
                     }
                     break;

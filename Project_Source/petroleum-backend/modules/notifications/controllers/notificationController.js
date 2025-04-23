@@ -88,22 +88,39 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
       console.log('Manager notifications created:', notifications);
       return notifications;
     } else {
+      // Ensure userId is a valid ObjectId
+      let formattedUserId;
+      try {
+        if (typeof userId === 'string') {
+          formattedUserId = new mongoose.Types.ObjectId(userId);
+        } else if (userId && userId.toString) {
+          formattedUserId = userId;
+        } else {
+          throw new Error('Invalid userId format');
+        }
+      } catch (err) {
+        console.error('Error formatting userId:', err);
+        formattedUserId = userId; // Use original as fallback
+      }
+
+      console.log(`Creating notification for user with ID: ${formattedUserId}`);
+
       // For other notification types, create as normal
       const notification = await Notification.create({
         type,
         message,
-        userId,
+        userId: formattedUserId,
         isRead,
         metadata,
         createdAt: new Date()
       });
 
       // Get the socket ID for this user
-      const socketId = global.userSockets?.get(String(userId));
-      console.log(`Creating notification for user ${userId}, socketId: ${socketId}`);
+      const socketId = global.userSockets?.get(String(formattedUserId));
+      console.log(`Creating notification for user ${formattedUserId}, socketId: ${socketId}`);
 
       // Emit socket event for real-time updates if user is connected
-      trackNotificationDelivery(userId, notification, socketId);
+      trackNotificationDelivery(formattedUserId, notification, socketId);
 
       console.log('Notification created:', notification);
       return notification;
@@ -120,9 +137,26 @@ const getNotifications = async (req, res) => {
     console.log('Fetching notifications for user:', userId); // Debug log
     console.log('User object from request:', req.user); // Debug log
 
+    if (!userId) {
+      console.error('No userId found in request');
+      return res.status(400).json({
+        error: 'User ID is required',
+        message: 'No user ID found in request'
+      });
+    }
+
     // Convert userId to ObjectId if it's a string
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    console.log('Converted user ID to ObjectId:', userObjectId); // Debug log
+    let userObjectId;
+    try {
+      userObjectId = new mongoose.Types.ObjectId(userId);
+      console.log('Converted user ID to ObjectId:', userObjectId); // Debug log
+    } catch (err) {
+      console.error('Error converting userId to ObjectId:', err);
+      return res.status(400).json({
+        error: 'Invalid user ID format',
+        message: err.message
+      });
+    }
 
     // Get notifications specific to this user
     const query = { userId: userObjectId };
@@ -132,8 +166,17 @@ const getNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate('userId', 'nom email');
 
-    console.log('Found notifications:', notifications); // Debug log
+    console.log('Found notifications:', notifications.length > 0 ? 'Yes' : 'No'); // Debug log
     console.log('Number of notifications found:', notifications.length); // Debug log
+
+    if (notifications.length > 0) {
+      console.log('Sample notification:', {
+        id: notifications[0]._id,
+        type: notifications[0].type,
+        message: notifications[0].message,
+        timestamp: notifications[0].createdAt
+      });
+    }
 
     res.json(notifications);
   } catch (error) {
@@ -175,9 +218,77 @@ const markAllAsRead = async (req, res) => {
   }
 };
 
+// Create notification directly from frontend
+const createNotificationFromFrontend = async (req, res) => {
+  try {
+    const { type, message, userId, isRead = false, metadata = null } = req.body;
+
+    // Validate required fields
+    if (!type || !message || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Type, message, and userId are required'
+      });
+    }
+
+    // Format userId to handle both string and ObjectId formats
+    let formattedUserId;
+    try {
+      formattedUserId = new mongoose.Types.ObjectId(userId);
+      console.log('Converted userId to ObjectId:', formattedUserId);
+    } catch (err) {
+      console.error('Error converting userId to ObjectId:', err, 'Using original userId:', userId);
+      formattedUserId = userId;
+    }
+
+    console.log(`Notification creation request from frontend - type: ${type}, userId: ${formattedUserId}`);
+
+    // First check if the user exists
+    const userExists = await User.findById(formattedUserId).select('_id');
+    if (!userExists) {
+      console.error(`User with ID ${formattedUserId} not found`);
+      return res.status(404).json({
+        success: false,
+        message: `User with ID ${formattedUserId} not found`
+      });
+    }
+
+    console.log(`User found: ${userExists._id}, proceeding with notification creation`);
+
+    // Create notification using our existing function
+    const notification = await createNotification({
+      type,
+      message,
+      userId: formattedUserId,
+      isRead,
+      metadata: {
+        ...metadata,
+        createdFromFrontend: true,
+        requestUser: req.user.id
+      }
+    });
+
+    // Track notification creation for debugging
+    console.log(`Frontend notification created successfully, ID: ${notification._id}`);
+
+    return res.status(201).json({
+      success: true,
+      data: notification
+    });
+  } catch (error) {
+    console.error('Error creating notification from frontend:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error creating notification',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getNotifications,
   markAsRead,
   createNotification,
-  markAllAsRead
+  markAllAsRead,
+  createNotificationFromFrontend
 };

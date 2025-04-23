@@ -31,6 +31,8 @@ import {
     updateTaskProgress,
     reviewTask
 } from '../../store/slices/taskSlice';
+import axiosInstance from '../../utils/axios';
+import { sendDirectNotification } from '../../socket/socket';
 
 interface TaskDetailPanelProps {
     isOpen: boolean;
@@ -113,6 +115,29 @@ const backdropStyles: React.CSSProperties = {
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     zIndex: 99999
+};
+
+// Initialize sentNotifications tracking
+// To avoid TypeScript errors, declare the global property
+declare global {
+    interface Window {
+        __sentNotifications: Record<string, boolean>;
+    }
+}
+
+// Initialize the notification tracking object if it doesn't exist
+if (typeof window !== 'undefined') {
+    window.__sentNotifications = window.__sentNotifications || {};
+}
+
+// Helper to extract clean task name without prefixes
+const getCleanTaskName = (taskTitle: string) => {
+    if (!taskTitle) return '';
+
+    // Remove prefixes like "Suivi:" or "Réalisation:" and trim whitespace
+    return taskTitle
+        .replace(/^(Suivi|SUIVI|Realisation|REALISATION|Réalisation|RÉALISATION):\s*/i, '')
+        .trim();
 };
 
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task }) => {
@@ -205,6 +230,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             return;
         }
 
+        // Reset sent notifications tracking
+        window.__sentNotifications = {};
+
         // Add debug logs before submitting the review
         console.log("Submitting task review:", {
             taskId: task._id,
@@ -246,7 +274,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     toast.success("La tâche de suivi a été validée avec succès");
                     toast.success("La tâche de réalisation a été automatiquement marquée comme complétée");
 
-                    // Send notifications to both task assignees
+                    // First, send notifications to task assignees
                     if (task.assignee && task.assignee._id) {
                         sendTaskCompletionNotification(task.title, task.assignee._id, false);
                     }
@@ -255,16 +283,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
                     }
 
-                    // Send notification to manager (if different from assignee)
-                    if (task.creator && task.creator._id &&
-                        (!task.assignee || task.creator._id !== task.assignee._id)) {
-                        sendTaskCompletionNotification(task.title, task.creator._id, true);
-                    }
-
-                    // If linked task has a different creator, notify them too
-                    if (linkedTaskData && linkedTaskData.creator && linkedTaskData.creator._id &&
-                        (!linkedTaskData.assignee || linkedTaskData.creator._id !== linkedTaskData.assignee._id)) {
-                        sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.creator._id, true);
+                    // Send single combined notification to manager (if different from assignee)
+                    if (task.creator && task.creator._id) {
+                        // Extract the core task name without the prefix
+                        const baseTaskName = getCleanTaskName(task.title);
+                        sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
                     }
 
                     onClose();
@@ -294,6 +317,35 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         // Show additional message if the task doesn't require validation
                         if (!task.needsValidation && task.linkedTaskId) {
                             toast.success("La tâche liée a été automatiquement marquée comme complétée");
+                        }
+
+                        // Send notifications for accepted tasks in the normal flow too
+                        try {
+                            console.log("Sending notifications for normal task acceptance flow");
+
+                            // Clear tracking of sent notifications
+                            window.__sentNotifications = {};
+
+                            // Send to task assignee
+                            if (task.assignee && task.assignee._id) {
+                                sendTaskCompletionNotification(task.title, task.assignee._id, false);
+                            }
+
+                            // Extract clean base task name
+                            const baseTaskName = getCleanTaskName(task.title);
+
+                            // Send to manager/creator if different from assignee
+                            if (task.creator && task.creator._id &&
+                                (!task.assignee || task.creator._id !== task.assignee._id)) {
+                                sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
+                            }
+
+                            // If there's a linked task, notify its assignee but NOT the manager again
+                            if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                                sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
+                            }
+                        } catch (notifError) {
+                            console.error("Error sending notifications:", notifError);
                         }
                     } else if (decision === 'decline') {
                         toast.success("La tâche a été refusée");
@@ -964,22 +1016,115 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         );
     };
 
-    // Improved notification handling function
-    const sendTaskCompletionNotification = async (taskTitle: string, userId: string, isManager: boolean = false) => {
+    // Real notification sending function that calls the backend API
+    const sendTaskCompletionNotification = async (taskTitle: string, userId: string, isManager: boolean = false, skipIfDuplicate: boolean = false) => {
         try {
+            // Extract clean task name without prefixes
+            const cleanTaskName = getCleanTaskName(taskTitle);
+
             // Log the notification being sent
-            console.log(`Sending completion notification for task "${taskTitle}" to ${isManager ? 'manager' : 'assignee'} ${userId}`);
+            console.log(`Sending completion notification for task "${cleanTaskName}" to ${isManager ? 'manager' : 'assignee'} ${userId}`);
 
             // Create appropriate message based on recipient type
             const message = isManager
-                ? `La tâche "${taskTitle}" a été validée et terminée`
-                : `Votre tâche "${taskTitle}" a été validée et terminée`;
+                ? `La tâche "${cleanTaskName}" a été validée et terminée`
+                : `Votre tâche "${cleanTaskName}" a été validée et terminée`;
 
-            toast.success(`Notification envoyée: ${message}`);
+            // For duplicate check (used to avoid sending multiple notifications to manager)
+            if (skipIfDuplicate && window.__sentNotifications) {
+                const key = `${userId}-${cleanTaskName}`;
+                if (window.__sentNotifications[key]) {
+                    console.log(`Skipping duplicate notification for ${userId} about task "${cleanTaskName}"`);
+                    return;
+                }
+                window.__sentNotifications[key] = true;
+            }
 
-            // In a real implementation, you would call your notification API here
-        } catch (error) {
+            // Get user name safely with type checking
+            const getUserName = (user: any) => {
+                if (!user) return '';
+                // Try different name properties that might exist
+                if (user.prenom && user.nom) return `${user.prenom} ${user.nom}`;
+                if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+                if (user.name) return user.name;
+                return 'Un utilisateur';
+            };
+
+            const userData = {
+                name: getUserName(currentUser),
+                id: currentUser?._id || 'unknown'
+            };
+
+            // Make sure userId is a string
+            const formattedUserId = String(userId);
+
+            console.log('Authorization header present:', !!axiosInstance.defaults.headers.common['Authorization']);
+            console.log('Sending request to:', '/notifications');
+            console.log('Request data:', {
+                type: isManager ? 'TASK_COMPLETED' : 'TASK_VALIDATED',
+                message,
+                userId: formattedUserId,
+                isRead: false,
+                metadata: {
+                    taskTitle: cleanTaskName,
+                    senderId: userData.id,
+                    senderName: userData.name,
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+            // Make a direct request to the notification API using the configured axios instance with auth
+            const response = await axiosInstance.post('/notifications', {
+                type: isManager ? 'TASK_COMPLETED' : 'TASK_VALIDATED',
+                message,
+                userId: formattedUserId,
+                isRead: false,
+                metadata: {
+                    taskTitle: cleanTaskName,
+                    senderId: userData.id,
+                    senderName: userData.name,
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+            if (response.data && response.data.success) {
+                console.log(`✅ Notification successfully sent to ${userId}:`, response.data);
+                toast.success(`Notification envoyée`);
+
+                // Also try sending via socket directly
+                try {
+                    // @ts-ignore (socket might not be defined in this scope)
+                    if (window.socket && window.socket.connected) {
+                        // @ts-ignore
+                        window.socket.emit('direct-notification', {
+                            userId: formattedUserId,
+                            notification: {
+                                type: isManager ? 'TASK_COMPLETED' : 'TASK_VALIDATED',
+                                message,
+                                metadata: {
+                                    taskTitle: cleanTaskName,
+                                    senderId: userData.id,
+                                    senderName: userData.name
+                                }
+                            }
+                        });
+                        console.log(`🔌 Socket notification sent to ${userId}`);
+                    } else {
+                        console.warn(`⚠️ Socket not connected, could not send direct notification to ${userId}`);
+                    }
+                } catch (socketError) {
+                    console.error("Socket notification failed:", socketError);
+                }
+            } else {
+                console.error(`❌ Failed to send notification to ${userId}:`, response.data);
+                toast.error(`Erreur lors de l'envoi de la notification`);
+            }
+        } catch (error: any) {
             console.error("Error sending notification:", error);
+            console.error("Error response data:", error.response?.data);
+            console.error("Error status:", error.response?.status);
+            console.error("Error headers:", error.response?.headers);
+            toast.error(`Erreur lors de l'envoi de la notification: ${error.response?.data?.message || error.message}`);
         }
     };
 

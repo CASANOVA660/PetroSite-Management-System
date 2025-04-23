@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
+import { connectSocket, disconnectSocket } from '../../utils/socket';
 
 interface User {
     _id: string;
@@ -36,6 +37,12 @@ const initialState: AuthState = {
     token: storedToken,
 };
 
+// Initialize socket connection if user is already logged in
+if (initialState.user?._id) {
+    console.log('Initializing socket connection for logged in user:', initialState.user._id);
+    connectSocket(initialState.user._id);
+}
+
 export const loginUser = createAsyncThunk(
     'auth/login',
     async (credentials: { email: string; motDePasse: string }, { rejectWithValue }) => {
@@ -46,8 +53,15 @@ export const loginUser = createAsyncThunk(
 
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(normalizedUser));
+            localStorage.setItem('userId', normalizedUser._id);
 
             axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+
+            // Connect socket with user ID after successful login
+            if (normalizedUser._id) {
+                console.log('Connecting socket after login for user:', normalizedUser._id);
+                connectSocket(normalizedUser._id);
+            }
 
             return {
                 ...response.data,
@@ -62,8 +76,12 @@ export const loginUser = createAsyncThunk(
 export const logoutUser = createAsyncThunk(
     'auth/logout',
     async () => {
+        // Disconnect socket before removing credentials
+        disconnectSocket();
+
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('userId');
         delete axios.defaults.headers.common['Authorization'];
     }
 );
@@ -101,4 +119,4 @@ const authSlice = createSlice({
 });
 
 export const { clearError } = authSlice.actions;
-export default authSlice.reducer; 
+export default authSlice.reducer;

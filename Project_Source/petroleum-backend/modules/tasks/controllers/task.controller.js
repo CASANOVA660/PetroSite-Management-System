@@ -418,6 +418,26 @@ class TaskController {
         try {
             const updatedTask = await taskService.reviewTask(taskId, { decision, feedback }, userId);
 
+            // For acceptance, verify notifications were created properly
+            if (decision === 'accept') {
+                const Notification = require('../../notifications/models/Notification');
+
+                // Check notifications created in the last minute related to this task
+                const recentNotifications = await Notification.find({
+                    $or: [
+                        { 'metadata.taskId': updatedTask._id },
+                        { 'metadata.linkedTaskId': updatedTask._id }
+                    ],
+                    createdAt: { $gte: new Date(Date.now() - 60000) }
+                });
+
+                console.log(`TaskController - Found ${recentNotifications.length} recent notifications related to task review`);
+
+                if (recentNotifications.length === 0) {
+                    console.warn(`TaskController - WARNING: No notifications found for task review! Task ID: ${taskId}`);
+                }
+            }
+
             return res.status(200).json({
                 success: true,
                 data: updatedTask

@@ -1,15 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { getNotifications, markAsRead } = require('../controllers/notificationController');
-const { authenticateToken } = require('../../middleware/auth');
+const notificationController = require('../controllers/notificationController');
+const auth = require('../../../middleware/auth');
 
-// Apply authentication middleware
-router.use(authenticateToken);
+// Route to get all notifications for current user
+router.get('/', auth, notificationController.getNotifications);
 
-// Get all notifications
-router.get('/', getNotifications);
+// Route to mark a notification as read
+router.put('/:id/read', auth, notificationController.markAsRead);
 
-// Mark notification as read
-router.put('/:id/read', markAsRead);
+// Route to mark all notifications as read
+router.put('/mark-all-read', auth, notificationController.markAllAsRead);
+
+// Route to create a notification from frontend
+router.post('/', auth, notificationController.createNotificationFromFrontend);
 
 module.exports = router;

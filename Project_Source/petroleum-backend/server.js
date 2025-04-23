@@ -70,6 +70,56 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Direct notification from frontend to specific user
+    socket.on('direct-notification', async (data) => {
+        try {
+            logger.info(`Received direct notification request for user ${data.userId}`);
+
+            if (!data.userId || !data.notification) {
+                logger.error('Invalid direct notification data:', data);
+                return;
+            }
+
+            // Get the notification content
+            const { userId, notification } = data;
+
+            // Get the socket ID for this user
+            const targetSocketId = userSockets.get(String(userId));
+
+            if (targetSocketId) {
+                // Emit to the target user
+                io.to(targetSocketId).emit('notification', {
+                    type: 'NEW_NOTIFICATION',
+                    payload: notification
+                });
+                logger.info(`Direct notification sent to user ${userId} via socket ${targetSocketId}`);
+            } else {
+                logger.info(`User ${userId} not connected, could not deliver direct notification`);
+
+                // Optionally save the notification in the database for when they reconnect
+                try {
+                    const { createNotification } = require('./modules/notifications/controllers/notificationController');
+                    await createNotification({
+                        type: notification.type,
+                        message: notification.message,
+                        userId: userId,
+                        isRead: false,
+                        metadata: {
+                            ...notification.metadata,
+                            source: 'direct-socket',
+                            timestamp: new Date()
+                        }
+                    });
+                    logger.info(`Saved direct notification to database for user ${userId}`);
+                } catch (err) {
+                    logger.error('Error saving direct notification:', err);
+                }
+            }
+        } catch (error) {
+            logger.error('Error processing direct notification:', error);
+        }
+    });
+
     socket.on('error', (error) => {
         logger.error(`Socket error (${socket.id}):`, error);
     });
