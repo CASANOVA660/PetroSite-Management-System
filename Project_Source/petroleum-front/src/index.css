@@ -903,3 +903,19 @@ span.flatpickr-weekday,
   box-shadow: -5px 0 0 #f9fafb, 5px 0 0 #f9fafb !important;
   @apply dark:shadow-datepicker;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}

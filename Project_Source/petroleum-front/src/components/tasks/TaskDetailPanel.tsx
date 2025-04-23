@@ -7,8 +7,6 @@ import {
     FaceSmileIcon,
     PaperClipIcon,
     LinkIcon,
-    BoltIcon,
-    FireIcon,
     DocumentIcon,
     TrashIcon,
     ChevronDownIcon,
@@ -18,7 +16,6 @@ import {
     CheckIcon
 } from '@heroicons/react/24/outline';
 import { useDispatch, useSelector } from 'react-redux';
-
 import { AppDispatch, RootState } from '../../store';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -132,6 +129,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const panelRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [linkedTaskData, setLinkedTaskData] = useState<Task | null>(null);
+    const [showReturnReason, setShowReturnReason] = useState(false);
+    const [returnReason, setReturnReason] = useState('');
 
     const panelStyles = (expanded: boolean): React.CSSProperties => ({
         position: 'fixed',
@@ -160,7 +159,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         setIsExpanded(prev => !prev);
     };
 
-    // Determine if this is a suivi task
     const isSuiviTask = React.useMemo(() => {
         if (!task) return false;
         return (
@@ -169,7 +167,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         );
     }, [task]);
 
-    // Determine if this is a realization task
     const isRealizationTask = React.useMemo(() => {
         if (!task) return false;
         return (
@@ -178,31 +175,25 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         );
     }, [task]);
 
-    // Determine if current user is the suivi person
     const isCurrentUserSuivi = React.useMemo(() => {
         if (!task || !currentUser) return false;
         return task.assignee && task.assignee._id === currentUser._id && isSuiviTask;
     }, [task, currentUser, isSuiviTask]);
 
-    // Determine if task is in review state
     const isTaskInReview = React.useMemo(() => {
         return task?.status === 'inReview';
     }, [task]);
 
-    // Check if validation button should be shown
     const showValidationButton = isCurrentUserSuivi && isTaskInReview;
 
-    // Handle task validation
     const handleValidateTask = async () => {
         if (!task) return;
-
         try {
             await dispatch(reviewTask({
                 taskId: task._id,
                 decision: 'accept',
                 feedback: 'Tâche validée'
             })).unwrap();
-
             toast.success('Tâche validée avec succès');
             onClose();
         } catch (error) {
@@ -211,7 +202,24 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
-    // Check if task status should be locked (can't be changed)
+    const handleReturnToModification = async () => {
+        if (!task || !returnReason.trim()) return;
+        try {
+            await dispatch(reviewTask({
+                taskId: task._id,
+                decision: 'return',
+                feedback: returnReason
+            })).unwrap();
+            toast.success('Tâche retournée pour modification');
+            setShowReturnReason(false);
+            setReturnReason('');
+            onClose();
+        } catch (error) {
+            console.error("Error returning task:", error);
+            toast.error('Erreur lors du retour de la tâche');
+        }
+    };
+
     const isStatusLocked = React.useMemo(() => {
         if (!task) return false;
         return (
@@ -228,11 +236,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     useEffect(() => {
         if (task?._id) {
-            // Fetch task with linked data
             dispatch(getTaskWithLinkedData({ taskId: task._id }))
                 .unwrap()
                 .then((data) => {
-                    // Check if we received linked task data and it's different from the current task
                     if (data.linkedTask && data.linkedTask._id !== task._id) {
                         console.log("Linked task found:", data.linkedTask.title);
                         setLinkedTaskData(data.linkedTask);
@@ -241,7 +247,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         setLinkedTaskData(null);
                     }
 
-                    // Use combined comments if available
                     if (data.allComments && data.allComments.length > 0) {
                         setComments(data.allComments);
                     } else if (data.comments) {
@@ -250,7 +255,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         setComments([]);
                     }
 
-                    // Use combined files if available
                     if (data.allFiles && data.allFiles.length > 0) {
                         const mappedFiles = data.allFiles.map((file: {
                             _id: string;
@@ -295,7 +299,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 })
                 .catch(error => {
                     console.error('Error fetching task with linked data:', error);
-                    // Fallback to original task data
                     if (task.comments) {
                         setComments(task.comments);
                     }
@@ -356,10 +359,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     text: commentText
                 })).unwrap();
 
-                // Clear comment input
                 setCommentText('');
 
-                // Refresh task data to get all comments (including linked task)
                 dispatch(getTaskWithLinkedData({ taskId: task._id }))
                     .unwrap()
                     .then((data) => {
@@ -416,7 +417,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             setUploading(prev => ({ ...prev, [_id]: 0 }));
 
             try {
-                // Show progress animation
                 let progress = 0;
                 const interval = setInterval(() => {
                     progress += 5;
@@ -426,7 +426,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     }
                 }, 200);
 
-                // Upload file to backend
                 await dispatch(uploadTaskFile({
                     taskId: task._id,
                     file
@@ -435,7 +434,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 clearInterval(interval);
                 setUploading(prev => ({ ...prev, [_id]: 100 }));
 
-                // Refresh task data to get all files (including linked task)
                 dispatch(getTaskWithLinkedData({ taskId: task._id }))
                     .unwrap()
                     .then((data) => {
@@ -483,7 +481,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         console.error('Error refreshing task data:', error);
                     });
 
-                // Remove from uploading state after a brief delay to show completion
                 setTimeout(() => {
                     setUploading(prev => {
                         const newUploading = { ...prev };
@@ -515,7 +512,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             setUploading(prev => ({ ...prev, [_id]: 0 }));
 
             try {
-                // Show progress animation
                 let progress = 0;
                 const interval = setInterval(() => {
                     progress += 5;
@@ -525,7 +521,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     }
                 }, 200);
 
-                // Upload file to backend
                 await dispatch(uploadTaskFile({
                     taskId: task._id,
                     file
@@ -534,7 +529,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 clearInterval(interval);
                 setUploading(prev => ({ ...prev, [_id]: 100 }));
 
-                // Refresh task data to get all files (including linked task)
                 dispatch(getTaskWithLinkedData({ taskId: task._id }))
                     .unwrap()
                     .then((data) => {
@@ -582,7 +576,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         console.error('Error refreshing task data:', error);
                     });
 
-                // Remove from uploading state after a brief delay to show completion
                 setTimeout(() => {
                     setUploading(prev => {
                         const newUploading = { ...prev };
@@ -611,20 +604,13 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     };
 
     const handleProgressUpdate = async (newProgress: number) => {
-        // Update local state immediately for responsive UI
         setProgress(newProgress);
-
-        // Don't proceed if no task ID
         if (!task?._id) return;
-
         try {
-            // Use the updateTaskProgress action instead of updateTask for better specificity
             await dispatch(updateTaskProgress({
                 taskId: task._id,
                 progress: newProgress
             })).unwrap();
-
-            // Refresh the task data to ensure consistent state
             if (task._id) {
                 dispatch(getTaskWithLinkedData({ taskId: task._id }))
                     .unwrap()
@@ -632,25 +618,21 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         console.error('Error refreshing task data after progress update:', error);
                     });
             }
-
             toast.success('Progrès mis à jour');
         } catch (err) {
             console.error('Error updating progress:', err);
             toast.error('Échec de la mise à jour du progrès');
-            // Revert to previous progress if there was an error
             setProgress(task.progress || 0);
         }
     };
 
     const handleSubtaskToggle = async (subtaskId: string) => {
         if (!task?._id || !task.subtasks) return;
-
         try {
             await dispatch(toggleSubtask({
                 taskId: task._id,
                 subtaskId
             }));
-
             toast.success('Sous-tâche mise à jour');
         } catch (err) {
             console.error('Error updating subtasks:', err);
@@ -694,7 +676,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     const handleApproveFile = async (fileId: string) => {
         if (!task?._id) return;
-
         try {
             const updatedFiles = task.files?.map(file => {
                 if (file._id === fileId) {
@@ -702,18 +683,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 }
                 return file;
             });
-
             await dispatch(updateTask({
                 ...task,
                 files: updatedFiles
             }));
-
             setFiles(files.map(file =>
                 file._id === fileId
                     ? { ...file, approved: true }
                     : file
             ));
-
             toast.success('Fichier approuvé');
         } catch (err) {
             console.error('Error approving file:', err);
@@ -721,14 +699,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
-    // Function to render the header with roles
     const renderRolesHeader = () => {
-        // Determine task types
         const isCurrentTaskSuivi = task?.title?.startsWith('Suivi:') || false;
         const isCurrentTaskRealization = task?.title?.startsWith('Réalisation:') || false;
         const isProjectAction = task?.actionId ? true : false;
 
-        // For logging purposes
         console.log('Current task title:', task?.title);
         console.log('Is current task Suivi:', isCurrentTaskSuivi);
         console.log('Is current task Realization:', isCurrentTaskRealization);
@@ -740,71 +715,54 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             console.log('Linked task assignee:', linkedTaskData.assignee?.prenom, linkedTaskData.assignee?.nom);
         }
 
-        // Get the linked task's suivi/realization type
         const isLinkedTaskSuivi = linkedTaskData?.title?.startsWith('Suivi:') || false;
         const isLinkedTaskRealization = linkedTaskData?.title?.startsWith('Réalisation:') || false;
 
-        // For project actions, we need to handle differently based on global action tag
         if (isProjectAction) {
-            // For actions with linked tasks, use the linked task's assignee when appropriate
             if (linkedTaskData) {
-                // Check if current task is the suivi task and linked task is the realization task
                 const currentTaskIsSuivi = isCurrentTaskSuivi || (!isCurrentTaskRealization && !isCurrentTaskSuivi && task.creator?._id === task.assignee?._id);
                 const linkedTaskIsRealization = isLinkedTaskRealization;
-
-                // Check if current task is the realization task and linked task is the suivi task
                 const currentTaskIsRealization = isCurrentTaskRealization || (!isCurrentTaskRealization && !isCurrentTaskSuivi && task.creator?._id !== task.assignee?._id);
                 const linkedTaskIsSuivi = isLinkedTaskSuivi;
 
                 return (
                     <div className="text-sm text-gray-600">
-                        {/* Realization Person */}
                         <div className="mb-1">
                             <span className="font-medium">Responsable de réalisation: </span>
                             <span>
                                 {currentTaskIsRealization ? (
-                                    // Current task is realization, show its assignee
                                     currentUser && task?.assignee && currentUser._id === task?.assignee._id
                                         ? 'Moi'
                                         : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
                                 ) : linkedTaskIsRealization ? (
-                                    // Linked task is realization, show its assignee
                                     currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
                                         ? 'Moi'
                                         : `${linkedTaskData.assignee?.prenom || ''} ${linkedTaskData.assignee?.nom || 'Non assigné'}`
                                 ) : (
-                                    // Default to task assignee if no specific case is met
                                     currentUser && task?.assignee && currentUser._id === task?.assignee._id
                                         ? 'Moi'
                                         : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
                                 )}
                             </span>
                         </div>
-
-                        {/* Suivi Person */}
                         <div className="mb-1">
                             <span className="font-medium">Responsable de suivi: </span>
                             <span>
                                 {currentTaskIsSuivi ? (
-                                    // Current task is suivi, show its assignee
                                     currentUser && task?.assignee && currentUser._id === task?.assignee._id
                                         ? 'Moi'
                                         : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
                                 ) : linkedTaskIsSuivi ? (
-                                    // Linked task is suivi, show its assignee
                                     currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
                                         ? 'Moi'
                                         : `${linkedTaskData.assignee?.prenom || ''} ${linkedTaskData.assignee?.nom || 'Non assigné'}`
                                 ) : (
-                                    // Default to task creator if no specific case is met
                                     currentUser && task?.creator && currentUser._id === task?.creator._id
                                         ? 'Moi'
                                         : `${task?.creator?.prenom || ''} ${task?.creator?.nom || 'Non assigné'}`
                                 )}
                             </span>
                         </div>
-
-                        {/* Creator */}
                         <div>
                             <span className="font-medium">Créé par: </span>
                             <span>
@@ -817,10 +775,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 );
             }
 
-            // If no linked task data is available, fall back to the original logic
             return (
                 <div className="text-sm text-gray-600">
-                    {/* Realization Person */}
                     <div className="mb-1">
                         <span className="font-medium">Responsable de réalisation: </span>
                         <span>
@@ -829,8 +785,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`}
                         </span>
                     </div>
-
-                    {/* Suivi Person */}
                     <div className="mb-1">
                         <span className="font-medium">Responsable de suivi: </span>
                         <span>
@@ -839,8 +793,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 : `${task?.creator?.prenom || ''} ${task?.creator?.nom || 'Non assigné'}`}
                         </span>
                     </div>
-
-                    {/* Creator */}
                     <div>
                         <span className="font-medium">Créé par: </span>
                         <span>
@@ -853,54 +805,40 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             );
         }
 
-        // For non-project action tasks, keep the existing logic
         return (
             <div className="text-sm text-gray-600">
-                {/* Realization Person */}
                 <div className="mb-1">
                     <span className="font-medium">Responsable de réalisation: </span>
                     <span>
                         {isCurrentTaskRealization ? (
-                            // Current task is realization, so assignee is the realization person
                             currentUser && task?.assignee && currentUser._id === task?.assignee._id
                                 ? 'Moi'
                                 : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
                         ) : isCurrentTaskSuivi && isLinkedTaskRealization && linkedTaskData?.assignee ? (
-                            // Current task is suivi and linked task is realization
-                            // So linked task's assignee is the realization person
-                            currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                            currentUser && linkedTaskData?.assignee && currentUser._id === linkedTaskData?.assignee._id
                                 ? 'Moi'
-                                : `${linkedTaskData.assignee.prenom || ''} ${linkedTaskData.assignee.nom || 'Non assigné'}`
+                                : `${linkedTaskData?.assignee?.prenom || ''} ${linkedTaskData?.assignee?.nom || 'Non assigné'}`
                         ) : (
-                            // Default if no specific condition is met
                             'Non assigné'
                         )}
                     </span>
                 </div>
-
-                {/* Suivi Person */}
                 <div className="mb-1">
                     <span className="font-medium">Responsable de suivi: </span>
                     <span>
                         {isCurrentTaskSuivi ? (
-                            // Current task is suivi, so assignee is the suivi person
                             currentUser && task?.assignee && currentUser._id === task?.assignee._id
                                 ? 'Moi'
                                 : `${task?.assignee?.prenom || ''} ${task?.assignee?.nom || 'Non assigné'}`
                         ) : isCurrentTaskRealization && isLinkedTaskSuivi && linkedTaskData?.assignee ? (
-                            // Current task is realization and linked task is suivi
-                            // So linked task's assignee is the suivi person
-                            currentUser && linkedTaskData.assignee && currentUser._id === linkedTaskData.assignee._id
+                            currentUser && linkedTaskData?.assignee && currentUser._id === linkedTaskData?.assignee._id
                                 ? 'Moi'
-                                : `${linkedTaskData.assignee.prenom || ''} ${linkedTaskData.assignee.nom || 'Non assigné'}`
+                                : `${linkedTaskData?.assignee?.prenom || ''} ${linkedTaskData?.assignee?.nom || 'Non assigné'}`
                         ) : (
-                            // Default if no specific condition is met
                             'Non assigné'
                         )}
                     </span>
                 </div>
-
-                {/* Creator */}
                 <div>
                     <span className="font-medium">Créé par: </span>
                     <span>
@@ -943,7 +881,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         </div>
                     </div>
 
-                    {/* Validation section */}
                     {isTaskInReview && (
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-start">
@@ -963,15 +900,58 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                             <p>La tâche a été marquée comme prête à être révisée par le responsable.</p>
                                         )}
 
-                                        {isCurrentUserSuivi && (
-                                            <div className="mt-3">
+                                        {isCurrentUserSuivi && !showReturnReason && (
+                                            <div className="mt-3 flex space-x-3">
                                                 <button
                                                     onClick={handleValidateTask}
-                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 shadow-sm"
+                                                    aria-label="Valider cette tâche"
                                                 >
                                                     <CheckIcon className="h-5 w-5 mr-2" />
-                                                    Valider cette tâche
+                                                    Valider
                                                 </button>
+                                                <button
+                                                    onClick={() => setShowReturnReason(true)}
+                                                    className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm"
+                                                    aria-label="Retourner pour modification"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                    </svg>
+                                                    Retourner
+                                                </button>
+                                            </div>
+                                        )}
+                                        {isCurrentUserSuivi && showReturnReason && (
+                                            <div className="mt-4 space-y-3">
+                                                <textarea
+                                                    rows={4}
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm resize-none bg-white shadow-sm"
+                                                    placeholder="Veuillez indiquer la raison du retour..."
+                                                    value={returnReason}
+                                                    onChange={(e) => setReturnReason(e.target.value)}
+                                                    aria-label="Raison du retour pour modification"
+                                                />
+                                                <div className="flex space-x-3">
+                                                    <button
+                                                        onClick={handleReturnToModification}
+                                                        className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm disabled:opacity-50"
+                                                        disabled={!returnReason.trim()}
+                                                        aria-label="Confirmer le retour pour modification"
+                                                    >
+                                                        Confirmer
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowReturnReason(false);
+                                                            setReturnReason('');
+                                                        }}
+                                                        className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 shadow-sm"
+                                                        aria-label="Annuler le retour pour modification"
+                                                    >
+                                                        Annuler
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
