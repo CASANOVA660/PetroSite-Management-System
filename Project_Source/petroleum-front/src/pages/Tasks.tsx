@@ -315,9 +315,10 @@ const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask }: {
     const dropRef = React.useRef(null);
 
     // Setup drop zone with React DnD
-    const [{ isOver }, drop] = useDrop<{ id: string }, unknown, { isOver: boolean }>(() => ({
+    const [{ isOver }, drop] = useDrop<{ id: string; status: string }, unknown, { isOver: boolean }>(() => ({
         accept: ItemTypes.TASK_CARD,
-        drop: (item: { id: string }) => {
+        drop: (item: { id: string, status: string }) => {
+            console.log('Dropping task:', item);
             onDropTask(item.id, columnId);
         },
         collect: (monitor) => ({
