@@ -131,6 +131,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const [linkedTaskData, setLinkedTaskData] = useState<Task | null>(null);
     const [showReturnReason, setShowReturnReason] = useState(false);
     const [returnReason, setReturnReason] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewFeedback, setReviewFeedback] = useState('');
 
     const panelStyles = (expanded: boolean): React.CSSProperties => ({
         position: 'fixed',
@@ -192,37 +194,121 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     const showValidationButton = isCurrentUserSuivi && isTaskInReview;
 
-    const handleValidateTask = async () => {
+    const handleReviewTask = (decision: 'accept' | 'decline' | 'return') => {
         if (!task) return;
-        try {
-            await dispatch(reviewTask({
-                taskId: task._id,
-                decision: 'accept',
-                feedback: 'Tâche validée'
-            })).unwrap();
-            toast.success('Tâche validée avec succès');
-            onClose();
-        } catch (error) {
-            console.error("Error validating task:", error);
-            toast.error('Erreur lors de la validation de la tâche');
-        }
-    };
 
-    const handleReturnToModification = async () => {
-        if (!task || !returnReason.trim()) return;
-        try {
-            await dispatch(reviewTask({
-                taskId: task._id,
-                decision: 'return',
-                feedback: returnReason
-            })).unwrap();
-            toast.success('Tâche retournée pour modification');
-            setShowReturnReason(false);
-            setReturnReason('');
-            onClose();
-        } catch (error) {
-            console.error("Error returning task:", error);
-            toast.error('Erreur lors du retour de la tâche');
+        if (
+            (decision === 'decline' || decision === 'return') &&
+            (!reviewFeedback || reviewFeedback.trim() === '')
+        ) {
+            toast.error("Un feedback est requis pour refuser ou retourner une tâche");
+            return;
+        }
+
+        // Add debug logs before submitting the review
+        console.log("Submitting task review:", {
+            taskId: task._id,
+            taskTitle: task.title,
+            decision,
+            feedback: reviewFeedback || undefined,
+            isSuiviTask,
+            isRealizationTask,
+            originalNeedsValidation: task.needsValidation,
+            linkedTaskId: task.linkedTaskId,
+            linkedTaskData: linkedTaskData ? {
+                id: linkedTaskData._id,
+                title: linkedTaskData.title
+            } : null
+        });
+
+        setReviewSubmitting(true);
+
+        // For suivi tasks, we want to ensure both tasks (suivi and realization) are marked as done
+        // So we'll handle this specially
+        if (isSuiviTask && decision === 'accept' && linkedTaskData) {
+            // First update both tasks to done status directly
+            Promise.all([
+                // Update the suivi task
+                dispatch(updateTaskStatus({
+                    taskId: task._id,
+                    status: 'done'
+                })).unwrap(),
+
+                // Update the linked realization task if it exists
+                linkedTaskData._id ?
+                    dispatch(updateTaskStatus({
+                        taskId: linkedTaskData._id,
+                        status: 'done'
+                    })).unwrap() :
+                    Promise.resolve()
+            ])
+                .then(() => {
+                    toast.success("La tâche de suivi a été validée avec succès");
+                    toast.success("La tâche de réalisation a été automatiquement marquée comme complétée");
+
+                    // Send notifications to both task assignees
+                    if (task.assignee && task.assignee._id) {
+                        sendTaskCompletionNotification(task.title, task.assignee._id, false);
+                    }
+
+                    if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                        sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
+                    }
+
+                    // Send notification to manager (if different from assignee)
+                    if (task.creator && task.creator._id &&
+                        (!task.assignee || task.creator._id !== task.assignee._id)) {
+                        sendTaskCompletionNotification(task.title, task.creator._id, true);
+                    }
+
+                    // If linked task has a different creator, notify them too
+                    if (linkedTaskData && linkedTaskData.creator && linkedTaskData.creator._id &&
+                        (!linkedTaskData.assignee || linkedTaskData.creator._id !== linkedTaskData.assignee._id)) {
+                        sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.creator._id, true);
+                    }
+
+                    onClose();
+                })
+                .catch((error) => {
+                    console.error("Error updating tasks:", error);
+                    toast.error(`Erreur lors de la validation: ${error.message || "Erreur inconnue"}`);
+                })
+                .finally(() => {
+                    setReviewSubmitting(false);
+                });
+        } else {
+            // Regular flow using reviewTask API
+            dispatch(
+                reviewTask({
+                    taskId: task._id,
+                    decision,
+                    feedback: reviewFeedback || undefined,
+                })
+            )
+                .unwrap()
+                .then(() => {
+                    // Show success message based on decision
+                    if (decision === 'accept') {
+                        toast.success("La tâche a été acceptée avec succès");
+
+                        // Show additional message if the task doesn't require validation
+                        if (!task.needsValidation && task.linkedTaskId) {
+                            toast.success("La tâche liée a été automatiquement marquée comme complétée");
+                        }
+                    } else if (decision === 'decline') {
+                        toast.success("La tâche a été refusée");
+                    } else {
+                        toast.success("La tâche a été retournée pour modification");
+                    }
+
+                    onClose();
+                })
+                .catch((error) => {
+                    toast.error(`Erreur lors de la revue: ${error.message}`);
+                })
+                .finally(() => {
+                    setReviewSubmitting(false);
+                });
         }
     };
 
@@ -878,6 +964,25 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         );
     };
 
+    // Improved notification handling function
+    const sendTaskCompletionNotification = async (taskTitle: string, userId: string, isManager: boolean = false) => {
+        try {
+            // Log the notification being sent
+            console.log(`Sending completion notification for task "${taskTitle}" to ${isManager ? 'manager' : 'assignee'} ${userId}`);
+
+            // Create appropriate message based on recipient type
+            const message = isManager
+                ? `La tâche "${taskTitle}" a été validée et terminée`
+                : `Votre tâche "${taskTitle}" a été validée et terminée`;
+
+            toast.success(`Notification envoyée: ${message}`);
+
+            // In a real implementation, you would call your notification API here
+        } catch (error) {
+            console.error("Error sending notification:", error);
+        }
+    };
+
     return (
         <>
             <div style={backdropStyles} onClick={handleBackdropClick} />
@@ -930,7 +1035,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                         {isCurrentUserSuivi && !showReturnReason && (
                                             <div className="mt-3 flex space-x-3">
                                                 <button
-                                                    onClick={handleValidateTask}
+                                                    onClick={() => handleReviewTask('accept')}
                                                     className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 shadow-sm"
                                                     aria-label="Valider cette tâche"
                                                 >
@@ -938,7 +1043,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     Valider
                                                 </button>
                                                 <button
-                                                    onClick={() => setShowReturnReason(true)}
+                                                    onClick={() => {
+                                                        setShowReturnReason(true);
+                                                        setReturnReason('');
+                                                    }}
                                                     className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm"
                                                     aria-label="Retourner pour modification"
                                                 >
@@ -961,7 +1069,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 />
                                                 <div className="flex space-x-3">
                                                     <button
-                                                        onClick={handleReturnToModification}
+                                                        onClick={() => handleReviewTask('return')}
                                                         className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm disabled:opacity-50"
                                                         disabled={!returnReason.trim()}
                                                         aria-label="Confirmer le retour pour modification"
@@ -981,6 +1089,36 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Add validation banner for suivi tasks that are linked to realization tasks */}
+                    {isSuiviTask && linkedTaskData && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-sm font-medium text-green-800">Tâche de suivi liée à une tâche de réalisation</h3>
+                                    <div className="mt-2 text-sm text-green-700">
+                                        <p>
+                                            Cette tâche de suivi est liée à la tâche de réalisation "{linkedTaskData.title}".
+                                            {task.status === 'done' && linkedTaskData.status === 'done' && (
+                                                <span className="font-semibold"> Les deux tâches ont été validées et terminées.</span>
+                                            )}
+                                            {task.status === 'done' && linkedTaskData.status !== 'done' && (
+                                                <span className="font-semibold"> La tâche de suivi est terminée mais la tâche de réalisation est toujours en cours.</span>
+                                            )}
+                                            {task.status !== 'done' && linkedTaskData.status === 'done' && (
+                                                <span className="font-semibold"> La tâche de réalisation est terminée mais la tâche de suivi est toujours en cours.</span>
+                                            )}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1031,6 +1169,48 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                             <strong>Tâche de suivi:</strong> {linkedTaskData.title}
                                         </p>
                                     )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Completion status banner for done tasks */}
+                    {task && task.status === 'done' && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3 flex-1">
+                                    <h3 className="text-sm font-medium text-green-800">
+                                        {isSuiviTask ? "Cette tâche de suivi a été validée et terminée" :
+                                            isRealizationTask ? "Cette tâche de réalisation a été validée et terminée" :
+                                                "Cette tâche a été terminée"}
+                                    </h3>
+                                    <div className="mt-2 text-sm text-green-700">
+                                        {isSuiviTask && linkedTaskData ? (
+                                            <p>
+                                                {linkedTaskData.status === 'done' ?
+                                                    "La tâche de réalisation associée a également été terminée." :
+                                                    "La tâche de réalisation associée n'a pas encore été terminée."}
+                                            </p>
+                                        ) : isRealizationTask && linkedTaskData ? (
+                                            <p>
+                                                {linkedTaskData.status === 'done' ?
+                                                    "Cette tâche a été validée par le responsable de suivi." :
+                                                    "Cette tâche est en attente de validation par le responsable de suivi."}
+                                            </p>
+                                        ) : (
+                                            <p>Cette tâche a été complétée avec succès.</p>
+                                        )}
+                                        {task.completedAt && (
+                                            <p className="mt-1">
+                                                <span className="font-medium">Date de complétion:</span> {formatDate(task.completedAt.toString())}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

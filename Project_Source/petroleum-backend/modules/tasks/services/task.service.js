@@ -265,6 +265,49 @@ class TaskService {
                 await this.clearUserTasksCache(task.assignee.toString());
             }
 
+            // Check if this is a realization task
+            const isRealizationTask = task.title && task.title.startsWith('Réalisation:') ||
+                (task.tags && task.tags.includes('Realization'));
+
+            console.log(`TaskService - Is Realization task: ${isRealizationTask}`);
+
+            // Find linked suivi task if this is a realization task changing to inReview
+            if (isRealizationTask && status === 'inReview' && task.linkedTaskId) {
+                const linkedTask = await Task.findById(task.linkedTaskId);
+
+                if (linkedTask) {
+                    console.log(`Found linked Suivi task: ${linkedTask.title} for Realization task ${task.title}`);
+
+                    // Send notification to the Suivi task assignee
+                    if (linkedTask.assignee) {
+                        await createNotification({
+                            type: 'TASK_NEEDS_REVIEW',
+                            message: `La tâche "${task.title}" est prête pour votre révision`,
+                            userId: linkedTask.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                linkedTaskId: linkedTask._id
+                            }
+                        });
+
+                        // Real-time notification
+                        if (global.io) {
+                            global.io.to(linkedTask.assignee.toString()).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_NEEDS_REVIEW',
+                                    message: `La tâche "${task.title}" est prête pour votre révision`,
+                                    userId: linkedTask.assignee.toString()
+                                }
+                            });
+                        }
+
+                        console.log(`Notification sent to Suivi person ${linkedTask.assignee.toString()} about task ready for review`);
+                    }
+                }
+            }
+
             // Send notification to creator/manager if status changed to inReview
             if (status === 'inReview' &&
                 task.creator &&
@@ -667,8 +710,52 @@ class TaskService {
                 throw new Error('Task not found');
             }
 
+            // Debug task validation information
+            console.log(`TaskService - Review task: ${task.title}`);
+            console.log(`TaskService - Task status: ${task.status}`);
+            console.log(`TaskService - Task needs validation: ${task.needsValidation}`);
+            console.log(`TaskService - Linked task ID: ${task.linkedTaskId}`);
+            console.log(`TaskService - Decision: ${decision}`);
+            console.log(`TaskService - User ID: ${userId}`);
+            console.log(`TaskService - Task creator: ${task.creator.toString()}`);
+
+            // Check if this is a suivi task based on title or tags
+            const isSuiviTask = task.title && (
+                task.title.startsWith('Suivi:') ||
+                task.title.startsWith('SUIVI:') ||
+                task.title.toLowerCase().includes('suivi:')
+            ) || (task.tags && task.tags.some(tag =>
+                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+            ));
+
+            console.log(`TaskService - Is Suivi task: ${isSuiviTask}`);
+
+            // Check if this is a realization task
+            const isRealizationTask = task.title && task.title.startsWith('Réalisation:') ||
+                (task.tags && task.tags.includes('Realization'));
+
+            console.log(`TaskService - Is Realization task: ${isRealizationTask}`);
+
+            // For Suivi tasks, force needsValidation to false to ensure linked tasks get completed
+            if (isSuiviTask && task.linkedTaskId) {
+                console.log(`TaskService - Suivi task detected, forcing needsValidation=false`);
+                // Update the task to set needsValidation to false
+                await Task.findByIdAndUpdate(taskId, { needsValidation: false });
+                task.needsValidation = false;
+
+                // Verify the linked task exists
+                const linkedTaskCheck = await Task.findById(task.linkedTaskId);
+                if (!linkedTaskCheck) {
+                    console.error(`TaskService - WARNING: Linked task with ID ${task.linkedTaskId} not found for Suivi task ${taskId}!`);
+                } else {
+                    console.log(`TaskService - Verified linked task exists: ${linkedTaskCheck.title} (${linkedTaskCheck._id})`);
+                    console.log(`TaskService - Linked task assignee: ${linkedTaskCheck.assignee}`);
+                }
+            }
+
             // Check if user is the creator/manager of the task
             if (task.creator.toString() !== userId) {
+                console.log(`TaskService - Unauthorized: User ${userId} is not the creator ${task.creator}`);
                 throw new Error('Unauthorized to review this task');
             }
 
@@ -691,23 +778,232 @@ class TaskService {
                         await this.processTaskFiles(task);
                     }
 
-                    // Notify assignee
-                    await createNotification({
-                        type: 'TASK_ACCEPTED',
-                        message: `La tâche "${task.title}" a été acceptée`,
-                        userId: task.assignee.toString(),
-                        isRead: false
-                    });
+                    // Special handling for Suivi tasks with linked tasks - when a Suivi person validates
+                    if (isSuiviTask && task.linkedTaskId) {
+                        console.log(`TaskService - Special handling for Suivi task with linked task`);
+                        // Find the linked task (likely a realization task)
+                        const linkedTask = await Task.findById(task.linkedTaskId);
+                        if (linkedTask) {
+                            console.log(`TaskService - Found linked realization task: ${linkedTask.title}`);
+                            // Always mark the linked task as completed when validating a Suivi task
+                            await Task.findByIdAndUpdate(
+                                linkedTask._id,
+                                {
+                                    status: 'done',
+                                    completedAt: new Date()
+                                },
+                                { new: true }
+                            );
+                            console.log(`TaskService - Linked realization task marked as done`);
 
-                    if (global.io) {
-                        global.io.to(task.assignee.toString()).emit('notification', {
-                            type: 'NEW_NOTIFICATION',
-                            payload: {
-                                type: 'TASK_ACCEPTED',
-                                message: `La tâche "${task.title}" a été acceptée`,
-                                userId: task.assignee.toString()
+                            // Clear linked task's user cache
+                            if (linkedTask.assignee) {
+                                await this.clearUserTasksCache(linkedTask.assignee.toString());
                             }
+
+                            // 1. Send notification to the realization task assignee
+                            if (linkedTask.assignee) {
+                                await createNotification({
+                                    type: 'TASK_VALIDATED',
+                                    message: `La tâche "${linkedTask.title}" a été revue et validée par le responsable de suivi`,
+                                    userId: linkedTask.assignee.toString(),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: linkedTask._id,
+                                        linkedTaskId: task._id,
+                                        reviewerId: userId
+                                    },
+                                    createdAt: new Date()
+                                });
+
+                                // Real-time notification
+                                if (global.io) {
+                                    global.io.to(linkedTask.assignee.toString()).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            type: 'TASK_VALIDATED',
+                                            message: `La tâche "${linkedTask.title}" a été revue et validée par le responsable de suivi`,
+                                            userId: linkedTask.assignee.toString(),
+                                            metadata: {
+                                                taskId: linkedTask._id,
+                                                linkedTaskId: task._id,
+                                                reviewerId: userId
+                                            },
+                                            isRead: false,
+                                            createdAt: new Date()
+                                        }
+                                    });
+                                    console.log(`Enhanced notification sent to realization person (${linkedTask.assignee.toString()}) about task validation`);
+                                }
+
+                                // 2. Send notification to the task creator if different from assignee and reviewer
+                                if (linkedTask.creator &&
+                                    linkedTask.creator.toString() !== linkedTask.assignee?.toString() &&
+                                    linkedTask.creator.toString() !== userId) {
+
+                                    await createNotification({
+                                        type: 'TASK_COMPLETED',
+                                        message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
+                                        userId: linkedTask.creator.toString(),
+                                        isRead: false,
+                                        metadata: {
+                                            taskId: linkedTask._id,
+                                            linkedTaskId: task._id,
+                                            reviewerId: userId
+                                        },
+                                        createdAt: new Date()
+                                    });
+
+                                    // Real-time notification
+                                    if (global.io) {
+                                        global.io.to(linkedTask.creator.toString()).emit('notification', {
+                                            type: 'NEW_NOTIFICATION',
+                                            payload: {
+                                                type: 'TASK_COMPLETED',
+                                                message: `La tâche "${linkedTask.title}" a été complétée et validée par le responsable de suivi`,
+                                                userId: linkedTask.creator.toString(),
+                                                metadata: {
+                                                    taskId: linkedTask._id,
+                                                    linkedTaskId: task._id,
+                                                    reviewerId: userId
+                                                },
+                                                isRead: false,
+                                                createdAt: new Date()
+                                            }
+                                        });
+                                        console.log(`Enhanced notification sent to creator (${linkedTask.creator.toString()}) about task completion and validation`);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Regular handling for non-Suivi tasks (or tasks without linked tasks)
+                    else if (task.linkedTaskId && !task.needsValidation) {
+                        console.log(`TaskService - Linked task auto-completion triggered: needsValidation=${task.needsValidation}`);
+
+                        // Find the linked task
+                        const linkedTask = await Task.findById(task.linkedTaskId);
+
+                        // Log linked task details
+                        if (linkedTask) {
+                            console.log(`TaskService - Found linked task: ${linkedTask.title}`);
+                            console.log(`TaskService - Linked task status: ${linkedTask.status}`);
+                            console.log(`TaskService - Linked task needs validation: ${linkedTask.needsValidation}`);
+
+                            // Mark the linked task as completed
+                            await Task.findByIdAndUpdate(
+                                linkedTask._id,
+                                {
+                                    status: 'done',
+                                    completedAt: new Date()
+                                },
+                                { new: true }
+                            );
+                            console.log(`TaskService - Linked task marked as done`);
+
+                            // Clear linked task's user cache
+                            if (linkedTask.assignee) {
+                                await this.clearUserTasksCache(linkedTask.assignee.toString());
+                            }
+
+                            // Notify the linked task's assignee
+                            await createNotification({
+                                type: 'TASK_COMPLETED',
+                                message: `La tâche "${linkedTask.title}" a été automatiquement complétée suite à la validation de la tâche liée`,
+                                userId: linkedTask.assignee.toString(),
+                                isRead: false,
+                                metadata: {
+                                    taskId: linkedTask._id,
+                                    linkedTaskId: task._id
+                                },
+                                createdAt: new Date()
+                            });
+                            console.log(`Enhanced notification sent to linked task assignee`);
+
+                            if (global.io) {
+                                global.io.to(linkedTask.assignee.toString()).emit('notification', {
+                                    type: 'NEW_NOTIFICATION',
+                                    payload: {
+                                        type: 'TASK_COMPLETED',
+                                        message: `La tâche "${linkedTask.title}" a été automatiquement complétée suite à la validation de la tâche liée`,
+                                        userId: linkedTask.assignee.toString(),
+                                        metadata: {
+                                            taskId: linkedTask._id,
+                                            linkedTaskId: task._id
+                                        },
+                                        isRead: false,
+                                        createdAt: new Date()
+                                    }
+                                });
+                                console.log(`Enhanced socket notification sent to linked task assignee`);
+                            }
+                        } else {
+                            console.log(`TaskService - Linked task not found for ID: ${task.linkedTaskId}`);
+                        }
+                    } else {
+                        console.log(`TaskService - No linked task auto-completion: linkedTaskId=${task.linkedTaskId}, needsValidation=${task.needsValidation}`);
+                    }
+
+                    // Notify task assignee about task acceptance
+                    if (task.assignee && task.assignee.toString() !== userId) {
+                        await createNotification({
+                            type: 'TASK_ACCEPTED',
+                            message: `Votre tâche "${task.title}" a été acceptée et marquée comme terminée`,
+                            userId: task.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id
+                            },
+                            createdAt: new Date()
                         });
+
+                        if (global.io) {
+                            global.io.to(task.assignee.toString()).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_ACCEPTED',
+                                    message: `Votre tâche "${task.title}" a été acceptée et marquée comme terminée`,
+                                    userId: task.assignee.toString(),
+                                    metadata: {
+                                        taskId: task._id
+                                    },
+                                    isRead: false,
+                                    createdAt: new Date()
+                                }
+                            });
+                            console.log(`Enhanced notification sent to task assignee about acceptance`);
+                        }
+                    }
+
+                    // Notify manager if different from assignee
+                    if (task.creator.toString() !== task.assignee?.toString() && task.creator.toString() !== userId) {
+                        await createNotification({
+                            type: 'TASK_COMPLETED',
+                            message: `La tâche "${task.title}" a été complétée et acceptée`,
+                            userId: task.creator.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id
+                            },
+                            createdAt: new Date()
+                        });
+
+                        if (global.io) {
+                            global.io.to(task.creator.toString()).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_COMPLETED',
+                                    message: `La tâche "${task.title}" a été complétée et acceptée`,
+                                    userId: task.creator.toString(),
+                                    metadata: {
+                                        taskId: task._id
+                                    },
+                                    isRead: false,
+                                    createdAt: new Date()
+                                }
+                            });
+                            console.log(`Enhanced notification sent to task creator about completion`);
+                        }
                     }
                     break;
 
@@ -715,33 +1011,85 @@ class TaskService {
                     updatedTask = await Task.findByIdAndUpdate(
                         taskId,
                         {
-                            isDeclined: true,
-                            declineReason: feedback,
-                            declinedAt: new Date(),
-                            isArchived: true,
-                            archivedAt: new Date()
+                            status: 'todo',
+                            rejectionFeedback: feedback || 'Task declined without specific feedback'
                         },
                         { new: true }
                     ).populate('assignee', 'nom prenom')
                         .populate('creator', 'nom prenom');
 
-                    // Notify assignee
-                    await createNotification({
-                        type: 'TASK_DECLINED',
-                        message: `La tâche "${task.title}" a été refusée`,
-                        userId: task.assignee.toString(),
-                        isRead: false
-                    });
-
-                    if (global.io) {
-                        global.io.to(task.assignee.toString()).emit('notification', {
-                            type: 'NEW_NOTIFICATION',
-                            payload: {
-                                type: 'TASK_DECLINED',
-                                message: `La tâche "${task.title}" a été refusée`,
-                                userId: task.assignee.toString()
-                            }
+                    // Notify assignee about task declination
+                    if (task.assignee && task.assignee.toString() !== userId) {
+                        await createNotification({
+                            type: 'TASK_DECLINED',
+                            message: `Votre tâche "${task.title}" a été refusée. Raison: ${feedback || 'Aucune raison fournie'}`,
+                            userId: task.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                feedback: feedback || 'Aucune raison fournie'
+                            },
+                            createdAt: new Date()
                         });
+
+                        if (global.io) {
+                            global.io.to(task.assignee.toString()).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_DECLINED',
+                                    message: `Votre tâche "${task.title}" a été refusée. Raison: ${feedback || 'Aucune raison fournie'}`,
+                                    userId: task.assignee.toString(),
+                                    metadata: {
+                                        taskId: task._id,
+                                        feedback: feedback || 'Aucune raison fournie'
+                                    },
+                                    isRead: false,
+                                    createdAt: new Date()
+                                }
+                            });
+                            console.log(`Enhanced notification sent to task assignee about decline`);
+                        }
+                    }
+
+                    // Special handling for Suivi tasks - notify linked realization task
+                    if (isSuiviTask && task.linkedTaskId) {
+                        const linkedTask = await Task.findById(task.linkedTaskId);
+                        if (linkedTask && linkedTask.assignee) {
+                            // Only notify if assignee is different from current task assignee
+                            if (linkedTask.assignee.toString() !== task.assignee?.toString()) {
+                                await createNotification({
+                                    type: 'LINKED_TASK_DECLINED',
+                                    message: `La tâche liée "${task.title}" a été refusée, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
+                                    userId: linkedTask.assignee.toString(),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: linkedTask._id,
+                                        linkedTaskId: task._id,
+                                        feedback: feedback || 'Aucune raison fournie'
+                                    },
+                                    createdAt: new Date()
+                                });
+
+                                if (global.io) {
+                                    global.io.to(linkedTask.assignee.toString()).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            type: 'LINKED_TASK_DECLINED',
+                                            message: `La tâche liée "${task.title}" a été refusée, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
+                                            userId: linkedTask.assignee.toString(),
+                                            metadata: {
+                                                taskId: linkedTask._id,
+                                                linkedTaskId: task._id,
+                                                feedback: feedback || 'Aucune raison fournie'
+                                            },
+                                            isRead: false,
+                                            createdAt: new Date()
+                                        }
+                                    });
+                                    console.log(`Enhanced notification sent to linked task assignee about decline`);
+                                }
+                            }
+                        }
                     }
                     break;
 
@@ -750,29 +1098,84 @@ class TaskService {
                         taskId,
                         {
                             status: 'inProgress',
-                            feedback: feedback
+                            rejectionFeedback: feedback || 'Task returned for modifications'
                         },
                         { new: true }
                     ).populate('assignee', 'nom prenom')
                         .populate('creator', 'nom prenom');
 
-                    // Notify assignee
-                    await createNotification({
-                        type: 'TASK_RETURNED',
-                        message: `La tâche "${task.title}" vous a été retournée pour modifications`,
-                        userId: task.assignee.toString(),
-                        isRead: false
-                    });
-
-                    if (global.io) {
-                        global.io.to(task.assignee.toString()).emit('notification', {
-                            type: 'NEW_NOTIFICATION',
-                            payload: {
-                                type: 'TASK_RETURNED',
-                                message: `La tâche "${task.title}" vous a été retournée pour modifications`,
-                                userId: task.assignee.toString()
-                            }
+                    // Notify assignee about task being returned
+                    if (task.assignee && task.assignee.toString() !== userId) {
+                        await createNotification({
+                            type: 'TASK_RETURNED',
+                            message: `Votre tâche "${task.title}" a été retournée pour modification. Commentaires: ${feedback || 'Aucune précision fournie'}`,
+                            userId: task.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                feedback: feedback || 'Aucune précision fournie'
+                            },
+                            createdAt: new Date()
                         });
+
+                        if (global.io) {
+                            global.io.to(task.assignee.toString()).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_RETURNED',
+                                    message: `Votre tâche "${task.title}" a été retournée pour modification. Commentaires: ${feedback || 'Aucune précision fournie'}`,
+                                    userId: task.assignee.toString(),
+                                    metadata: {
+                                        taskId: task._id,
+                                        feedback: feedback || 'Aucune précision fournie'
+                                    },
+                                    isRead: false,
+                                    createdAt: new Date()
+                                }
+                            });
+                            console.log(`Enhanced notification sent to task assignee about return`);
+                        }
+                    }
+
+                    // Special handling for Suivi tasks - notify linked realization task
+                    if (isSuiviTask && task.linkedTaskId) {
+                        const linkedTask = await Task.findById(task.linkedTaskId);
+                        if (linkedTask && linkedTask.assignee) {
+                            // Only notify if assignee is different from current task assignee
+                            if (linkedTask.assignee.toString() !== task.assignee?.toString()) {
+                                await createNotification({
+                                    type: 'LINKED_TASK_RETURNED',
+                                    message: `La tâche liée "${task.title}" a été retournée pour modification, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
+                                    userId: linkedTask.assignee.toString(),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: linkedTask._id,
+                                        linkedTaskId: task._id,
+                                        feedback: feedback || 'Aucune précision fournie'
+                                    },
+                                    createdAt: new Date()
+                                });
+
+                                if (global.io) {
+                                    global.io.to(linkedTask.assignee.toString()).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            type: 'LINKED_TASK_RETURNED',
+                                            message: `La tâche liée "${task.title}" a été retournée pour modification, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
+                                            userId: linkedTask.assignee.toString(),
+                                            metadata: {
+                                                taskId: linkedTask._id,
+                                                linkedTaskId: task._id,
+                                                feedback: feedback || 'Aucune précision fournie'
+                                            },
+                                            isRead: false,
+                                            createdAt: new Date()
+                                        }
+                                    });
+                                    console.log(`Enhanced notification sent to linked task assignee about return`);
+                                }
+                            }
+                        }
                     }
                     break;
 
@@ -783,6 +1186,22 @@ class TaskService {
             // Clear user tasks cache
             if (task.assignee) {
                 await this.clearUserTasksCache(task.assignee.toString());
+            }
+
+            // Add a history entry
+            if (updatedTask) {
+                if (!updatedTask.history) {
+                    updatedTask.history = [];
+                }
+
+                updatedTask.history.push({
+                    user: userId,
+                    action: 'review',
+                    details: { decision, feedback },
+                    date: new Date()
+                });
+
+                await updatedTask.save();
             }
 
             return updatedTask;

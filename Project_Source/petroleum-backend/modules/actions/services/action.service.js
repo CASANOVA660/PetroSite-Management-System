@@ -29,45 +29,101 @@ class ActionService {
 
     async createAction(actionData) {
         try {
+            // Validate user IDs to ensure they are valid and exist
+            if (!actionData.responsible) {
+                throw new Error('Responsible user (realization) is required');
+            }
+
+            if (!actionData.responsibleFollowup) {
+                throw new Error('Responsible for follow-up is required');
+            }
+
+            // Ensure IDs are valid by querying the database
+            const User = require('../../users/models/User');
+            const realization = await User.findById(actionData.responsible);
+            const followUp = await User.findById(actionData.responsibleFollowup);
+
+            if (!realization) {
+                throw new Error(`User not found for realization (ID: ${actionData.responsible})`);
+            }
+
+            if (!followUp) {
+                throw new Error(`User not found for follow-up (ID: ${actionData.responsibleFollowup})`);
+            }
+
+            console.log(`Validated users - Realization: ${realization.prenom} ${realization.nom}, Follow-up: ${followUp.prenom} ${followUp.nom}`);
+
             const action = await new Action(actionData).save();
             const populatedAction = await action.populate(['responsible', 'responsibleFollowup', 'manager']);
 
-            // Create notification for the responsible user if they are different from the manager
-            if (action.responsible && action.responsible._id &&
-                action.responsible._id.toString() !== action.manager.toString()) {
-
+            // Create notification for the responsible user (realization)
+            if (action.responsible && action.responsible._id) {
                 // Create notification in database
                 await createNotification({
                     type: 'ACTION_ASSIGNED',
-                    message: `Une nouvelle action "${action.title}" vous a été assignée`,
+                    message: `Une nouvelle action "${action.title}" vous a été assignée pour réalisation`,
                     userId: action.responsible._id,
-                    isRead: false
+                    isRead: false,
+                    metadata: {
+                        actionId: action._id,
+                        role: 'realization'
+                    }
                 });
+
+                // Also send real-time notification
+                if (global.io) {
+                    global.io.to(String(action.responsible._id)).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'ACTION_ASSIGNED',
+                            message: `Une nouvelle action "${action.title}" vous a été assignée pour réalisation`,
+                            userId: action.responsible._id,
+                            metadata: {
+                                actionId: action._id,
+                                role: 'realization'
+                            },
+                            isRead: false,
+                            createdAt: new Date()
+                        }
+                    });
+                }
             }
 
-            // Create notification for the responsibleFollowup user if they are different from the manager and responsible
-            if (action.responsibleFollowup && action.responsibleFollowup._id &&
-                action.responsibleFollowup._id.toString() !== action.manager.toString() &&
-                action.responsibleFollowup._id.toString() !== action.responsible._id.toString()) {
-
+            // Create notification for the responsibleFollowup user
+            if (action.responsibleFollowup && action.responsibleFollowup._id) {
                 // Create notification in database
                 await createNotification({
                     type: 'ACTION_ASSIGNED_FOLLOWUP',
                     message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
                     userId: action.responsibleFollowup._id,
-                    isRead: false
+                    isRead: false,
+                    metadata: {
+                        actionId: action._id,
+                        role: 'followup'
+                    }
                 });
 
                 // Emit socket event for follow-up notification
-                global.io.to(String(action.responsibleFollowup._id)).emit('notification', {
-                    type: 'NEW_NOTIFICATION',
-                    payload: {
-                        type: 'ACTION_ASSIGNED_FOLLOWUP',
-                        message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
-                        userId: action.responsibleFollowup._id
-                    }
-                });
+                if (global.io) {
+                    global.io.to(String(action.responsibleFollowup._id)).emit('notification', {
+                        type: 'NEW_NOTIFICATION',
+                        payload: {
+                            type: 'ACTION_ASSIGNED_FOLLOWUP',
+                            message: `Une nouvelle action "${action.title}" vous a été assignée pour suivi`,
+                            userId: action.responsibleFollowup._id,
+                            metadata: {
+                                actionId: action._id,
+                                role: 'followup'
+                            },
+                            isRead: false,
+                            createdAt: new Date()
+                        }
+                    });
+                }
             }
+
+            // After notifications, create tasks for both users
+            await taskService.createTasksFromProjectAction(action._id);
 
             return populatedAction;
         } catch (error) {

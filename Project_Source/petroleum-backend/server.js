@@ -89,6 +89,21 @@ io.on('connection', (socket) => {
 // Make io and userSockets globally available
 global.io = io;
 global.userSockets = userSockets;
+
+// Debug socket connection status
+const debugSocketInterval = setInterval(() => {
+    const connectedUsers = Array.from(userSockets.keys());
+    if (connectedUsers.length > 0) {
+        logger.info(`Connected users via socket: ${connectedUsers.join(', ')}`);
+        logger.info(`Total socket connections: ${io.engine.clientsCount}`);
+    }
+}, 60000); // Log every minute
+
+// Socket error handling
+io.engine.on('connection_error', (err) => {
+    logger.error('Socket.io connection error:', err);
+});
+
 // Middleware
 app.use(cors({
     origin: "http://localhost:5173",

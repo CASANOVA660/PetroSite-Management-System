@@ -91,6 +91,8 @@ const ProgressDots = ({ percentage, total = 10 }: { percentage: number, total?: 
 const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails: (task: Task) => void }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const dragRef = React.useRef(null);
+    const { tasks } = useSelector((state: RootState) => state.tasks);
+    const [showStoreWarning, setShowStoreWarning] = useState(false);
 
     // Check if this is a suivi task
     const isSuiviTask = React.useMemo(() => {
@@ -106,6 +108,25 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
         );
     }, [task.title, task.tags]);
 
+    // Check if this is a realization task
+    const isRealizationTask = React.useMemo(() => {
+        return (
+            (task.title && task.title.startsWith('Réalisation:')) ||
+            (task.tags && task.tags.includes('Realization'))
+        );
+    }, [task.title, task.tags]);
+
+    // Check if there are tasks in the store
+    const hasTasksInStore = React.useMemo(() => {
+        const allOriginalTasks = [
+            ...(tasks.todo || []),
+            ...(tasks.inProgress || []),
+            ...(tasks.inReview || []),
+            ...(tasks.done || [])
+        ];
+        return allOriginalTasks.length > 0;
+    }, [tasks]);
+
     // Check if dragging should be prevented
     const canDragTask = !(
         // Always prevent dragging suivi tasks
@@ -113,21 +134,48 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
         // Prevent if task is in review and needs validation
         (task.status === 'inReview' && task.needsValidation) ||
         // Also prevent if it's a realization task in review
-        (task.status === 'inReview' &&
-            ((task.title && task.title.startsWith('Réalisation:')) ||
-                (task.tags && task.tags.includes('Realization'))))
+        (task.status === 'inReview' && isRealizationTask) ||
+        // Prevent if task is marked as done/completed
+        task.status === 'done' ||
+        // Prevent if store is empty
+        !hasTasksInStore
     );
+
+    // Ensure task ID is trimmed and valid
+    const taskId = React.useMemo(() => {
+        return task._id ? task._id.trim() : '';
+    }, [task._id]);
 
     // Setup drag functionality with React DnD
     const [{ isDragging }, drag] = useDrag<{ id: string; status: string }, unknown, { isDragging: boolean }>(() => ({
         type: ItemTypes.TASK_CARD,
-        item: { id: task._id, status: task.status },
+        item: {
+            id: taskId,
+            status: task.status
+        },
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging(),
         }),
         // Disable dragging for suivi tasks and tasks in review that need validation
-        canDrag: () => canDragTask
-    }));
+        canDrag: () => {
+            // Log why dragging is allowed or not
+            if (!canDragTask) {
+                if (!hasTasksInStore) {
+                    console.log(`Dragging disabled for task ${taskId}: Store is empty`);
+                    setShowStoreWarning(true);
+                    setTimeout(() => setShowStoreWarning(false), 3000);
+                } else {
+                    console.log(`Dragging disabled for task ${taskId}:`, {
+                        isSuiviTask,
+                        isInReview: task.status === 'inReview',
+                        needsValidation: task.needsValidation,
+                        isRealizationTask
+                    });
+                }
+            }
+            return canDragTask && !!taskId; // Ensure we have a valid ID
+        }
+    }), [task, taskId, canDragTask, isSuiviTask, isRealizationTask, hasTasksInStore]);
 
     // Connect the drag ref to the DOM node
     drag(dragRef);
@@ -192,7 +240,22 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
     return (
         <div
             ref={dragRef}
-            className={`bg-white rounded-xl shadow p-4 mb-3 border border-gray-200 ${isDragging ? 'opacity-50' : 'opacity-100'} ${canDragTask ? 'cursor-move' : 'cursor-not-allowed'}`}
+            className={`bg-white rounded-xl shadow p-4 mb-3 border border-gray-200 
+                ${isDragging ? 'opacity-50' : 'opacity-100'} 
+                ${canDragTask ? 'cursor-move' : 'cursor-not-allowed'}
+                ${showStoreWarning ? 'ring-2 ring-red-500 shake' : ''}
+                ${task.status === 'done' ? 'border-l-4 border-l-green-500' : ''}
+            `}
+            onMouseEnter={() => {
+                if (!hasTasksInStore) {
+                    setShowStoreWarning(true);
+                    toast.error('La fonctionnalité de glisser-déposer est temporairement indisponible. Actualisez la page.', {
+                        id: 'drag-drop-warning',
+                        duration: 3000
+                    });
+                }
+            }}
+            onMouseLeave={() => setShowStoreWarning(false)}
         >
             {/* Title and collapse button */}
             <div className="flex justify-between items-start mb-3">
@@ -203,7 +266,28 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
-                            {isSuiviTask ? 'Suit réalisation' : 'En révision'}
+                            {task.status === 'done' ? 'Tâche terminée' :
+                                isSuiviTask ? 'Suit réalisation' :
+                                    isRealizationTask && task.status === 'inReview' ? 'En révision' :
+                                        !hasTasksInStore ? 'Actualiser nécessaire' :
+                                            'Verrouillé'}
+                        </span>
+                    )}
+                    {/* Show completion status badge for done tasks */}
+                    {task.status === 'done' && (
+                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Tâche terminée
+                        </span>
+                    )}
+                    {showStoreWarning && !hasTasksInStore && (
+                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full flex items-center animate-pulse">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            Actualisez la page
                         </span>
                     )}
                 </div>
@@ -297,12 +381,13 @@ const DraggableTaskCard = ({ task, onViewDetails }: { task: Task, onViewDetails:
 };
 
 // Droppable task column component
-const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask }: {
+const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask, allTasks }: {
     title: string,
     tasks: Task[],
     columnId: string,
     onViewDetails: (task: Task) => void,
-    onDropTask: (taskId: string, newStatus: string) => void
+    onDropTask: (taskId: string, newStatus: string) => void,
+    allTasks: { todo: Task[], inProgress: Task[], inReview: Task[], done: Task[] }
 }) => {
     const statusLabels = {
         todo: "À faire",
@@ -319,12 +404,38 @@ const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask }: {
         accept: ItemTypes.TASK_CARD,
         drop: (item: { id: string, status: string }) => {
             console.log('Dropping task:', item);
-            onDropTask(item.id, columnId);
+
+            if (!item || !item.id) {
+                console.error('Missing task ID in drop item:', item);
+                toast.error('Erreur: ID de tâche manquant');
+                return;
+            }
+
+            // Check if we have any tasks
+            const tasksExist = allTasks &&
+                Object.values(allTasks).some(taskList => Array.isArray(taskList) && taskList.length > 0);
+
+            if (!tasksExist) {
+                console.error('Cannot drop: No tasks in store');
+                toast.error('Impossible de déplacer la tâche: aucune donnée disponible');
+                return;
+            }
+
+            // Ensure the ID is properly formatted and trimmed before passing it
+            const trimmedId = item.id.trim();
+            console.log(`Processed task ID for drop: ${trimmedId}`);
+
+            // Only update if the status is actually changing
+            if (item.status !== columnId) {
+                onDropTask(trimmedId, columnId);
+            } else {
+                console.log(`Task already in ${columnId} status, no need to update`);
+            }
         },
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
         }),
-    }));
+    }), [columnId, allTasks]);
 
     // Connect the drop ref to the DOM node
     drop(dropRef);
@@ -369,6 +480,29 @@ const TaskColumn = ({ title, tasks, columnId, onViewDetails, onDropTask }: {
         </div>
     );
 };
+
+// CSS animation for the shake effect
+const ShakeAnimation = () => (
+    <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            10% { transform: translateX(-5px); }
+            20% { transform: translateX(5px); }
+            30% { transform: translateX(-3px); }
+            40% { transform: translateX(3px); }
+            50% { transform: translateX(-2px); }
+            60% { transform: translateX(2px); }
+            70% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+            90% { transform: translateX(-1px); }
+            100% { transform: translateX(0); }
+        }
+        .shake {
+            animation: shake 0.8s ease-in-out;
+        }
+    `}} />
+);
 
 const Tasks: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -645,14 +779,71 @@ const Tasks: React.FC = () => {
     // Handle dropping a task to change its status
     const handleDropTask = useCallback(async (taskId: string, newStatus: string) => {
         try {
-            // Find the task in our current state
-            const allTasks = [...taskData.todo, ...taskData.inProgress, ...taskData.inReview, ...taskData.done];
-            const taskToUpdate = allTasks.find(t => t._id === taskId);
+            console.log(`Attempting to update task ${taskId} to status: ${newStatus}`);
 
-            if (!taskToUpdate) {
-                toast.error('Tâche non trouvée');
-                return;
+            // Check if we have any tasks at all in our state
+            const allOriginalTasks = [
+                ...(tasks.todo || []),
+                ...(tasks.inProgress || []),
+                ...(tasks.inReview || []),
+                ...(tasks.done || [])
+            ];
+
+            // Log task counts and first few IDs from each collection to help debug
+            console.log(`Original task count: ${allOriginalTasks.length}`);
+
+            // If we don't have any tasks, that's a problem - need to refresh
+            if (allOriginalTasks.length === 0) {
+                console.error('No tasks found in the store, need to refresh');
+                toast.error('Aucune tâche trouvée en mémoire. Actualisation nécessaire...');
+
+                // Try to refresh tasks automatically
+                try {
+                    toast.loading('Tentative d\'actualisation des tâches...', { id: 'auto-refresh' });
+                    await dispatch(fetchUserTasks({ includeProjectActions: true })).unwrap();
+                    toast.success('Tâches actualisées, veuillez réessayer', { id: 'auto-refresh' });
+                    return;
+                } catch (refreshErr) {
+                    console.error('Failed to auto-refresh tasks:', refreshErr);
+                    toast.error('Erreur lors de l\'actualisation. Veuillez actualiser manuellement.', { id: 'auto-refresh' });
+                    return;
+                }
             }
+
+            console.log(`Original task IDs sample:`, allOriginalTasks.slice(0, 3).map(t => t._id));
+
+            const allFilteredTasks = [...taskData.todo, ...taskData.inProgress, ...taskData.inReview, ...taskData.done];
+            console.log(`Filtered task count: ${allFilteredTasks.length}`);
+            console.log(`Filtered task IDs sample:`, allFilteredTasks.slice(0, 3).map(t => t._id));
+
+            // Try to directly match the ID first by removing any whitespace
+            const normalizedTaskId = taskId.trim();
+            console.log(`Normalized task ID for search: ${normalizedTaskId}`);
+
+            // First try to find the task in the filtered state
+            let taskToUpdate = allFilteredTasks.find(t => t._id === normalizedTaskId);
+
+            // If not found in filtered tasks, try to find in original tasks
+            if (!taskToUpdate) {
+                console.log(`Task ${normalizedTaskId} not found in filtered tasks, searching original tasks`);
+                taskToUpdate = allOriginalTasks.find(t => t._id === normalizedTaskId);
+
+                // Still not found, try a less strict comparison (ignoring whitespace and case)
+                if (!taskToUpdate) {
+                    console.log(`Task not found with exact match, trying case-insensitive match`);
+                    taskToUpdate = allOriginalTasks.find(t =>
+                        t._id.toLowerCase().trim() === normalizedTaskId.toLowerCase());
+
+                    // If still not found, show error and ask user to refresh
+                    if (!taskToUpdate) {
+                        console.error(`Task with ID ${normalizedTaskId} not found in any task list`);
+                        toast.error('Tâche non trouvée. Veuillez rafraîchir la page et réessayer.');
+                        return;
+                    }
+                }
+            }
+
+            console.log(`Found task to update:`, taskToUpdate);
 
             // Check if task is in review status
             if (taskToUpdate.status === 'inReview') {
@@ -684,7 +875,7 @@ const Tasks: React.FC = () => {
             ));
 
             // First update the task itself
-            await dispatch(updateTaskStatus({ taskId, status: newStatus })).unwrap();
+            await dispatch(updateTaskStatus({ taskId: taskToUpdate._id, status: newStatus })).unwrap();
 
             // If this is a task with a linked task, update the linked task too
             if (taskToUpdate.linkedTaskId) {
@@ -705,11 +896,15 @@ const Tasks: React.FC = () => {
             }
 
             toast.success('Statut de la tâche mis à jour');
+
+            // Refresh the task list to ensure it's up to date
+            dispatch(fetchUserTasks({ includeProjectActions: true }));
+
         } catch (err) {
             console.error('Error updating task status:', err);
             toast.error('Erreur lors de la mise à jour du statut');
         }
-    }, [dispatch, taskData]);
+    }, [dispatch, taskData, tasks]);
 
     const openAddTaskModal = () => {
         setIsAddTaskModalOpen(true);
@@ -749,6 +944,55 @@ const Tasks: React.FC = () => {
         }
     };
 
+    // Add a refresh function to the Tasks component
+    const refreshTasks = async () => {
+        try {
+            toast.loading('Actualisation des tâches...', { id: 'refresh-tasks' });
+
+            // Fetch all task types
+            await dispatch(fetchUserTasks({ includeProjectActions: true })).unwrap();
+            await dispatch(fetchProjectActionTasks()).unwrap();
+            await dispatch(fetchGlobalActionTasks()).unwrap();
+
+            toast.success('Tâches actualisées avec succès', { id: 'refresh-tasks' });
+        } catch (err) {
+            console.error('Error refreshing tasks:', err);
+            toast.error(`Erreur lors de l'actualisation des tâches: ${err instanceof Error ? err.message : 'Erreur inconnue'}`, { id: 'refresh-tasks' });
+        }
+    };
+
+    // Add an auto-refresh mechanism if tasks are empty
+    useEffect(() => {
+        // Only attempt auto-refresh if we're not already loading and have no tasks
+        const allTasksInStore = [
+            ...(tasks.todo || []),
+            ...(tasks.inProgress || []),
+            ...(tasks.inReview || []),
+            ...(tasks.done || [])
+        ];
+
+        if (!loading && allTasksInStore.length === 0) {
+            console.log('Tasks store is empty, scheduling auto-refresh');
+
+            // Set a timer to auto-refresh after 1 second
+            const refreshTimer = setTimeout(async () => {
+                console.log('Auto-refreshing tasks...');
+                try {
+                    toast.loading('Actualisation automatique des tâches...', { id: 'auto-refresh-timer' });
+                    await dispatch(fetchUserTasks({ includeProjectActions: true })).unwrap();
+                    await dispatch(fetchProjectActionTasks()).unwrap();
+                    await dispatch(fetchGlobalActionTasks()).unwrap();
+                    toast.success('Tâches actualisées automatiquement', { id: 'auto-refresh-timer' });
+                } catch (err) {
+                    console.error('Auto-refresh failed:', err);
+                    toast.error('Échec de l\'actualisation automatique', { id: 'auto-refresh-timer' });
+                }
+            }, 1000);
+
+            return () => clearTimeout(refreshTimer);
+        }
+    }, [tasks, loading, dispatch]);
+
     if (loading && Object.keys(tasks).length === 0) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -759,6 +1003,7 @@ const Tasks: React.FC = () => {
 
     return (
         <>
+            <ShakeAnimation />
             <PageMeta title="Tâches" description="Tableau de gestion des tâches" />
             <Toaster position="bottom-right" />
 
@@ -819,6 +1064,16 @@ const Tasks: React.FC = () => {
                             >
                                 <span>Tester API</span>
                             </button>
+
+                            <button
+                                onClick={refreshTasks}
+                                className="ml-2 bg-green-500 text-white rounded-md px-3 py-2 flex items-center"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                                </svg>
+                                <span>Actualiser</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -833,6 +1088,7 @@ const Tasks: React.FC = () => {
                             columnId="todo"
                             onViewDetails={handleViewTaskDetails}
                             onDropTask={handleDropTask}
+                            allTasks={taskData}
                         />
 
                         {/* In Progress Column */}
@@ -842,6 +1098,7 @@ const Tasks: React.FC = () => {
                             columnId="inProgress"
                             onViewDetails={handleViewTaskDetails}
                             onDropTask={handleDropTask}
+                            allTasks={taskData}
                         />
 
                         {/* In Review Column */}
@@ -851,6 +1108,7 @@ const Tasks: React.FC = () => {
                             columnId="inReview"
                             onViewDetails={handleViewTaskDetails}
                             onDropTask={handleDropTask}
+                            allTasks={taskData}
                         />
 
                         {/* Done Column */}
@@ -860,6 +1118,7 @@ const Tasks: React.FC = () => {
                             columnId="done"
                             onViewDetails={handleViewTaskDetails}
                             onDropTask={handleDropTask}
+                            allTasks={taskData}
                         />
                     </div>
                 </DndProvider>

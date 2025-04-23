@@ -2,7 +2,64 @@ const Notification = require('../models/Notification');
 const User = require('../../users/models/User');
 const mongoose = require('mongoose');
 
-const createNotification = async ({ type, message, userId, isRead = false, targetRole = null }) => {
+// Debug wrapper to track notification delivery status
+const trackNotificationDelivery = (userId, notification, socketId) => {
+  try {
+    if (global.io && socketId) {
+      console.log(`Tracking notification delivery for user ${userId} via socket ${socketId}`);
+
+      // Log important notification properties
+      const notificationType = notification.type;
+      const notificationRole = notification.metadata?.role || 'unspecified';
+      console.log(`Notification type: ${notificationType}, Role: ${notificationRole}`);
+
+      // Track socket event delivery
+      const ackTimeout = setTimeout(() => {
+        console.log(`⚠️ Socket notification may not have been delivered to user ${userId} (no acknowledgement)`);
+        console.log(`Notification details: type=${notificationType}, role=${notificationRole}`);
+      }, 2000);
+
+      global.io.to(socketId).emit('notification', {
+        type: 'NEW_NOTIFICATION',
+        payload: notification
+      }, () => {
+        clearTimeout(ackTimeout);
+        console.log(`✅ Socket notification delivered successfully to user ${userId}`);
+        console.log(`Delivered notification: type=${notificationType}, role=${notificationRole}`);
+      });
+
+      return true;
+    } else {
+      console.log(`❌ Could not deliver notification to user ${userId}. Socket connection issue.`);
+      console.log(`Socket ID: ${socketId ? socketId : 'Not connected'}`);
+      console.log(`global.io available: ${global.io ? 'Yes' : 'No'}`);
+      console.log(`global.userSockets has user: ${global.userSockets?.has(String(userId)) ? 'Yes' : 'No'}`);
+
+      // Try to find the user's name to help with debugging
+      User.findById(userId).select('nom prenom').then(user => {
+        if (user) {
+          console.log(`User ${userId} is ${user.prenom} ${user.nom}`);
+
+          // Check if this user has any other notifications of this type
+          Notification.find({ userId, type: notification.type }).then(existingNotifications => {
+            console.log(`User has ${existingNotifications.length} existing notifications of type ${notification.type}`);
+          });
+        } else {
+          console.log(`User ${userId} not found in database`);
+        }
+      }).catch(err => {
+        console.error(`Error looking up user ${userId}:`, err);
+      });
+
+      return false;
+    }
+  } catch (error) {
+    console.error(`Failed to deliver notification to user ${userId}:`, error);
+    return false;
+  }
+};
+
+const createNotification = async ({ type, message, userId, isRead = false, targetRole = null, metadata = null }) => {
   try {
     // If it's an ACCOUNT_ACTIVATION notification, only create it for managers
     if (type === 'ACCOUNT_ACTIVATION') {
@@ -16,6 +73,7 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
             message,
             userId: manager._id,
             isRead,
+            metadata,
             createdAt: new Date()
           })
         )
@@ -24,12 +82,7 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
       // Emit socket events for each manager
       notifications.forEach(notification => {
         const socketId = global.userSockets.get(String(notification.userId));
-        if (socketId) {
-          global.io.to(socketId).emit('notification', {
-            type: 'NEW_NOTIFICATION',
-            payload: notification
-          });
-        }
+        trackNotificationDelivery(notification.userId, notification, socketId);
       });
 
       console.log('Manager notifications created:', notifications);
@@ -41,19 +94,16 @@ const createNotification = async ({ type, message, userId, isRead = false, targe
         message,
         userId,
         isRead,
+        metadata,
         createdAt: new Date()
       });
 
       // Get the socket ID for this user
-      const socketId = global.userSockets.get(String(userId));
+      const socketId = global.userSockets?.get(String(userId));
+      console.log(`Creating notification for user ${userId}, socketId: ${socketId}`);
 
       // Emit socket event for real-time updates if user is connected
-      if (socketId) {
-        global.io.to(socketId).emit('notification', {
-          type: 'NEW_NOTIFICATION',
-          payload: notification
-        });
-      }
+      trackNotificationDelivery(userId, notification, socketId);
 
       console.log('Notification created:', notification);
       return notification;

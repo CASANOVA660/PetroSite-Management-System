@@ -141,6 +141,36 @@ class GlobalActionService {
     }
 
     async createGlobalAction(actionData) {
+        // Validate user IDs to ensure they are valid
+        if (!actionData.responsibleForRealization) {
+            throw new Error('Responsible for realization is required');
+        }
+
+        if (!actionData.responsibleForFollowUp) {
+            throw new Error('Responsible for follow-up is required');
+        }
+
+        // Ensure IDs are in valid ObjectId format
+        try {
+            // Validate user existence
+            const User = require('../../users/models/User');
+            const realization = await User.findById(actionData.responsibleForRealization);
+            const followUp = await User.findById(actionData.responsibleForFollowUp);
+
+            if (!realization) {
+                throw new Error(`User not found for realization role (ID: ${actionData.responsibleForRealization})`);
+            }
+
+            if (!followUp) {
+                throw new Error(`User not found for follow-up role (ID: ${actionData.responsibleForFollowUp})`);
+            }
+
+            console.log(`Validated users - Realization: ${realization.prenom} ${realization.nom}, Follow-up: ${followUp.prenom} ${followUp.nom}`);
+        } catch (error) {
+            console.error('Error validating user IDs:', error);
+            throw error;
+        }
+
         // If projectId is provided, verify project exists and get its details
         let projectDetails = null;
         if (actionData.projectId) {
@@ -166,31 +196,41 @@ class GlobalActionService {
         const savedAction = await globalAction.save();
 
         // Create notifications for both responsible users
-        const notificationMessages = [
-            {
-                type: 'ACTION_ASSIGNED',
-                message: `Une nouvelle action "${savedAction.title}" vous a été assignée pour réalisation${projectDetails ? ` dans le projet ${projectDetails.name}` : ''
-                    }`,
-                userId: savedAction.responsibleForRealization
-            },
-            {
-                type: 'ACTION_ASSIGNED_FOLLOWUP',
-                message: `Une nouvelle action "${savedAction.title}" vous a été assignée pour suivi${projectDetails ? ` dans le projet ${projectDetails.name}` : ''
-                    }`,
-                userId: savedAction.responsibleForFollowUp
-            }
-        ];
+        // Make sure we're clear about which notification goes to which user
+        const realizationNotification = {
+            type: 'ACTION_ASSIGNED',
+            message: `Une nouvelle action "${savedAction.title}" vous a été assignée pour réalisation${projectDetails ? ` dans le projet ${projectDetails.name}` : ''}`,
+            userId: savedAction.responsibleForRealization
+        };
 
-        await Promise.all(
-            notificationMessages.map(msg =>
-                createNotification({
-                    type: msg.type,
-                    message: msg.message,
-                    userId: msg.userId,
-                    isRead: false
-                })
-            )
-        );
+        const followupNotification = {
+            type: 'ACTION_ASSIGNED_FOLLOWUP',
+            message: `Une nouvelle action "${savedAction.title}" vous a été assignée pour suivi${projectDetails ? ` dans le projet ${projectDetails.name}` : ''}`,
+            userId: savedAction.responsibleForFollowUp
+        };
+
+        // Send each notification separately to ensure they go to the correct user
+        await createNotification({
+            type: realizationNotification.type,
+            message: realizationNotification.message,
+            userId: realizationNotification.userId,
+            isRead: false,
+            metadata: {
+                actionId: savedAction._id,
+                role: 'realization'
+            }
+        });
+
+        await createNotification({
+            type: followupNotification.type,
+            message: followupNotification.message,
+            userId: followupNotification.userId,
+            isRead: false,
+            metadata: {
+                actionId: savedAction._id,
+                role: 'followup'
+            }
+        });
 
         // Create tasks for both users
         try {

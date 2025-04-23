@@ -23,7 +23,11 @@ const notificationSchema = new mongoose.Schema({
             'TASK_ACCEPTED',
             'TASK_DECLINED',
             'TASK_RETURNED',
-            'TASK_COMPLETED'
+            'TASK_COMPLETED',
+            'TASK_VALIDATED',
+            'TASK_NEEDS_REVIEW',
+            'LINKED_TASK_DECLINED',
+            'LINKED_TASK_RETURNED'
         ]
     },
     message: {
@@ -38,6 +42,10 @@ const notificationSchema = new mongoose.Schema({
     isRead: {
         type: Boolean,
         default: false
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
     },
     createdAt: {
         type: Date,

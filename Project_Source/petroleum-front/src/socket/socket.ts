@@ -1,20 +1,54 @@
 import { io } from 'socket.io-client';
 import { API_URL } from '../config';
 
+// Configure socket with reconnection settings
 const socket = io(API_URL, {
-    autoConnect: false
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000
+});
+
+// Track the current user ID for reconnection
+let currentUserId: string | null = null;
+
+// Socket event listeners for debugging
+socket.on('connect', () => {
+    console.log('Socket connected:', socket.id);
+    // Re-authenticate on reconnection
+    if (currentUserId) {
+        socket.emit('authenticate', currentUserId);
+        console.log('Re-authenticated user:', currentUserId);
+    }
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Socket connection error:', error);
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected:', reason);
 });
 
 export const connectSocket = (userId: string) => {
+    currentUserId = userId;
     if (!socket.connected) {
+        console.log('Connecting socket for user:', userId);
         socket.connect();
         socket.emit('authenticate', userId);
+    } else {
+        // If already connected, make sure authentication is sent
+        socket.emit('authenticate', userId);
+        console.log('Socket already connected, re-authenticated user:', userId);
     }
 };
 
 export const disconnectSocket = () => {
     if (socket.connected) {
         socket.disconnect();
+        currentUserId = null;
     }
 };
 
