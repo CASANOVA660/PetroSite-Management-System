@@ -515,8 +515,8 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ isOpen, onClose }) => {
                                                         key={page}
                                                         onClick={() => goToPage(page)}
                                                         className={`px-3 py-1 rounded-md ${currentPage === page
-                                                                ? 'bg-blue-600 text-white'
-                                                                : 'text-gray-500 hover:bg-gray-100'
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'text-gray-500 hover:bg-gray-100'
                                                             }`}
                                                         aria-current={currentPage === page ? 'page' : undefined}
                                                     >

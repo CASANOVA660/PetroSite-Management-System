@@ -28,7 +28,8 @@ const notificationSchema = new mongoose.Schema({
             'TASK_NEEDS_REVIEW',
             'LINKED_TASK_DECLINED',
             'LINKED_TASK_RETURNED',
-            'TASK_VALIDATION_SUMMARY'
+            'TASK_VALIDATION_SUMMARY',
+            'TASK_VALIDATION_REQUESTED'
         ]
     },
     message: {

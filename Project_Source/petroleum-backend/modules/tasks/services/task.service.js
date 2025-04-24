@@ -272,40 +272,33 @@ class TaskService {
 
             console.log(`TaskService - Is Realization task: ${isRealizationTask}`);
 
-            // Find linked suivi task if this is a realization task changing to inReview
-            if (isRealizationTask && status === 'inReview' && task.linkedTaskId) {
-                const linkedTask = await Task.findById(task.linkedTaskId);
+            // For Suivi tasks, check needsValidation flag
+            if (task.title && (
+                task.title.startsWith('Suivi:') ||
+                task.title.startsWith('SUIVI:') ||
+                task.title.toLowerCase().includes('suivi:')
+            ) || (task.tags && task.tags.some(tag =>
+                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+            ))) {
+                console.log(`TaskService - Suivi task detected, needsValidation=${task.needsValidation}`);
 
-                if (linkedTask) {
-                    console.log(`Found linked Suivi task: ${linkedTask.title} for Realization task ${task.title}`);
+                // Only modify needsValidation if it's already false
+                // If it's true, we'll keep it true for manager validation
+                if (task.needsValidation === false) {
+                    console.log(`TaskService - Suivi task with needsValidation=false, proceeding with normal workflow`);
+                    // No changes needed - the existing workflow works fine
+                } else {
+                    console.log(`TaskService - Suivi task with needsValidation=true, will require manager validation`);
+                    // We'll keep needsValidation=true to trigger manager validation in the front-end
+                }
 
-                    // Send notification to the Suivi task assignee
-                    if (linkedTask.assignee) {
-                        await createNotification({
-                            type: 'TASK_NEEDS_REVIEW',
-                            message: `La tâche "${task.title}" est prête pour votre révision`,
-                            userId: linkedTask.assignee.toString(),
-                            isRead: false,
-                            metadata: {
-                                taskId: task._id,
-                                linkedTaskId: linkedTask._id
-                            }
-                        });
-
-                        // Real-time notification
-                        if (global.io) {
-                            global.io.to(linkedTask.assignee.toString()).emit('notification', {
-                                type: 'NEW_NOTIFICATION',
-                                payload: {
-                                    type: 'TASK_NEEDS_REVIEW',
-                                    message: `La tâche "${task.title}" est prête pour votre révision`,
-                                    userId: linkedTask.assignee.toString()
-                                }
-                            });
-                        }
-
-                        console.log(`Notification sent to Suivi person ${linkedTask.assignee.toString()} about task ready for review`);
-                    }
+                // Verify the linked task exists
+                const linkedTaskCheck = await Task.findById(task.linkedTaskId);
+                if (!linkedTaskCheck) {
+                    console.error(`TaskService - WARNING: Linked task with ID ${task.linkedTaskId} not found for Suivi task ${taskId}!`);
+                } else {
+                    console.log(`TaskService - Verified linked task exists: ${linkedTaskCheck.title} (${linkedTaskCheck._id})`);
+                    console.log(`TaskService - Linked task assignee: ${linkedTaskCheck.assignee}`);
                 }
             }
 
@@ -704,30 +697,37 @@ class TaskService {
     // Review a task (accept, decline, or return with feedback)
     async reviewTask(taskId, reviewData, userId) {
         try {
+            console.log(`TaskService - Reviewing task ${taskId} with decision: ${reviewData.decision}`);
             const { decision, feedback } = reviewData;
-            const task = await Task.findById(taskId);
 
+            // Validate decision
+            if (!decision || !['accept', 'decline', 'return'].includes(decision)) {
+                throw new Error('Invalid decision');
+            }
+
+            // Get the task
+            const task = await Task.findById(taskId).populate('assignee', 'nom prenom');
             if (!task) {
                 throw new Error('Task not found');
             }
 
-            // Debug task validation information
-            console.log(`TaskService - Review task: ${task.title}`);
+            console.log(`TaskService - Task found: ${task.title}`);
             console.log(`TaskService - Task status: ${task.status}`);
             console.log(`TaskService - Task needs validation: ${task.needsValidation}`);
-            console.log(`TaskService - Linked task ID: ${task.linkedTaskId}`);
-            console.log(`TaskService - Decision: ${decision}`);
-            console.log(`TaskService - User ID: ${userId}`);
-            console.log(`TaskService - Task creator: ${task.creator.toString()}`);
+            console.log(`TaskService - Task linked task ID: ${task.linkedTaskId}`);
+            console.log(`TaskService - Feedback: ${feedback}`);
 
-            // Check if this is a suivi task based on title or tags
-            const isSuiviTask = task.title && (
-                task.title.startsWith('Suivi:') ||
-                task.title.startsWith('SUIVI:') ||
-                task.title.toLowerCase().includes('suivi:')
-            ) || (task.tags && task.tags.some(tag =>
-                ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
-            ));
+            // Check if this is a Suivi task
+            const isSuiviTask = (
+                (task.title && (
+                    task.title.startsWith('Suivi:') ||
+                    task.title.startsWith('SUIVI:') ||
+                    task.title.toLowerCase().includes('suivi:')
+                )) ||
+                (task.tags && task.tags.some(tag =>
+                    ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+                ))
+            );
 
             console.log(`TaskService - Is Suivi task: ${isSuiviTask}`);
 
@@ -737,12 +737,19 @@ class TaskService {
 
             console.log(`TaskService - Is Realization task: ${isRealizationTask}`);
 
-            // For Suivi tasks, force needsValidation to false to ensure linked tasks get completed
+            // For Suivi tasks, check needsValidation flag
             if (isSuiviTask && task.linkedTaskId) {
-                console.log(`TaskService - Suivi task detected, forcing needsValidation=false`);
-                // Update the task to set needsValidation to false
-                await Task.findByIdAndUpdate(taskId, { needsValidation: false });
-                task.needsValidation = false;
+                console.log(`TaskService - Suivi task detected, needsValidation=${task.needsValidation}`);
+
+                // Only modify needsValidation if it's already false
+                // If it's true, we'll keep it true for manager validation
+                if (task.needsValidation === false) {
+                    console.log(`TaskService - Suivi task with needsValidation=false, proceeding with normal workflow`);
+                    // No changes needed - the existing workflow works fine
+                } else {
+                    console.log(`TaskService - Suivi task with needsValidation=true, will require manager validation`);
+                    // We'll keep needsValidation=true to trigger manager validation in the front-end
+                }
 
                 // Verify the linked task exists
                 const linkedTaskCheck = await Task.findById(task.linkedTaskId);
@@ -752,6 +759,133 @@ class TaskService {
                     console.log(`TaskService - Verified linked task exists: ${linkedTaskCheck.title} (${linkedTaskCheck._id})`);
                     console.log(`TaskService - Linked task assignee: ${linkedTaskCheck.assignee}`);
                 }
+            }
+
+            // SPECIAL CASE FOR MANAGER VALIDATION:
+            // If this is sent by suivi person for manager validation
+            if (isSuiviTask && task.needsValidation && feedback === 'pending_manager_validation') {
+                console.log(`TaskService - Suivi task sent for manager validation`);
+
+                // Update the task to mark it as pending manager validation but keep it in review
+                const updatedTask = await Task.findByIdAndUpdate(
+                    taskId,
+                    {
+                        reviewFeedback: 'pending_manager_validation'
+                    },
+                    { new: true }
+                );
+
+                // Send notification to the manager (creator)
+                if (task.creator) {
+                    await Notification.create({
+                        type: 'TASK_NEEDS_MANAGER_VALIDATION',
+                        message: `La tâche "${task.title}" a été validée par le superviseur et nécessite votre validation finale`,
+                        userId: task.creator.toString(),
+                        isRead: false,
+                        metadata: {
+                            taskId: task._id,
+                            linkedTaskId: task.linkedTaskId,
+                            validatedBy: userId
+                        }
+                    });
+
+                    // Real-time notification
+                    if (global.io) {
+                        const socketId = global.userSockets?.get(String(task.creator));
+                        if (socketId) {
+                            global.io.to(socketId).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_NEEDS_MANAGER_VALIDATION',
+                                    message: `La tâche "${task.title}" a été validée par le superviseur et nécessite votre validation finale`,
+                                    userId: task.creator.toString(),
+                                    metadata: {
+                                        taskId: task._id,
+                                        linkedTaskId: task.linkedTaskId,
+                                        validatedBy: userId
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+
+                return updatedTask;
+            }
+
+            // Special case for manager final validation (when needsValidation = true)
+            if (isSuiviTask && task.needsValidation && task.reviewFeedback === 'pending_manager_validation' && decision === 'accept') {
+                console.log(`TaskService - Manager is validating a suivi task that was pending validation`);
+
+                // Handle manager validation (complete both tasks)
+                const updatedTask = await Task.findByIdAndUpdate(
+                    taskId,
+                    {
+                        status: 'done',
+                        completedAt: new Date(),
+                        reviewFeedback: feedback || 'Validated by manager'
+                    },
+                    { new: true }
+                ).populate('assignee', 'nom prenom');
+
+                // Now also complete the linked realization task
+                if (task.linkedTaskId) {
+                    const linkedTask = await Task.findById(task.linkedTaskId);
+                    if (linkedTask) {
+                        await Task.findByIdAndUpdate(
+                            task.linkedTaskId,
+                            {
+                                status: 'done',
+                                completedAt: new Date()
+                            },
+                            { new: true }
+                        );
+
+                        // Send notifications to both assignees
+                        if (linkedTask.assignee) {
+                            await Notification.create({
+                                type: 'TASK_VALIDATED_BY_MANAGER',
+                                message: `La tâche "${linkedTask.title}" a été validée par le manager et est terminée`,
+                                userId: linkedTask.assignee.toString(),
+                                isRead: false,
+                                metadata: {
+                                    taskId: linkedTask._id,
+                                    linkedTaskId: task._id,
+                                    validatedBy: userId
+                                }
+                            });
+                        }
+
+                        if (task.assignee) {
+                            await Notification.create({
+                                type: 'TASK_VALIDATED_BY_MANAGER',
+                                message: `La tâche "${task.title}" a été validée par le manager et est terminée`,
+                                userId: task.assignee._id.toString(),
+                                isRead: false,
+                                metadata: {
+                                    taskId: task._id,
+                                    linkedTaskId: linkedTask._id,
+                                    validatedBy: userId
+                                }
+                            });
+                        }
+
+                        // Clear cache for both users
+                        if (linkedTask.assignee) {
+                            await this.clearUserTasksCache(linkedTask.assignee.toString());
+                        }
+                        if (task.assignee) {
+                            await this.clearUserTasksCache(task.assignee._id.toString());
+                        }
+                    }
+                }
+
+                // Clear the task creator's cache
+                if (task.creator) {
+                    await this.clearUserTasksCache(task.creator.toString());
+                }
+
+                return updatedTask;
             }
 
             // Check if user is the creator/manager of the task

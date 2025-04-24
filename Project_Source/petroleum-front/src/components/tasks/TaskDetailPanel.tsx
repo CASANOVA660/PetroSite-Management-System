@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     XMarkIcon,
     CalendarIcon,
@@ -13,7 +13,9 @@ import {
     ClockIcon,
     ArrowsPointingOutIcon,
     ArrowsPointingInIcon,
-    CheckIcon
+    CheckIcon,
+    ExclamationTriangleIcon,
+    InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
@@ -140,6 +142,16 @@ const getCleanTaskName = (taskTitle: string) => {
         .trim();
 };
 
+// Get user name safely with type checking
+const getUserName = (user: any) => {
+    if (!user) return '';
+    // Try different name properties that might exist
+    if (user.prenom && user.nom) return `${user.prenom} ${user.nom}`;
+    if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+    if (user.name) return user.name;
+    return 'Un utilisateur';
+};
+
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task }) => {
     const dispatch = useDispatch<AppDispatch>();
     const currentUser = useSelector((state: RootState) => state.auth.user);
@@ -158,6 +170,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
     const [returnReason, setReturnReason] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewFeedback, setReviewFeedback] = useState('');
+    const [isValidationSentToManager, setIsValidationSentToManager] = useState(false);
+    const [confirmPopover, setConfirmPopover] = useState<{ isOpen: boolean; type?: 'accept' | 'decline' }>({ isOpen: false });
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const [showReturnReasonModal, setShowReturnReasonModal] = useState(false);
 
     const panelStyles = (expanded: boolean): React.CSSProperties => ({
         position: 'fixed',
@@ -355,7 +371,58 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 return; // Exit early as we've handled the return case specially
             }
 
-            // For accept case, keep the original logic
+            // For accept case with tasks that need manager validation
+            if (decision === 'accept' && task.needsValidation) {
+                // Update the suivi task to show it's waiting for manager validation
+                Promise.resolve(dispatch(updateTask({
+                    ...task,
+                    reviewFeedback: 'pending_manager_validation'
+                })))
+                    .then(() => {
+                        console.log("Task updated, pending manager validation");
+                        toast.success("La tâche a été envoyée au manager pour validation finale");
+
+                        // Update local state to show that validation was sent to manager
+                        setIsValidationSentToManager(true);
+
+                        // Send notification to the manager (task creator)
+                        if (task.creator && task.creator._id) {
+                            // Send notification about task needing validation - using a valid type from backend
+                            const message = `La tâche "${task.title}" nécessite votre validation finale`;
+
+                            // Make a direct request to the notification API with a valid notification type
+                            axiosInstance.post('/notifications', {
+                                type: 'TASK_VALIDATION_REQUESTED', // Use existing valid notification type
+                                message,
+                                userId: String(task.creator._id),
+                                isRead: false,
+                                metadata: {
+                                    taskTitle: task.title,
+                                    taskId: task._id,
+                                    linkedTaskId: task.linkedTaskId,
+                                    sentBy: currentUser?._id
+                                }
+                            })
+                                .then(response => {
+                                    console.log("Manager notification sent successfully:", response.data);
+                                })
+                                .catch(error => {
+                                    console.error("Error sending manager notification:", error);
+                                });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error updating task for manager validation:", error);
+                        toast.error(`Erreur lors de l'envoi pour validation: ${error.message || "Erreur inconnue"}`);
+                    })
+                    .finally(() => {
+                        setReviewSubmitting(false);
+                    });
+
+                return; // Exit early as we've handled the accept with validation case
+            }
+
+            // For accept case without validation, keep the original logic
             if (decision === 'accept') {
                 // First update both tasks to done status directly
                 Promise.all([
@@ -612,6 +679,15 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
             document.body.style.overflow = 'auto';
         };
     }, [isOpen]);
+
+    // Add state to track if task is pending manager validation
+    const isPendingManagerValidation = React.useMemo(() => {
+        return task?.reviewFeedback === 'pending_manager_validation';
+    }, [task?.reviewFeedback]);
+
+    const isManager = React.useMemo(() => {
+        return currentUser?.role === 'manager' || currentUser?.role === 'admin';
+    }, [currentUser?.role]);
 
     if (!isOpen || !task) return null;
 
@@ -1175,16 +1251,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 window.__sentNotifications[key] = true;
             }
 
-            // Get user name safely with type checking
-            const getUserName = (user: any) => {
-                if (!user) return '';
-                // Try different name properties that might exist
-                if (user.prenom && user.nom) return `${user.prenom} ${user.nom}`;
-                if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
-                if (user.name) return user.name;
-                return 'Un utilisateur';
-            };
-
             const userData = {
                 name: getUserName(currentUser),
                 id: currentUser?._id || 'unknown'
@@ -1263,6 +1329,42 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
         }
     };
 
+    // Handle manager validation for tasks that were already approved by suivi
+    const handleManagerValidation = async (decision: 'accept' | 'decline') => {
+        if (!task || !task._id) return;
+
+        try {
+            setReviewSubmitting(true);
+
+            if (decision === 'accept') {
+                await dispatch(reviewTask({
+                    taskId: task._id,
+                    decision: 'accept',
+                    feedback: 'Validated by manager'
+                }));
+
+                toast.success('Tâche validée avec succès');
+            } else {
+                await dispatch(reviewTask({
+                    taskId: task._id,
+                    decision: 'decline',
+                    feedback: returnReason || 'Returned for modifications by manager'
+                }));
+
+
+                setShowReturnReason(false);
+                setReturnReason('');
+            }
+
+            setConfirmPopover({ isOpen: false });
+            setReviewSubmitting(false);
+        } catch (error) {
+            console.error('Error reviewing task:', error);
+            toast.error('Une erreur est survenue lors de la validation');
+            setReviewSubmitting(false);
+        }
+    };
+
     return (
         <>
             <div style={backdropStyles} onClick={handleBackdropClick} />
@@ -1307,7 +1409,19 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                         {isRealizationTask ? (
                                             <p>Cette tâche de réalisation est en cours de révision et ne peut pas être modifiée tant que le responsable de suivi ne l'a pas validée.</p>
                                         ) : isSuiviTask ? (
-                                            <p>La tâche a été marquée comme prête à être révisée. En tant que responsable de suivi, vous devez valider cette tâche.</p>
+                                            <>
+                                                <p>La tâche a été marquée comme prête à être révisée. En tant que responsable de suivi, vous devez valider cette tâche.</p>
+                                                {task?.needsValidation && (
+                                                    <p className="mt-2 font-medium bg-amber-100 p-2 rounded text-amber-800 border border-amber-200">
+                                                        <span className="flex items-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                            </svg>
+                                                            Cette tâche nécessite une validation du manager après votre approbation
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </>
                                         ) : (
                                             <p>La tâche a été marquée comme prête à être révisée par le responsable.</p>
                                         )}
@@ -1318,6 +1432,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     onClick={() => handleReviewTask('accept')}
                                                     className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 shadow-sm"
                                                     aria-label="Valider cette tâche"
+                                                    disabled={reviewSubmitting || isValidationSentToManager}
                                                 >
                                                     <CheckIcon className="h-5 w-5 mr-2" />
                                                     Valider
@@ -1329,6 +1444,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                     }}
                                                     className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm"
                                                     aria-label="Retourner pour modification"
+                                                    disabled={reviewSubmitting || isValidationSentToManager}
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -2057,6 +2173,143 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     )}
                 </div>
             </div>
+            {/* Show validation sent to manager message */}
+            {isValidationSentToManager && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center">
+                        <svg className="h-5 w-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm text-blue-700 font-medium">
+                            Cette tâche a été envoyée au manager pour validation finale. Les boutons sont désactivés en attendant la décision du manager.
+                        </p>
+                    </div>
+                </div>
+            )}
+            {/* Show needs validation message */}
+            {task?.needsValidation && !isValidationSentToManager && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center">
+                        <svg className="h-5 w-5 text-amber-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p className="text-sm text-amber-700 font-medium">
+                            Cette tâche nécessite la validation finale du manager. Après votre validation, elle sera envoyée au manager pour approbation.
+                        </p>
+                    </div>
+                </div>
+            )}
+            {/* Always show needs validation message at the top of the panel when needsValidation is true */}
+            {task?.needsValidation && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center">
+                        <svg className="h-5 w-5 text-amber-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <h3 className="text-sm font-medium text-amber-800">Cette tâche nécessite la validation manager</h3>
+                            <p className="mt-1 text-sm text-amber-700">
+                                Cette tâche requiert une validation finale du manager après la validation par le responsable de suivi.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isTaskInReview && (
+                <>
+                    {/* Add task validation notification for suivi tasks */}
+                    {task?.needsValidation && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-700">
+                                Cette tâche nécessite une validation du manager après votre approbation.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Manager validation section */}
+                    {isPendingManagerValidation && isManager && (
+                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                            <h4 className="text-sm font-medium text-purple-800 mb-2">Validation du manager requise</h4>
+                            <p className="text-sm text-purple-700 mb-3">
+                                Cette tâche a été approuvée par le responsable de suivi et nécessite votre validation finale.
+                            </p>
+                            {!showReturnReason ? (
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={() => setConfirmPopover({ isOpen: true, type: 'accept' })}
+                                        className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                                        disabled={reviewSubmitting}
+                                    >
+                                        Valider
+                                    </button>
+                                    <button
+                                        onClick={() => setShowReturnReason(true)}
+                                        className="px-3 py-1.5 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 text-sm font-medium"
+                                        disabled={reviewSubmitting}
+                                    >
+                                        Retourner
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label htmlFor="return-reason-manager" className="block text-sm font-medium text-gray-700 mb-1">
+                                            Raison du retour
+                                        </label>
+                                        <textarea
+                                            id="return-reason-manager"
+                                            rows={3}
+                                            className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                            value={returnReason}
+                                            onChange={(e) => setReturnReason(e.target.value)}
+                                            placeholder="Veuillez préciser la raison du retour..."
+                                        />
+                                    </div>
+                                    <div className="flex space-x-3">
+                                        <button
+                                            onClick={() => handleManagerValidation('decline')}
+                                            className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
+                                            disabled={reviewSubmitting}
+                                        >
+                                            Confirmer le retour
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowReturnReason(false);
+                                                setReturnReason('');
+                                            }}
+                                            className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium"
+                                            disabled={reviewSubmitting}
+                                        >
+                                            Annuler
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
+            )}
+            {/* Show status of review */}
+            {task?.status === 'inReview' && (
+                <div>
+                    {task.reviewFeedback && task.reviewFeedback !== 'pending_manager_validation' ? (
+                        <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <p className="text-sm text-yellow-700">
+                                <ExclamationTriangleIcon className="inline-block h-5 w-5 mr-1 text-yellow-500" />
+                                {task.reviewFeedback}
+                            </p>
+                        </div>
+                    ) : isPendingManagerValidation ? (
+                        <div className="mt-2 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                            <p className="text-sm font-medium text-amber-800">
+                                <InformationCircleIcon className="inline-block h-5 w-5 mr-1 text-amber-500" />
+                                En attente de validation finale par le manager
+                            </p>
+                        </div>
+                    ) : null}
+                </div>
+            )}
         </>
     );
 };

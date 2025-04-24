@@ -7,9 +7,12 @@ import { AppDispatch, RootState } from '../../store';
 import {
     fetchTasksWithCommentsForAction,
     addCommentToActionTask,
-    uploadFileToActionTask
+    uploadFileToActionTask,
+    reviewTask
 } from '../../store/slices/taskSlice';
-import { PaperClipIcon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, DocumentIcon, PhotoIcon, ArrowDownTrayIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PaperClipIcon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon, DocumentIcon, PhotoIcon, ArrowDownTrayIcon, XMarkIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
+import axiosInstance from '../../utils/axios';
 
 interface GlobalActionViewProps {
     action: GlobalAction | any;
@@ -27,6 +30,8 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
     const [commentText, setCommentText] = useState('');
     const [uploading, setUploading] = useState<Record<string, number>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [managerFeedback, setManagerFeedback] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
     useEffect(() => {
         if (action && action._id) {
@@ -238,8 +243,132 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
         }
     };
 
+    // Check if the current user is a manager
+    const isManager = user && (user.role === 'manager' || user.role === 'Manager');
+
+    // Check for tasks that need manager validation
+    const tasksNeedingManagerValidation = actionTasks.filter(task =>
+        task.status === 'inReview' &&
+        task.needsValidation
+    );
+
+    // Debug logs
+    console.log('GlobalActionView - Current user role:', user?.role);
+    console.log('GlobalActionView - Is manager?', isManager);
+    console.log('GlobalActionView - Total action tasks:', actionTasks.length);
+    console.log('GlobalActionView - Tasks needing validation:', tasksNeedingManagerValidation);
+    console.log('GlobalActionView - Tasks with reviewFeedback:', actionTasks.filter(task => task.reviewFeedback === 'pending_manager_validation'));
+    console.log('GlobalActionView - Tasks in review status:', actionTasks.filter(task => task.status === 'inReview'));
+    console.log('GlobalActionView - Tasks with needsValidation:', actionTasks.filter(task => task.needsValidation));
+
+    // Handle manager validation of a task
+    const handleManagerValidation = async (taskId: string, decision: 'accept' | 'return', feedback?: string) => {
+        if (!taskId) return;
+
+        try {
+            setReviewSubmitting(true);
+
+            // Get the task that's being validated
+            const taskToValidate = actionTasks.find(t => t._id === taskId);
+            if (!taskToValidate) {
+                throw new Error("Task not found");
+            }
+
+            // Let the backend handle all notifications and task updates
+            console.log('Submitting task review:', {
+                taskId,
+                decision,
+                feedback: feedback || undefined,
+                taskTitle: taskToValidate.title
+            });
+
+            // Use the review task API endpoint which handles everything including notifications
+            await dispatch(reviewTask({
+                taskId,
+                decision,
+                feedback: decision === 'return' ? feedback : undefined
+            })).unwrap();
+
+            // Show success message
+            toast.success(
+                decision === 'accept'
+                    ? 'La tâche a été validée avec succès'
+                    : 'La tâche a été retournée pour modification'
+            );
+
+            // Refresh tasks after validation
+            if (action && action._id) {
+                dispatch(fetchTasksWithCommentsForAction({
+                    actionId: action._id,
+                    isProjectAction: !!action.isProjectAction
+                }));
+            }
+        } catch (error: any) {
+            console.error('Error during task validation:', error);
+            toast.error(`Erreur: ${error.message || 'Problème lors de la validation'}`);
+        } finally {
+            setReviewSubmitting(false);
+            setManagerFeedback('');
+        }
+    };
+
     const renderDetailsTab = () => (
         <div className="space-y-6">
+            {/* Manager validation banner - prominently displayed at the top */}
+            {isManager && tasksNeedingManagerValidation.length > 0 && (
+                <div className="p-4 rounded-lg border-l-4 border-amber-500 bg-amber-50 shadow-sm mb-4">
+                    <div className="flex items-start">
+                        <ExclamationTriangleIcon className="h-6 w-6 text-amber-500 mr-3 flex-shrink-0" />
+                        <div>
+                            <h3 className="font-semibold text-amber-800 mb-2">
+                                Tâches nécessitant votre validation finale ({tasksNeedingManagerValidation.length})
+                            </h3>
+                            {tasksNeedingManagerValidation.map(task => (
+                                <div key={task._id} className="mb-4 p-4 bg-white rounded-lg border border-amber-200">
+                                    <div className="mb-2">
+                                        <h4 className="font-medium text-gray-800">{task.title}</h4>
+                                        <div className="flex flex-col text-sm text-gray-600 mt-1">
+                                            <span>Assigné à: {task.assignee?.prenom} {task.assignee?.nom}</span>
+                                            {task.linkedTaskId &&
+                                                <span className="text-amber-600">Tâche liée: {
+                                                    actionTasks.find(t => t._id === task.linkedTaskId)?.title || 'Tâche liée'
+                                                }</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    {/* Manager validation actions */}
+                                    <div className="flex space-x-3 mt-3">
+                                        <button
+                                            onClick={() => handleManagerValidation(task._id, 'accept')}
+                                            className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center"
+                                            disabled={reviewSubmitting}
+                                        >
+                                            <CheckIcon className="h-4 w-4 mr-1" />
+                                            Valider définitivement
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setManagerFeedback('');
+                                                // Open a prompt dialog for feedback
+                                                const feedback = prompt('Raison du retour pour modification:');
+                                                if (feedback) {
+                                                    handleManagerValidation(task._id, 'return', feedback);
+                                                }
+                                            }}
+                                            className="px-3 py-2 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 transition-colors"
+                                            disabled={reviewSubmitting}
+                                        >
+                                            Retourner pour modification
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="p-4 rounded-lg bg-gray-50 border border-gray-100 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-3">{action.title}</h2>
                 <p className="text-gray-600 mb-3">{action.content}</p>
@@ -327,11 +456,45 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                                             <span className="inline-block w-2 h-2 rounded-full bg-gray-300 mr-1"></span>
                                             {task.assignee.nom} {task.assignee.prenom}
                                         </p>
+                                        {task.status === 'inReview' && task.needsValidation && (
+                                            <div className="mt-1 text-xs text-amber-600 flex items-center">
+                                                <ExclamationTriangleIcon className="h-3.5 w-3.5 mr-1" />
+                                                Nécessite validation manager
+                                            </div>
+                                        )}
                                     </div>
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTaskStatusColor(task.status)}`}>
                                         {getTaskStatusLabel(task.status)}
                                     </span>
                                 </div>
+
+                                {/* Manager validation section - only shown if task needs validation */}
+                                {isManager && task.status === 'inReview' && task.needsValidation && (
+                                    <div className="mt-3 border-t pt-3 border-gray-100">
+                                        <div className="flex space-x-3 mt-2">
+                                            <button
+                                                onClick={() => handleManagerValidation(task._id, 'accept')}
+                                                className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center"
+                                                disabled={reviewSubmitting}
+                                            >
+                                                <CheckIcon className="h-4 w-4 mr-1" />
+                                                Valider définitivement
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const feedback = prompt('Raison du retour pour modification:');
+                                                    if (feedback) {
+                                                        handleManagerValidation(task._id, 'return', feedback);
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 transition-colors"
+                                                disabled={reviewSubmitting}
+                                            >
+                                                Retourner pour modification
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
