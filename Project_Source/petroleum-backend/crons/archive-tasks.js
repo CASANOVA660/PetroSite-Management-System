@@ -2,11 +2,8 @@
  * Cron job to automatically archive completed tasks that are older than a certain threshold
  */
 const cron = require('node-cron');
-const TaskService = require('../modules/tasks/services/task.service');
+const taskService = require('../modules/tasks/services/task.service');
 const logger = require('../utils/logger');
-
-// Create an instance of the task service
-const taskService = new TaskService();
 
 // Archive completed tasks that are older than 24 hours (runs at midnight every day)
 const archiveTasksJob = cron.schedule('0 0 * * *', async () => {
