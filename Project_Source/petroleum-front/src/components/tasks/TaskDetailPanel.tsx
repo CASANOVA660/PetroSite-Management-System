@@ -300,64 +300,42 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         })).unwrap() :
                         Promise.resolve()
                 ])
-                    .then(() => {
-                        console.log("Return task Promise.all completed successfully");
-                        toast.success("La tâche de réalisation a été retournée pour modification");
+                    .then(async () => {
+                        console.log('Tasks status updated successfully');
 
-                        // Send notification to the realization task assignee
-                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
-                            // Send notification about task being returned
-                            const message = `Votre tâche "${linkedTaskData.title}" a été retournée pour modification. Raison: ${returnReason}`;
-
-                            // Make a direct request to the notification API
-                            axiosInstance.post('/notifications', {
-                                type: 'LINKED_TASK_RETURNED',
-                                message,
-                                userId: String(linkedTaskData.assignee._id),
-                                isRead: false,
-                                metadata: {
-                                    taskTitle: linkedTaskData.title,
-                                    feedback: returnReason,
-                                    taskId: linkedTaskData._id,
-                                    linkedTaskId: task._id,
-                                    returnedBy: currentUser?._id
-                                }
-                            })
-                                .then(response => {
-                                    console.log("Return notification sent successfully:", response.data);
-
-                                    // Also try sending via socket
-                                    try {
-                                        // @ts-ignore
-                                        if (window.socket && window.socket.connected) {
-                                            // @ts-ignore
-                                            window.socket.emit('direct-notification', {
-                                                userId: String(linkedTaskData.assignee._id),
-                                                notification: {
-                                                    type: 'LINKED_TASK_RETURNED',
-                                                    message,
-                                                    metadata: {
-                                                        taskTitle: linkedTaskData.title,
-                                                        feedback: returnReason,
-                                                        taskId: linkedTaskData._id
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    } catch (socketError) {
-                                        console.error("Socket notification failed:", socketError);
+                        // Send notifications to linked task assignee
+                        if (linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                            try {
+                                // Notify the realization task assignee that it's been returned
+                                axiosInstance.post('/notifications', {
+                                    type: 'TASK_RETURNED',
+                                    message: `Votre tâche de réalisation "${linkedTaskData.title}" a été retournée pour modification. Raison: ${returnReason}`,
+                                    userId: linkedTaskData.assignee._id.toString(),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: linkedTaskData._id,
+                                        linkedTaskId: task._id,
+                                        returnReason: returnReason || 'Aucune raison spécifiée'
                                     }
-                                })
-                                .catch(error => {
-                                    console.error("Error sending return notification:", error);
                                 });
+
+                                // Also emit socket event
+                                sendDirectNotification(
+                                    linkedTaskData.assignee._id.toString(),
+                                    'TASK_RETURNED',
+                                    `Votre tâche de réalisation "${linkedTaskData.title}" a été retournée pour modification.`,
+                                    {
+                                        taskId: linkedTaskData._id,
+                                        linkedTaskId: task._id,
+                                        returnReason: returnReason
+                                    }
+                                );
+                            } catch (error) {
+                                console.error('Error sending notification:', error);
+                            }
                         }
 
-                        // Reset the return reason form
-                        setReturnReason('');
-                        setShowReturnReason(false);
-
-                        onClose();
+                        toast.success(`La tâche a été retournée pour modification`);
                     })
                     .catch((error) => {
                         console.error("Error returning tasks:", error);
@@ -373,43 +351,50 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
             // For accept case with tasks that need manager validation
             if (decision === 'accept' && task.needsValidation) {
+                // Show immediate UI feedback by disabling buttons and changing state
+                setIsValidationSentToManager(true);
+
                 // Update the suivi task to show it's waiting for manager validation
                 Promise.resolve(dispatch(updateTask({
                     ...task,
                     reviewFeedback: 'pending_manager_validation'
                 })))
-                    .then(() => {
-                        console.log("Task updated, pending manager validation");
-                        toast.success("La tâche a été envoyée au manager pour validation finale");
+                    .then(async () => {
+                        console.log('Task updated to pending manager validation');
 
-                        // Update local state to show that validation was sent to manager
-                        setIsValidationSentToManager(true);
-
-                        // Send notification to the manager (task creator)
+                        // Send notification to the manager (task creator) that validation is needed
                         if (task.creator && task.creator._id) {
-                            // Send notification about task needing validation - using a valid type from backend
-                            const message = `La tâche "${task.title}" nécessite votre validation finale`;
-
-                            // Make a direct request to the notification API with a valid notification type
-                            axiosInstance.post('/notifications', {
-                                type: 'TASK_VALIDATION_REQUESTED', // Use existing valid notification type
-                                message,
-                                userId: String(task.creator._id),
-                                isRead: false,
-                                metadata: {
-                                    taskTitle: task.title,
-                                    taskId: task._id,
-                                    linkedTaskId: task.linkedTaskId,
-                                    sentBy: currentUser?._id
-                                }
-                            })
-                                .then(response => {
-                                    console.log("Manager notification sent successfully:", response.data);
-                                })
-                                .catch(error => {
-                                    console.error("Error sending manager notification:", error);
+                            try {
+                                // Direct notification to manager
+                                await axiosInstance.post('/notifications', {
+                                    type: 'TASK_VALIDATION_REQUESTED',
+                                    message: `La tâche "${task.title}" a été validée par ${currentUser ? `${(currentUser as any).prenom || ''} ${(currentUser as any).nom || ''}` : 'un utilisateur'} et nécessite votre validation finale`,
+                                    userId: String(task.creator._id),
+                                    isRead: false,
+                                    metadata: {
+                                        taskId: task._id,
+                                        linkedTaskId: task.linkedTaskId,
+                                        validatedBy: currentUser?._id,
+                                        taskTitle: task.title.replace(/^(Suivi:|SUIVI:)\s*/, '')
+                                    }
                                 });
+
+                                // Also send socket notification
+                                sendDirectNotification(
+                                    String(task.creator._id),
+                                    'TASK_VALIDATION_REQUESTED',
+                                    `La tâche "${task.title}" nécessite votre validation finale`,
+                                    {
+                                        taskId: task._id,
+                                        linkedTaskId: task.linkedTaskId
+                                    }
+                                );
+                            } catch (error) {
+                                console.error('Error sending notification to manager:', error);
+                            }
                         }
+
+                        toast.success('La tâche a été envoyée au manager pour validation finale');
                     })
                     .catch((error) => {
                         console.error("Error updating task for manager validation:", error);
@@ -440,126 +425,91 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         })).unwrap() :
                         Promise.resolve()
                 ])
-                    .then(() => {
-                        toast.success("La tâche de suivi a été validée avec succès");
-                        toast.success("La tâche de réalisation a été automatiquement marquée comme complétée");
+                    .then(async () => {
+                        console.log('Tasks completed successfully');
 
-                        // First, send notifications to task assignees
-                        if (task.assignee && task.assignee._id) {
-                            sendTaskCompletionNotification(task.title, task.assignee._id, false);
-                        }
-
-                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                        // 1. Send notification to realization task assignee
+                        if (linkedTaskData.assignee && linkedTaskData.assignee._id) {
                             sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
                         }
 
-                        // Send single combined notification to manager (if different from assignee)
-                        if (task.creator && task.creator._id) {
-                            // Extract the core task name without the prefix
-                            const baseTaskName = getCleanTaskName(task.title);
-                            sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
+                        // 2. Send notification to the manager (task creator)
+                        if (task.creator && task.creator._id &&
+                            (!task.assignee || task.creator._id !== task.assignee._id)) {
+                            sendTaskCompletionNotification(task.title, task.creator._id, true);
                         }
 
-                        onClose();
+                        toast.success(`Les deux tâches ont été validées et terminées`);
                     })
                     .catch((error) => {
-                        console.error("Error updating tasks:", error);
-                        toast.error(`Erreur lors de la validation: ${error.message || "Erreur inconnue"}`);
+                        console.error("Error completing tasks:", error);
+                        toast.error(`Erreur lors de la complétion des tâches: ${error.message || "Erreur inconnue"}`);
                     })
                     .finally(() => {
                         setReviewSubmitting(false);
                     });
 
-                return; // Exit early as we've handled the accept case specially
+                return; // Exit early as we've handled the linked tasks case
             }
         }
 
-        // Regular flow using reviewTask API
-        dispatch(
-            reviewTask({
-                taskId: task._id,
-                decision,
-                feedback: decision === 'return' ? returnReason : reviewFeedback || undefined,
-            })
-        )
+        // For realization tasks or non-linked tasks, handle validation regularly
+        if (isRealizationTask && task.status === 'inReview') {
+            // If this is a realization task being sent to review, notify the suivi person
+            try {
+                if (decision === 'accept' && task.creator && task.creator._id) {
+                    // Send a notification to the suivi person (creator) that the task is ready for review
+                    axiosInstance.post('/notifications', {
+                        type: 'TASK_NEEDS_REVIEW',
+                        message: `La tâche de réalisation "${task.title}" a été marquée comme prête à être révisée`,
+                        userId: String(task.creator._id),
+                        isRead: false,
+                        metadata: {
+                            taskId: task._id,
+                            taskTitle: task.title.replace(/^(Réalisation:|RÉALISATION:)\s*/, '')
+                        }
+                    });
+
+                    sendDirectNotification(
+                        String(task.creator._id),
+                        'TASK_NEEDS_REVIEW',
+                        `La tâche "${task.title}" est prête pour votre révision`,
+                        {
+                            taskId: task._id
+                        }
+                    );
+                }
+            } catch (error) {
+                console.error('Error sending notification to suivi:', error);
+            }
+        }
+
+        // Default review logic for single tasks that don't fit the special cases above
+        dispatch(reviewTask({
+            taskId: task._id,
+            decision,
+            feedback: decision === 'return' ? returnReason : reviewFeedback
+        }))
             .unwrap()
-            .then(() => {
-                // Show success message based on decision
+            .then((updatedTask) => {
+                console.log('Task reviewed successfully:', updatedTask);
+
                 if (decision === 'accept') {
-                    toast.success("La tâche a été acceptée avec succès");
-
-                    // Show additional message if the task doesn't require validation
-                    if (!task.needsValidation && task.linkedTaskId) {
-                        toast.success("La tâche liée a été automatiquement marquée comme complétée");
-                    }
-
-                    // Send notifications for accepted tasks in the normal flow too
-                    try {
-                        console.log("Sending notifications for normal task acceptance flow");
-
-                        // Clear tracking of sent notifications
-                        window.__sentNotifications = {};
-
-                        // Send to task assignee
-                        if (task.assignee && task.assignee._id) {
-                            sendTaskCompletionNotification(task.title, task.assignee._id, false);
-                        }
-
-                        // Extract clean base task name
-                        const baseTaskName = getCleanTaskName(task.title);
-
-                        // Send to manager/creator if different from assignee
-                        if (task.creator && task.creator._id &&
-                            (!task.assignee || task.creator._id !== task.assignee._id)) {
-                            sendTaskCompletionNotification(baseTaskName, task.creator._id, true);
-                        }
-
-                        // If there's a linked task, notify its assignee but NOT the manager again
-                        if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
-                            sendTaskCompletionNotification(linkedTaskData.title, linkedTaskData.assignee._id, false);
-                        }
-                    } catch (notifError) {
-                        console.error("Error sending notifications:", notifError);
-                    }
+                    toast.success('La tâche a été validée et terminée');
                 } else if (decision === 'decline') {
-                    toast.success("La tâche a été refusée");
-                } else if (decision === 'return') {
-                    toast.success("La tâche a été retournée pour modification");
-
-                    // Reset the return reason form
-                    setReturnReason('');
-                    setShowReturnReason(false);
-
-                    // Send notification to the task assignee
-                    if (task.assignee && task.assignee._id) {
-                        const message = `Votre tâche "${task.title}" a été retournée pour modification. Raison: ${returnReason}`;
-
-                        // Make a direct request to the notification API
-                        axiosInstance.post('/notifications', {
-                            type: 'TASK_RETURNED',
-                            message,
-                            userId: String(task.assignee._id),
-                            isRead: false,
-                            metadata: {
-                                taskTitle: task.title,
-                                feedback: returnReason,
-                                taskId: task._id,
-                                returnedBy: currentUser?._id
-                            }
-                        })
-                            .then(response => {
-                                console.log("Return notification sent successfully:", response.data);
-                            })
-                            .catch(error => {
-                                console.error("Error sending return notification:", error);
-                            });
-                    }
+                    toast.success('La tâche a été refusée');
+                } else {
+                    toast.success('La tâche a été retournée pour modification');
                 }
 
-                onClose();
+                // Reset UI state
+                setShowReturnReason(false);
+                setReturnReason('');
+                setReviewFeedback('');
             })
             .catch((error) => {
-                toast.error(`Erreur lors de la revue: ${error.message}`);
+                console.error('Error reviewing task:', error);
+                toast.error(`Erreur lors de la validation: ${error.message || 'Erreur inconnue'}`);
             })
             .finally(() => {
                 setReviewSubmitting(false);
@@ -1331,27 +1281,84 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
     // Handle manager validation for tasks that were already approved by suivi
     const handleManagerValidation = async (decision: 'accept' | 'decline') => {
-        if (!task || !task._id) return;
+        if (!task) return;
+
+        setReviewSubmitting(true);
+        setConfirmPopover({ isOpen: false });
 
         try {
-            setReviewSubmitting(true);
+            console.log(`Manager validation for task ${task._id} with decision: ${decision}`);
 
             if (decision === 'accept') {
+                // Manager accepts the task - mark it as done
                 await dispatch(reviewTask({
                     taskId: task._id,
                     decision: 'accept',
-                    feedback: 'Validated by manager'
-                }));
+                    feedback: undefined
+                })).unwrap();
 
-                toast.success('Tâche validée avec succès');
-            } else {
+                // Send notification to the task assignee
+                try {
+                    await axiosInstance.post('/notifications', {
+                        type: 'TASK_VALIDATED',
+                        message: `Votre tâche "${task.title}" a été validée par le manager et est maintenant terminée`,
+                        userId: String(task.assignee._id),
+                        isRead: false,
+                        metadata: {
+                            taskId: task._id,
+                            validatedBy: currentUser?._id
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error sending validation notification:', error);
+                }
+
+                // Check if there's a linked task to notify
+                if (linkedTaskData) {
+                    try {
+                        await axiosInstance.post('/notifications', {
+                            type: 'TASK_VALIDATED',
+                            message: `La tâche liée "${linkedTaskData.title}" a été validée et terminée par le manager`,
+                            userId: String(linkedTaskData.assignee._id),
+                            isRead: false,
+                            metadata: {
+                                taskId: linkedTaskData._id,
+                                linkedTaskId: task._id,
+                                validatedBy: currentUser?._id
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error sending linked task notification:', error);
+                    }
+                }
+
+                toast.success('La tâche a été validée et complétée avec succès');
+            } else if (decision === 'decline') {
+                // Manager declines/returns the task
                 await dispatch(reviewTask({
                     taskId: task._id,
                     decision: 'decline',
                     feedback: returnReason || 'Returned for modifications by manager'
                 }));
 
+                // Send notification to the task assignee
+                try {
+                    await axiosInstance.post('/notifications', {
+                        type: 'TASK_RETURNED',
+                        message: `Votre tâche "${task.title}" a été retournée par le manager pour modification`,
+                        userId: String(task.assignee._id),
+                        isRead: false,
+                        metadata: {
+                            taskId: task._id,
+                            returnedBy: currentUser?._id,
+                            reason: returnReason || 'Modifications requises'
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error sending return notification:', error);
+                }
 
+                toast.success('La tâche a été retournée pour modification');
                 setShowReturnReason(false);
                 setReturnReason('');
             }
@@ -1397,21 +1404,30 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
                     {/* Add task header notification for tasks requiring manager validation - positioned at the top */}
                     {task?.needsValidation && (
-                        <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-400 rounded-md">
+                        <div className={`mb-6 p-4 ${isPendingManagerValidation ? 'bg-amber-100 border-amber-400 border-l-4' : 'bg-amber-50 border-l-4 border-amber-400'} rounded-md transition-all duration-300`}>
                             <div className="flex">
                                 <div className="flex-shrink-0">
-                                    <InformationCircleIcon className="h-5 w-5 text-amber-600" />
+                                    {isPendingManagerValidation ?
+                                        <ClockIcon className="h-5 w-5 text-amber-600 animate-pulse" /> :
+                                        <InformationCircleIcon className="h-5 w-5 text-amber-600" />
+                                    }
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm text-amber-800">
-                                        {isPendingManagerValidation ? (
+                                    <p className={`text-sm ${isPendingManagerValidation ? 'font-medium' : ''} text-amber-800`}>
+                                        {isPendingManagerValidation || isValidationSentToManager ? (
                                             <span className="font-medium">
-                                                Cette tâche est en attente de validation finale par le manager. Merci de patienter.
+                                                Cette tâche est en attente de validation finale par le manager.
+                                                {task.creator && ((task.creator as any).prenom || (task.creator as any).nom) ?
+                                                    ` (${(task.creator as any).prenom || ''} ${(task.creator as any).nom || ''})` :
+                                                    ''}
+                                                <br />Merci de patienter pendant le processus de validation.
                                             </span>
                                         ) : (
                                             <span>
                                                 Cette tâche nécessitera une validation finale par le manager
-                                                {task.creator && task.creator.nom ? ` (${task.creator.prenom} ${task.creator.nom})` : ''}
+                                                {task.creator && ((task.creator as any).prenom || (task.creator as any).nom) ?
+                                                    ` (${(task.creator as any).prenom || ''} ${(task.creator as any).nom || ''})` :
+                                                    ''}
                                                 après votre approbation.
                                             </span>
                                         )}
@@ -1452,9 +1468,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
                                         {isCurrentUserSuivi && !showReturnReason && (
                                             <div className="mt-3 flex space-x-3">
-                                                {isPendingManagerValidation ? (
+                                                {isPendingManagerValidation || isValidationSentToManager ? (
                                                     <button
-                                                        className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-lg focus:outline-none cursor-not-allowed"
+                                                        className="inline-flex items-center px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg focus:outline-none cursor-not-allowed transition-all duration-300 w-full justify-center"
                                                         disabled
                                                     >
                                                         <ClockIcon className="h-5 w-5 mr-2" />
@@ -1463,8 +1479,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 ) : (
                                                     <>
                                                         <button
-                                                            onClick={() => handleReviewTask('accept')}
-                                                            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 shadow-sm"
+                                                            onClick={() => {
+                                                                if (task?.needsValidation) {
+                                                                    // Immediately show transition while the action processes
+                                                                    setIsValidationSentToManager(true);
+                                                                }
+                                                                handleReviewTask('accept');
+                                                            }}
+                                                            className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 shadow-sm"
                                                             aria-label="Valider cette tâche"
                                                             disabled={reviewSubmitting}
                                                         >
@@ -1476,7 +1498,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                                 setShowReturnReason(true);
                                                                 setReturnReason('');
                                                             }}
-                                                            className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200 shadow-sm"
+                                                            className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all duration-300 shadow-sm"
                                                             aria-label="Retourner pour modification"
                                                             disabled={reviewSubmitting}
                                                         >
