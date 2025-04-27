@@ -376,27 +376,29 @@ const GlobalActions: React.FC = () => {
 
                     <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
                         {/* View Toggle and Filters */}
-                        <div className="p-6 border-b border-gray-100">
+                        <div className="p-6 bg-gradient-to-r from-gray-50 to-teal-50 border-b border-gray-100">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant={view === 'table' ? 'primary' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setView('table')}
-                                        className={`flex items-center gap-1 rounded-full px-4 py-2 transition-colors duration-300 ${view === 'table' ? 'bg-orange-500 text-white' : 'border-orange-500 text-orange-600 hover:bg-orange-50'}`}
-                                    >
-                                        <List size={16} />
-                                        Tableau
-                                    </Button>
-                                    <Button
-                                        variant={view === 'gantt' ? 'primary' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setView('gantt')}
-                                        className={`flex items-center gap-1 rounded-full px-4 py-2 transition-colors duration-300 ${view === 'gantt' ? 'bg-orange-500 text-white' : 'border-orange-500 text-orange-600 hover:bg-orange-50'}`}
-                                    >
-                                        <Calendar size={16} />
-                                        Timeline
-                                    </Button>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative inline-flex items-center rounded-full bg-white shadow-md border border-gray-200">
+                                        <Button
+                                            variant={view === 'table' ? 'primary' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setView('table')}
+                                            className={`flex items-center gap-2 rounded-l-full px-5 py-2 transition-all duration-300 ${view === 'table' ? 'bg-orange-500 text-white shadow-inner' : 'text-gray-700 hover:bg-orange-50'}`}
+                                        >
+                                            <List size={16} />
+                                            Tableau
+                                        </Button>
+                                        <Button
+                                            variant={view === 'gantt' ? 'primary' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setView('gantt')}
+                                            className={`flex items-center gap-2 rounded-r-full px-5 py-2 transition-all duration-300 ${view === 'gantt' ? 'bg-orange-500 text-white shadow-inner' : 'text-gray-700 hover:bg-orange-50'}`}
+                                        >
+                                            <Calendar size={16} />
+                                            Timeline
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 <FilterBar
@@ -412,35 +414,35 @@ const GlobalActions: React.FC = () => {
 
                         {/* Gantt View Time Scale Selector */}
                         {view === 'gantt' && (
-                            <div className="p-6 border-b border-gray-100 bg-gray-50">
+                            <div className="p-6 bg-gradient-to-r from-gray-50 to-teal-50 border-b border-gray-100">
                                 <div className="flex items-center justify-between">
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setView('table')}
-                                        className="flex items-center gap-1 rounded-full px-4 py-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-300"
+                                        className="flex items-center gap-2 rounded-full px-5 py-2 border-orange-500 text-orange-600 bg-white shadow-md hover:bg-orange-50 transition-all duration-300 hover:shadow-lg"
                                     >
                                         <ChevronLeft size={16} />
                                         Retour au tableau
                                     </Button>
 
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-600">Échelle de temps:</span>
-                                        <div className="flex items-center rounded-full border border-gray-200 bg-white shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-medium text-gray-700">Échelle de temps:</span>
+                                        <div className="relative inline-flex items-center rounded-full bg-white shadow-md border border-gray-200">
                                             <button
-                                                className={`px-4 py-1 text-sm rounded-l-full ${timeScale === 'week' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                className={`px-5 py-2 text-sm rounded-l-full transition-all duration-300 ${timeScale === 'week' ? 'bg-orange-500 text-white shadow-inner' : 'text-gray-700 hover:bg-orange-50'}`}
                                                 onClick={() => handleTimeScaleChange('week')}
                                             >
                                                 Semaine
                                             </button>
                                             <button
-                                                className={`px-4 py-1 text-sm ${timeScale === 'month' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                className={`px-5 py-2 text-sm transition-all duration-300 ${timeScale === 'month' ? 'bg-orange-500 text-white shadow-inner' : 'text-gray-700 hover:bg-orange-50'}`}
                                                 onClick={() => handleTimeScaleChange('month')}
                                             >
                                                 Mois
                                             </button>
                                             <button
-                                                className={`px-4 py-1 text-sm rounded-r-full ${timeScale === 'year' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                className={`px-5 py-2 text-sm rounded-r-full transition-all duration-300 ${timeScale === 'year' ? 'bg-orange-500 text-white shadow-inner' : 'text-gray-700 hover:bg-orange-50'}`}
                                                 onClick={() => handleTimeScaleChange('year')}
                                             >
                                                 Année
@@ -475,39 +477,46 @@ const GlobalActions: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Create Action Modal */}
-                    <Modal
-                        isOpen={isCreateModalOpen}
-                        onClose={() => setIsCreateModalOpen(false)}
-                        className="max-w-2xl mx-auto rounded-2xl shadow-2xl"
-                    >
-                        <div className="p-6 bg-gradient-to-br from-gray-50 to-teal-50">
-                            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Créer une action globale</h2>
-                            <div className="max-h-[60vh] overflow-y-auto pr-2">
-                                <GlobalActionForm
-                                    formData={formData}
-                                    setFormData={setFormData}
-                                    projects={projects}
-                                    users={users}
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-3 mt-6">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsCreateModalOpen(false)}
-                                    className="rounded-full px-5 py-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-300"
-                                >
-                                    Annuler
-                                </Button>
-                                <Button
-                                    onClick={handleCreateAction}
-                                    className="rounded-full px-5 py-2 bg-orange-500 text-white hover:bg-orange-600 transition-colors duration-300"
-                                >
-                                    Créer
-                                </Button>
+                    {/* Create Action Form */}
+                    {isCreateModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full mx-4">
+                                <div className="p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-2xl font-semibold text-gray-800">Créer une action globale</h2>
+                                        <button
+                                            onClick={() => setIsCreateModalOpen(false)}
+                                            className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                        >
+                                            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <GlobalActionForm
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        projects={projects}
+                                        users={users}
+                                    />
+                                    <div className="flex justify-end space-x-3 mt-6">
+                                        <button
+                                            onClick={() => setIsCreateModalOpen(false)}
+                                            className="rounded-full px-5 py-2 border-teal-600 text-teal-600 hover:bg-teal-50 transition-colors duration-300 border"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            onClick={handleCreateAction}
+                                            className="rounded-full px-5 py-2 bg-teal-600 text-white hover:bg-teal-700 transition-colors duration-300"
+                                        >
+                                            Créer
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </Modal>
+                    )}
 
                     {/* View Action Modal */}
                     <Modal

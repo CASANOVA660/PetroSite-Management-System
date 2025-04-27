@@ -153,13 +153,13 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'completed':
-                return 'success';
+                return 'bg-green-100 text-green-800';
             case 'in_progress':
-                return 'warning';
+                return 'bg-orange-100 text-orange-800';
             case 'cancelled':
-                return 'error';
+                return 'bg-red-100 text-red-800';
             default:
-                return 'warning';
+                return 'bg-yellow-100 text-yellow-800';
         }
     };
 
@@ -344,7 +344,6 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = sortedActions.slice(indexOfFirstItem, indexOfLastItem);
-
 
     // Pagination controls
     const goToNextPage = () => {
@@ -687,109 +686,129 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     return (
         <div className="overflow-hidden">
             {/* Filter Form */}
-            <div className="mb-6 bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-medium">Filtres</h3>
-                    <div className="flex items-center space-x-2">
+            <div className="mb-6 bg-[#FDFBF7] p-6 rounded-2xl shadow-lg border border-gray-100 shadow-inner">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold text-gray-800">Filtres</h3>
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={handleForceRefresh}
-                            className="inline-flex items-center rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                            className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-medium text-orange-600 shadow-md border border-gray-200 hover:bg-orange-50 transition-all duration-300 hover:shadow-lg disabled:opacity-50"
                             disabled={isLoading}
                         >
-                            <svg className="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
+                            {isLoading ? (
+                                <span className="animate-spin mr-2">⟳</span>
+                            ) : (
+                                <span className="mr-2">⟳</span>
+                            )}
                             Actualiser
                         </button>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-600 font-medium">
                             Dernière mise à jour: {format(lastUpdateTime, 'HH:mm:ss', { locale: fr })}
                         </span>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {/* Title Filter */}
                         <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
                                 Titre
                             </label>
-                            <input
-                                type="text"
-                                id="title"
-                                name="title"
-                                value={filterQuery.title}
-                                onChange={handleFilterChange}
-                                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                placeholder="Filtrer par titre"
-                            />
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    id="title"
+                                    name="title"
+                                    value={filterQuery.title}
+                                    onChange={handleFilterChange}
+                                    className="w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300 hover:bg-orange-50 pl-10 shadow-inner"
+                                    placeholder="Filtrer par titre"
+                                />
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                            </div>
                         </div>
 
+                        {/* Responsible Filter */}
                         <div>
-                            <label htmlFor="responsible" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label htmlFor="responsible" className="block text-sm font-medium text-gray-700 mb-2">
                                 Responsable
                             </label>
-                            <input
-                                type="text"
-                                id="responsible"
-                                name="responsible"
-                                value={filterQuery.responsible}
-                                onChange={handleFilterChange}
-                                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                placeholder="Filtrer par responsable"
-                            />
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    id="responsible"
+                                    name="responsible"
+                                    value={filterQuery.responsible}
+                                    onChange={handleFilterChange}
+                                    className="w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300 hover:bg-orange-50 pl-10 shadow-inner"
+                                    placeholder="Filtrer par responsable"
+                                />
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                            </div>
                         </div>
 
+                        {/* Category Filter */}
                         <div>
-                            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
                                 Catégorie
                             </label>
-                            <select
-                                id="category"
-                                name="category"
-                                value={filterQuery.category}
-                                onChange={handleFilterChange}
-                                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                            >
-                                <option value="">Toutes les catégories</option>
-                                {uniqueCategories.map(category => (
-                                    <option key={category} value={category}>{category}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    id="category"
+                                    name="category"
+                                    value={filterQuery.category}
+                                    onChange={handleFilterChange}
+                                    className="appearance-none w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300 hover:bg-orange-50 shadow-inner"
+                                >
+                                    <option value="">Toutes les catégories</option>
+                                    {uniqueCategories.map(category => (
+                                        <option key={category} value={category}>{category}</option>
+                                    ))}
+                                </select>
+                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">▼</span>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Date de début
-                                </label>
+                        {/* Start Date Filter */}
+                        <div>
+                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
+                                Date de début
+                            </label>
+                            <div className="relative">
                                 <input
                                     type="date"
                                     id="startDate"
                                     name="startDate"
                                     value={filterQuery.startDate}
                                     onChange={handleFilterChange}
-                                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    className="w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300 hover:bg-orange-50 pl-10 shadow-inner"
                                 />
+                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                             </div>
+                        </div>
 
-                            <div>
-                                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Date de fin
-                                </label>
+                        {/* End Date Filter */}
+                        <div>
+                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
+                                Date de fin
+                            </label>
+                            <div className="relative">
                                 <input
                                     type="date"
                                     id="endDate"
                                     name="endDate"
                                     value={filterQuery.endDate}
                                     onChange={handleFilterChange}
-                                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-600 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    className="w-full rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300 hover:bg-orange-50 pl-10 shadow-inner"
                                 />
+                                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between">
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex justify-between items-center">
+                        <div className="text-sm text-gray-600 font-medium">
                             {isLoading ? (
                                 "Chargement en cours..."
                             ) : (
@@ -803,17 +822,15 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                 </>
                             )}
                         </div>
-                        <div className="flex space-x-2">
-                            <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-600"
-                                disabled={isLoading}
-                            >
-                                <X className="mr-1.5 h-4 w-4" />
-                                Effacer les filtres
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-medium text-orange-600 shadow-md border border-gray-200 hover:bg-orange-50 transition-all duration-300 hover:shadow-lg disabled:opacity-50"
+                            disabled={isLoading}
+                        >
+                            <X className="mr-2 h-4 w-4" />
+                            Effacer les filtres
+                        </button>
                     </div>
                 </div>
             </div>
@@ -821,102 +838,102 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
             <div className="max-w-full overflow-x-auto">
                 <div className="min-w-[1102px]">
                     <Table>
-                        <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                        <TableHeader className="bg-[#FDFBF7] border-b border-gray-100 shadow-inner">
                             <TableRow>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Titre & Description
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Responsables
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Catégorie
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Dates
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Statut
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                                    className="px-6 py-4 font-semibold text-gray-700 text-sm uppercase tracking-wider"
                                 >
                                     Actions
                                 </TableCell>
                             </TableRow>
                         </TableHeader>
 
-                        <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                        <TableBody className="divide-y divide-gray-100">
                             {currentItems.length > 0 ? (
                                 currentItems.map((action) => (
-                                    <TableRow key={action._id}>
-                                        <TableCell className="px-5 py-4 sm:px-6 text-start">
+                                    <TableRow key={action._id} className="hover:bg-[#F9F5EF] transition-all duration-300">
+                                        <TableCell className="px-6 py-4">
                                             <div>
-                                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                                <span className="block font-semibold text-gray-800 text-base">
                                                     {action.title}
                                                 </span>
-                                                <span className="block text-gray-500 text-theme-xs dark:text-gray-400 mt-1">
+                                                <span className="block text-gray-600 text-sm mt-1">
                                                     {action.content}
                                                 </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                            <div className="space-y-1">
+                                        <TableCell className="px-6 py-4 text-gray-600 text-sm">
+                                            <div className="space-y-2">
                                                 <div>
-                                                    <span className="text-xs text-gray-400">Réalisation:</span>
-                                                    <div className="font-medium text-gray-800 dark:text-white/90">
+                                                    <span className="text-xs text-gray-500">Réalisation:</span>
+                                                    <div className="font-medium text-gray-800">
                                                         {action.source === 'Project'
                                                             ? getUserName(action.responsible)
                                                             : getUserName(action.responsibleForRealization)}
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <span className="text-xs text-gray-400">Suivi:</span>
-                                                    <div className="font-medium text-gray-800 dark:text-white/90">
+                                                    <span className="text-xs text-gray-500">Suivi:</span>
+                                                    <div className="font-medium text-gray-800">
                                                         {getUserName(getManagerInfo(action))}
                                                     </div>
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                                        <TableCell className="px-6 py-4 text-gray-600 text-sm">
                                             <div>
-                                                <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                                                     {action.category}
                                                 </span>
-                                                <div className="mt-1 text-xs text-gray-400">
+                                                <div className="mt-2 text-xs text-gray-500">
                                                     Projet: {getProjectName(action)}
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                            <div className="space-y-1 text-xs">
+                                        <TableCell className="px-6 py-4 text-gray-600 text-sm">
+                                            <div className="space-y-2 text-xs">
                                                 <div>
-                                                    <span className="text-gray-400">Début:</span>
-                                                    <div className="font-medium text-gray-800 dark:text-white/90">
+                                                    <span className="text-gray-500">Début:</span>
+                                                    <div className="font-medium text-gray-800">
                                                         {action.startDate && !isNaN(new Date(action.startDate).getTime())
                                                             ? format(new Date(action.startDate), 'dd MMM yyyy', { locale: fr })
                                                             : 'N/A'}
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <span className="text-gray-400">Fin:</span>
-                                                    <div className="font-medium text-gray-800 dark:text-white/90">
+                                                    <span className="text-gray-500">Fin:</span>
+                                                    <div className="font-medium text-gray-800">
                                                         {action.endDate && !isNaN(new Date(action.endDate).getTime())
                                                             ? format(new Date(action.endDate), 'dd MMM yyyy', { locale: fr })
                                                             : 'N/A'}
@@ -924,48 +941,48 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                            <div className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(action.status)}`}>
+                                        <TableCell className="px-6 py-4 text-gray-600 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-3 py-1 text-xs rounded-full ${getStatusColor(action.status)}`}>
                                                     {getStatusText(action.status)}
                                                 </span>
 
-                                                {/* Add validation badge - directly check the needsValidation property */}
+                                                {/* Validation Badge */}
                                                 {action.needsValidation === true ? (
-                                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+                                                    <span className="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
                                                         Validation requise
                                                     </span>
                                                 ) : (
-                                                    <span className="ml-2 px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                                    <span className="px-3 py-1 text-xs rounded-full bg-green-100 text-green-800">
                                                         Auto-validé
                                                     </span>
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                                        <TableCell className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => onViewAction(action)}
-                                                    className="p-1 hover:bg-blue-50 rounded-full transition-colors text-blue-600"
+                                                    className="p-1.5 rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all duration-300"
                                                     title="Voir les détails"
                                                 >
-                                                    <Eye className="size-4" />
+                                                    <Eye className="h-4 w-4" />
                                                 </button>
                                                 {(action.status === 'pending' || action.status === 'in_progress') && (
                                                     <>
                                                         <button
                                                             onClick={() => handleOpenUpdateModal(action)}
-                                                            className="p-1 hover:bg-blue-50 rounded-full transition-colors text-blue-600"
+                                                            className="p-1.5 rounded-full bg-teal-100 text-teal-600 hover:bg-teal-200 transition-all duration-300"
                                                             title="Modifier"
                                                         >
-                                                            <Edit className="size-4" />
+                                                            <Edit className="h-4 w-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteAction(action._id, action.source === 'Project')}
-                                                            className="p-1 hover:bg-red-50 rounded-full transition-colors text-red-600"
+                                                            className="p-1.5 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-300"
                                                             title="Supprimer"
                                                         >
-                                                            <Trash className="size-4" />
+                                                            <Trash className="h-4 w-4" />
                                                         </button>
                                                     </>
                                                 )}
@@ -975,20 +992,21 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="px-4 py-12 text-center">
+                                    <TableCell colSpan={6} className="px-6 py-12 text-center">
                                         {isLoading ? (
                                             <div className="flex flex-col items-center justify-center">
-                                                <div className="w-8 h-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
-                                                <p className="mt-2 text-gray-500">Chargement des résultats...</p>
+                                                <div className="w-10 h-10 border-t-2 border-b-2 border-orange-500 rounded-full animate-spin"></div>
+                                                <p className="mt-3 text-gray-600 font-medium">Chargement des résultats...</p>
                                             </div>
                                         ) : filterQuery.title || filterQuery.responsible || filterQuery.category ||
                                             filterQuery.startDate || filterQuery.endDate ? (
                                             <div className="flex flex-col items-center justify-center">
-                                                <span className="text-gray-400 text-xl mb-2">🔍</span>
-                                                <p className="text-gray-500 text-lg font-medium">Aucun résultat trouvé</p>
-                                                <p className="text-gray-400 mt-1">
-                                                    Essayez d'autres termes de recherche ou <button
-                                                        className="text-blue-500 hover:underline"
+                                                <span className="text-gray-400 text-2xl mb-3">🔍</span>
+                                                <p className="text-gray-600 text-lg font-semibold">Aucun résultat trouvé</p>
+                                                <p className="text-gray-500 mt-2">
+                                                    Essayez d'autres termes de recherche ou{' '}
+                                                    <button
+                                                        className="text-orange-500 hover:underline"
                                                         onClick={clearFilters}
                                                     >
                                                         effacez les filtres
@@ -996,7 +1014,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                                                 </p>
                                             </div>
                                         ) : (
-                                            <p className="text-gray-500">Aucune action trouvée</p>
+                                            <p className="text-gray-600 font-medium">Aucune action trouvée</p>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -1006,89 +1024,76 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
 
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
-                        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-white/[0.05]">
+                        <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4 bg-[#FDFBF7] shadow-inner">
                             <div className="flex flex-1 justify-between sm:hidden">
                                 <button
                                     onClick={goToPreviousPage}
                                     disabled={currentPage === 1}
-                                    className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                                        }`}
+                                    className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium text-gray-700 bg-white shadow-md border border-gray-200 transition-all duration-300 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:shadow-lg'}`}
                                 >
                                     Précédent
                                 </button>
                                 <button
                                     onClick={goToNextPage}
                                     disabled={currentPage === totalPages}
-                                    className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                                        }`}
+                                    className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium text-gray-700 bg-white shadow-md border border-gray-200 transition-all duration-300 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:shadow-lg'}`}
                                 >
                                     Suivant
                                 </button>
                             </div>
                             <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-700 dark:text-gray-400">
-                                        Affichage de <span className="font-medium">{indexOfFirstItem + 1}</span> à{' '}
-                                        <span className="font-medium">
+                                    <p className="text-sm text-gray-700 font-medium">
+                                        Affichage de <span className="font-semibold">{indexOfFirstItem + 1}</span> à{' '}
+                                        <span className="font-semibold">
                                             {Math.min(indexOfLastItem, sortedActions.length)}
                                         </span>{' '}
-                                        sur <span className="font-medium">{sortedActions.length}</span> actions
+                                        sur <span className="font-semibold">{sortedActions.length}</span> actions
                                     </p>
                                 </div>
-                                <div>
-                                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                                        <button
-                                            onClick={goToPreviousPage}
-                                            disabled={currentPage === 1}
-                                            className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <span className="sr-only">Précédent</span>
-                                            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                                        </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={goToPreviousPage}
+                                        disabled={currentPage === 1}
+                                        className={`p-2 rounded-full text-gray-600 bg-white shadow-md border border-gray-200 transition-all duration-300 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:shadow-lg'}`}
+                                    >
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </button>
 
-                                        {/* Page number buttons */}
-                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                            // Calculate page numbers to show
-                                            let pageNum;
-                                            if (totalPages <= 5) {
-                                                // If 5 or fewer pages, show all pages
-                                                pageNum = i + 1;
-                                            } else if (currentPage <= 3) {
-                                                // If current page is near the start
-                                                pageNum = i + 1;
-                                            } else if (currentPage >= totalPages - 2) {
-                                                // If current page is near the end
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                // If current page is in the middle
-                                                pageNum = currentPage - 2 + i;
-                                            }
+                                    {/* Page number buttons */}
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
 
-                                            return (
-                                                <button
-                                                    key={pageNum}
-                                                    onClick={() => goToPage(pageNum)}
-                                                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${currentPage === pageNum
-                                                        ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                                                        : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-400'
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => goToPage(pageNum)}
+                                                className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-300 ${currentPage === pageNum
+                                                    ? 'bg-orange-500 text-white shadow-inner'
+                                                    : 'bg-white text-gray-700 shadow-md border border-gray-200 hover:bg-orange-50 hover:shadow-lg'
+                                                    }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
 
-                                        <button
-                                            onClick={goToNextPage}
-                                            disabled={currentPage === totalPages}
-                                            className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <span className="sr-only">Suivant</span>
-                                            <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                                        </button>
-                                    </nav>
+                                    <button
+                                        onClick={goToNextPage}
+                                        disabled={currentPage === totalPages}
+                                        className={`p-2 rounded-full text-gray-600 bg-white shadow-md border border-gray-200 transition-all duration-300 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-orange-50 hover:shadow-lg'}`}
+                                    >
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1100,10 +1105,10 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
             <Modal
                 isOpen={isUpdateModalOpen}
                 onClose={() => setIsUpdateModalOpen(false)}
-                className="max-w-2xl mx-auto"
+                className="max-w-2xl mx-auto rounded-2xl shadow-2xl"
             >
-                <div className="p-4">
-                    <h2 className="text-lg font-bold mb-3">Modifier l'action</h2>
+                <div className="p-6 bg-[#FDFBF7] shadow-inner">
+                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Modifier l'action</h2>
                     <div className="max-h-[60vh] overflow-y-auto pr-2">
                         {selectedActionForUpdate && (
                             <GlobalActionUpdateForm
@@ -1115,16 +1120,16 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
                             />
                         )}
                     </div>
-                    <div className="flex justify-end space-x-2 mt-4">
+                    <div className="flex justify-end gap-3 mt-6">
                         <button
                             onClick={() => setIsUpdateModalOpen(false)}
-                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                            className="rounded-full px-5 py-2 border border-gray-200 text-gray-700 bg-white shadow-md hover:bg-gray-50 transition-all duration-300"
                         >
                             Annuler
                         </button>
                         <button
                             onClick={handleUpdateAction}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className="rounded-full px-5 py-2 bg-orange-500 text-white shadow-md hover:bg-orange-600 transition-all duration-300"
                         >
                             Enregistrer
                         </button>
@@ -1135,4 +1140,4 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     );
 };
 
-export default GlobalActionsTable; 
+export default GlobalActionsTable;
