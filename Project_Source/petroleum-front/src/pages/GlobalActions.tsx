@@ -11,7 +11,6 @@ import { GlobalAction } from '../store/slices/globalActionSlice';
 import { Action } from '../store/slices/actionSlice';
 import { GlobalActionFormData } from '../types/action';
 import PlusIcon from '../components/icons/PlusIcon';
-import EcommerceMetrics from '../components/ecommerce/EcommerceMetrics';
 import GanttChart from '../components/tasks/GanttChart';
 import { ChevronLeft, Calendar, List } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -109,7 +108,6 @@ const GlobalActions: React.FC = () => {
         refreshAllActions();
     }, [refreshAllActions]);
 
-
     // Update selectedAction when globalActions changes
     useEffect(() => {
         if (selectedAction && isViewModalOpen) {
@@ -132,22 +130,19 @@ const GlobalActions: React.FC = () => {
             ...globalActions.map(action => ({
                 ...action,
                 isProjectAction: false,
-                source: 'Global' // Add explicit source type
+                source: 'Global'
             })),
             ...projectActions.map(action => ({
                 ...action,
                 isProjectAction: true,
                 source: 'Project',
-                projectId: action.projectId // Use actual project reference
+                projectId: action.projectId
             }))
         ];
     }, [globalActions, projectActions]);
 
     // Calculate metrics using useMemo
     const metrics = useMemo(() => {
-        // Add debugging logs
-
-        // Ensure combinedActions is an array
         const actions = Array.isArray(combinedActions) ? combinedActions : [];
 
         const totalActions = actions.length;
@@ -178,8 +173,6 @@ const GlobalActions: React.FC = () => {
 
     // Handle create action with refresh
     const handleCreateAction = () => {
-
-        // Check each required field individually and log which ones are missing
         const missingFields = [];
 
         if (!formData.title) missingFields.push('title');
@@ -196,7 +189,6 @@ const GlobalActions: React.FC = () => {
             return;
         }
 
-        // Format dates for backend
         const formattedData: {
             title: string;
             content: string;
@@ -213,44 +205,33 @@ const GlobalActions: React.FC = () => {
             title: formData.title.trim(),
             content: formData.content.trim(),
             category: formData.category,
-            // These values should be the MongoDB ObjectIds, not the names
-            responsibleForRealization: formData.responsibleForRealization, // Already should be _id from dropdown
-            responsibleForFollowUp: formData.responsibleForFollowUp, // Already should be _id from dropdown
+            responsibleForRealization: formData.responsibleForRealization,
+            responsibleForFollowUp: formData.responsibleForFollowUp,
             startDate: new Date(formData.startDate).toISOString(),
             endDate: new Date(formData.endDate).toISOString(),
             status: 'pending',
             needsValidation: formData.needsValidation
         };
 
-        // Only add projectId if it has a value
         if (formData.projectId) {
             formattedData.projectId = formData.projectId;
-            // Include projectCategory when a project is selected
             if (formData.projectCategory) {
                 formattedData.projectCategory = formData.projectCategory;
             }
         }
 
-        console.log('Form data before submission:', formData);
-        console.log('Formatted data for submission:', formattedData);
-
         dispatch(createGlobalAction(formattedData))
             .then(() => {
-                // Refresh all actions
                 refreshAllActions();
                 toast.success('Action globale créée avec succès');
 
-                // Multi-stage refresh approach to ensure tasks appear
-                // 1. First immediate refresh
                 dispatch(fetchUserTasks({ includeProjectActions: true }));
 
-                // 2. Second refresh after a delay
                 setTimeout(() => {
                     console.log('First delayed refresh of tasks after global action creation...');
                     dispatch(fetchUserTasks({ includeProjectActions: true }));
                 }, 1000);
 
-                // 3. Third refresh after a longer delay to ensure backend processing is complete
                 setTimeout(() => {
                     console.log('Second delayed refresh of tasks after global action creation...');
                     dispatch(fetchUserTasks({ includeProjectActions: true }));
@@ -315,7 +296,7 @@ const GlobalActions: React.FC = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
             </div>
         );
     }
@@ -331,187 +312,228 @@ const GlobalActions: React.FC = () => {
     return (
         <>
             <PageMeta title="Actions Globales" description="Gestion des actions globales" />
-            <div className="container mx-auto px-4 py-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold">Actions Globales</h1>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            onClick={refreshAllActions}
-                            disabled={isRefreshing}
-                            variant="outline"
-                            className="flex items-center gap-2"
-                        >
-                            {isRefreshing ? (
-                                <span className="animate-spin">⟳</span>
-                            ) : (
-                                <span>⟳</span>
-                            )}
-                            Actualiser
-                        </Button>
-                        <Button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="flex items-center gap-2 bg-primary text-white hover:bg-primary/90"
-                        >
-                            <PlusIcon size={16} />
-                            Créer une action
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Metrics Section */}
-                <div className="mb-6">
-                    <EcommerceMetrics data={metrics} />
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    {/* View Toggle and Filters */}
-                    <div className="p-4 border-b border-gray-200">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant={view === 'table' ? 'primary' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setView('table')}
-                                    className="flex items-center gap-1"
-                                >
-                                    <List size={16} />
-                                    Tableau
-                                </Button>
-                                <Button
-                                    variant={view === 'gantt' ? 'primary' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setView('gantt')}
-                                    className="flex items-center gap-1"
-                                >
-                                    <Calendar size={16} />
-                                    Timeline
-                                </Button>
-                            </div>
-
-                            <FilterBar
-                                filterStatus={filterStatus}
-                                setFilterStatus={setFilterStatus}
-                                filterType={filterType}
-                                setFilterType={setFilterType}
-                                view={view}
-                                setView={setView}
-                            />
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-teal-50 px-6 py-10">
+                <div className="container mx-auto">
+                    {/* Header Section */}
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-4xl font-semibold text-gray-800 tracking-tight">Actions Globales</h1>
+                        <div className="flex items-center gap-3">
+                            <Button
+                                onClick={refreshAllActions}
+                                disabled={isRefreshing}
+                                variant="outline"
+                                className="flex items-center gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-300 rounded-full px-5 py-2 shadow-sm"
+                            >
+                                {isRefreshing ? (
+                                    <span className="animate-spin">⟳</span>
+                                ) : (
+                                    <span>⟳</span>
+                                )}
+                                Actualiser
+                            </Button>
+                            <Button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="flex items-center gap-2 bg-orange-500 text-white hover:bg-orange-600 transition-colors duration-300 rounded-full px-5 py-2 shadow-lg"
+                            >
+                                <PlusIcon size={16} />
+                                Créer une action
+                            </Button>
                         </div>
                     </div>
 
-                    {/* Gantt View Time Scale Selector */}
-                    {view === 'gantt' && (
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                            <div className="flex items-center justify-between">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setView('table')}
-                                    className="flex items-center gap-1"
-                                >
-                                    <ChevronLeft size={16} />
-                                    Retour au tableau
-                                </Button>
+                    {/* Stats Cards Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* Total Actions Card */}
+                        <div className="relative bg-gradient-to-br from-orange-400 to-orange-600 text-white rounded-2xl p-6 shadow-lg transform hover:scale-105 transition-transform duration-300 overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                            <div className="relative z-10">
+                                <h3 className="text-lg font-medium opacity-90">Total Actions</h3>
+                                <p className="text-4xl font-bold mt-2">{metrics.totalActions}</p>
+                                <p className="text-sm opacity-80 mt-1">Across all projects</p>
+                            </div>
+                        </div>
 
+                        {/* Completed Actions Card */}
+                        <div className="relative bg-gradient-to-br from-teal-500 to-teal-700 text-white rounded-2xl p-6 shadow-lg transform hover:scale-105 transition-transform duration-300 overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                            <div className="relative z-10">
+                                <h3 className="text-lg font-medium opacity-90">Completed Actions</h3>
+                                <p className="text-4xl font-bold mt-2">{metrics.completedActions}</p>
+                                <p className="text-sm opacity-80 mt-1">{metrics.totalActions > 0 ? ((metrics.completedActions / metrics.totalActions) * 100).toFixed(1) : '0.0'}% Success Rate</p>
+                            </div>
+                        </div>
+
+                        {/* In Progress Actions Card */}
+                        <div className="relative bg-gradient-to-br from-gray-700 to-gray-900 text-white rounded-2xl p-6 shadow-lg transform hover:scale-105 transition-transform duration-300 overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 rounded-2xl" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                            <div className="relative z-10">
+                                <h3 className="text-lg font-medium opacity-90">In Progress</h3>
+                                <p className="text-4xl font-bold mt-2">{metrics.inProgressActions}</p>
+                                <p className="text-sm opacity-80 mt-1">Currently active</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+                        {/* View Toggle and Filters */}
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-500">Échelle de temps:</span>
-                                    <div className="flex items-center rounded-md border border-gray-200 bg-white">
-                                        <button
-                                            className={`px-3 py-1 text-sm ${timeScale === 'week' ? 'bg-blue-500 text-white' : 'text-gray-500'}`}
-                                            onClick={() => handleTimeScaleChange('week')}
-                                        >
-                                            Semaine
-                                        </button>
-                                        <button
-                                            className={`px-3 py-1 text-sm ${timeScale === 'month' ? 'bg-blue-500 text-white' : 'text-gray-500'}`}
-                                            onClick={() => handleTimeScaleChange('month')}
-                                        >
-                                            Mois
-                                        </button>
-                                        <button
-                                            className={`px-3 py-1 text-sm ${timeScale === 'year' ? 'bg-blue-500 text-white' : 'text-gray-500'}`}
-                                            onClick={() => handleTimeScaleChange('year')}
-                                        >
-                                            Année
-                                        </button>
+                                    <Button
+                                        variant={view === 'table' ? 'primary' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setView('table')}
+                                        className={`flex items-center gap-1 rounded-full px-4 py-2 transition-colors duration-300 ${view === 'table' ? 'bg-orange-500 text-white' : 'border-orange-500 text-orange-600 hover:bg-orange-50'}`}
+                                    >
+                                        <List size={16} />
+                                        Tableau
+                                    </Button>
+                                    <Button
+                                        variant={view === 'gantt' ? 'primary' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setView('gantt')}
+                                        className={`flex items-center gap-1 rounded-full px-4 py-2 transition-colors duration-300 ${view === 'gantt' ? 'bg-orange-500 text-white' : 'border-orange-500 text-orange-600 hover:bg-orange-50'}`}
+                                    >
+                                        <Calendar size={16} />
+                                        Timeline
+                                    </Button>
+                                </div>
+
+                                <FilterBar
+                                    filterStatus={filterStatus}
+                                    setFilterStatus={setFilterStatus}
+                                    filterType={filterType}
+                                    setFilterType={setFilterType}
+                                    view={view}
+                                    setView={setView}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Gantt View Time Scale Selector */}
+                        {view === 'gantt' && (
+                            <div className="p-6 border-b border-gray-100 bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setView('table')}
+                                        className="flex items-center gap-1 rounded-full px-4 py-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-300"
+                                    >
+                                        <ChevronLeft size={16} />
+                                        Retour au tableau
+                                    </Button>
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-600">Échelle de temps:</span>
+                                        <div className="flex items-center rounded-full border border-gray-200 bg-white shadow-sm">
+                                            <button
+                                                className={`px-4 py-1 text-sm rounded-l-full ${timeScale === 'week' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                onClick={() => handleTimeScaleChange('week')}
+                                            >
+                                                Semaine
+                                            </button>
+                                            <button
+                                                className={`px-4 py-1 text-sm ${timeScale === 'month' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                onClick={() => handleTimeScaleChange('month')}
+                                            >
+                                                Mois
+                                            </button>
+                                            <button
+                                                className={`px-4 py-1 text-sm rounded-r-full ${timeScale === 'year' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-orange-50'}`}
+                                                onClick={() => handleTimeScaleChange('year')}
+                                            >
+                                                Année
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <div className="mt-0">
-                        {view === 'table' ? (
-                            <GlobalActionsTable
-                                actions={filteredActions as any}
-                                projects={projects}
-                                users={users}
-                                onViewAction={handleViewAction}
-                                onRefresh={refreshAllActions}
-                            />
-                        ) : view === 'gantt' ? (
-                            <div className="px-2 pb-4 overflow-hidden">
-                                <GanttChart
-                                    tasks={ganttTasks}
-                                    timeScale={timeScale}
+                        <div className="mt-0">
+                            {view === 'table' ? (
+                                <GlobalActionsTable
+                                    actions={filteredActions as any}
+                                    projects={projects}
+                                    users={users}
+                                    onViewAction={handleViewAction}
+                                    onRefresh={refreshAllActions}
+                                />
+                            ) : view === 'gantt' ? (
+                                <div className="px-2 pb-4 overflow-hidden">
+                                    <GanttChart
+                                        tasks={ganttTasks}
+                                        timeScale={timeScale}
+                                    />
+                                </div>
+                            ) : (
+                                <GlobalActionsTimeline
+                                    actions={filteredActions.filter(action => action.status !== 'completed') as any}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Create Action Modal */}
+                    <Modal
+                        isOpen={isCreateModalOpen}
+                        onClose={() => setIsCreateModalOpen(false)}
+                        className="max-w-2xl mx-auto rounded-2xl shadow-2xl"
+                    >
+                        <div className="p-6 bg-gradient-to-br from-gray-50 to-teal-50">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Créer une action globale</h2>
+                            <div className="max-h-[60vh] overflow-y-auto pr-2">
+                                <GlobalActionForm
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    projects={projects}
+                                    users={users}
                                 />
                             </div>
-                        ) : (
-                            <GlobalActionsTimeline
-                                actions={filteredActions.filter(action => action.status !== 'completed') as any}
-                            />
-                        )}
-                    </div>
+                            <div className="flex justify-end space-x-3 mt-6">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className="rounded-full px-5 py-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-300"
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    onClick={handleCreateAction}
+                                    className="rounded-full px-5 py-2 bg-orange-500 text-white hover:bg-orange-600 transition-colors duration-300"
+                                >
+                                    Créer
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
+
+                    {/* View Action Modal */}
+                    <Modal
+                        isOpen={isViewModalOpen}
+                        onClose={() => setIsViewModalOpen(false)}
+                        className="max-w-2xl mx-auto rounded-2xl shadow-2xl"
+                    >
+                        <div className="p-6 bg-gradient-to-br from-gray-50 to-teal-50">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Détails de l'action</h2>
+                            <div className="max-h-[60vh] overflow-y-auto pr-2">
+                                {selectedAction && <GlobalActionView action={selectedAction} isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} />}
+                            </div>
+                            <div className="flex justify-end mt-6">
+                                <Button
+                                    onClick={() => setIsViewModalOpen(false)}
+                                    className="rounded-full px-5 py-2 bg-orange-500 text-white hover:bg-orange-600 transition-colors duration-300"
+                                >
+                                    Fermer
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
                 </div>
-
-                {/* Create Action Modal */}
-                <Modal
-                    isOpen={isCreateModalOpen}
-                    onClose={() => setIsCreateModalOpen(false)}
-                    className="max-w-2xl mx-auto"
-                >
-                    <div className="p-4">
-                        <h2 className="text-lg font-bold mb-3">Créer une action globale</h2>
-                        <div className="max-h-[60vh] overflow-y-auto pr-2">
-                            <GlobalActionForm
-                                formData={formData}
-                                setFormData={setFormData}
-                                projects={projects}
-                                users={users}
-                            />
-                        </div>
-                        <div className="flex justify-end space-x-2 mt-4">
-                            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                                Annuler
-                            </Button>
-                            <Button onClick={handleCreateAction}>
-                                Créer
-                            </Button>
-                        </div>
-                    </div>
-                </Modal>
-
-                {/* View Action Modal */}
-                <Modal
-                    isOpen={isViewModalOpen}
-                    onClose={() => setIsViewModalOpen(false)}
-                    className="max-w-2xl mx-auto"
-                >
-                    <div className="p-4">
-                        <h2 className="text-lg font-bold mb-3">Détails de l'action</h2>
-                        <div className="max-h-[60vh] overflow-y-auto pr-2">
-                            {selectedAction && <GlobalActionView action={selectedAction} isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} />}
-                        </div>
-                        <div className="flex justify-end mt-4">
-                            <Button onClick={() => setIsViewModalOpen(false)}>
-                                Fermer
-                            </Button>
-                        </div>
-                    </div>
-                </Modal>
             </div>
         </>
     );
 };
 
-export default GlobalActions; 
+export default GlobalActions;
