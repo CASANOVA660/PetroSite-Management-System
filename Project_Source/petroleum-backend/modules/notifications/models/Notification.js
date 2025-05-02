@@ -29,7 +29,8 @@ const notificationSchema = new mongoose.Schema({
             'LINKED_TASK_DECLINED',
             'LINKED_TASK_RETURNED',
             'TASK_VALIDATION_SUMMARY',
-            'TASK_VALIDATION_REQUESTED'
+            'TASK_VALIDATION_REQUESTED',
+            'TASK_NEEDS_SUIVI_VALIDATION'
         ]
     },
     message: {

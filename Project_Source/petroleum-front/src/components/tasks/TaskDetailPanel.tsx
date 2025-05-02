@@ -336,6 +336,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         }
 
                         toast.success(`La tâche a été retournée pour modification`);
+                        if (!task.needsValidation) {
+                            onClose();
+                            window.location.reload();
+                        }
                     })
                     .catch((error) => {
                         console.error("Error returning tasks:", error);
@@ -440,6 +444,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         }
 
                         toast.success(`Les deux tâches ont été validées et terminées`);
+                        if (!task.needsValidation) {
+                            onClose();
+                            window.location.reload();
+                        }
                     })
                     .catch((error) => {
                         console.error("Error completing tasks:", error);
@@ -506,6 +514,12 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 setShowReturnReason(false);
                 setReturnReason('');
                 setReviewFeedback('');
+
+                // Close panel and refresh page if needsValidation is false
+                if (!task.needsValidation) {
+                    onClose();
+                    window.location.reload();
+                }
             })
             .catch((error) => {
                 console.error('Error reviewing task:', error);
@@ -1297,28 +1311,27 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     feedback: undefined
                 })).unwrap();
 
-                // Send notification to the task assignee
+                // Send notifications to both suivi and realization responsables
                 try {
-                    await axiosInstance.post('/notifications', {
-                        type: 'TASK_VALIDATED',
-                        message: `Votre tâche "${task.title}" a été validée par le manager et est maintenant terminée`,
-                        userId: String(task.assignee._id),
-                        isRead: false,
-                        metadata: {
-                            taskId: task._id,
-                            validatedBy: currentUser?._id
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error sending validation notification:', error);
-                }
-
-                // Check if there's a linked task to notify
-                if (linkedTaskData) {
-                    try {
+                    // Notify suivi person
+                    if (task.assignee && task.assignee._id) {
                         await axiosInstance.post('/notifications', {
                             type: 'TASK_VALIDATED',
-                            message: `La tâche liée "${linkedTaskData.title}" a été validée et terminée par le manager`,
+                            message: `Votre tâche "${task.title}" a été validée par le manager et est maintenant terminée`,
+                            userId: String(task.assignee._id),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                validatedBy: currentUser?._id
+                            }
+                        });
+                    }
+
+                    // Notify realization person if there's a linked task
+                    if (linkedTaskData && linkedTaskData.assignee && linkedTaskData.assignee._id) {
+                        await axiosInstance.post('/notifications', {
+                            type: 'TASK_VALIDATED',
+                            message: `La tâche liée "${linkedTaskData.title}" a été validée par le manager et est maintenant terminée`,
                             userId: String(linkedTaskData.assignee._id),
                             isRead: false,
                             metadata: {
@@ -1327,9 +1340,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                 validatedBy: currentUser?._id
                             }
                         });
-                    } catch (error) {
-                        console.error('Error sending linked task notification:', error);
                     }
+                } catch (error) {
+                    console.error('Error sending validation notifications:', error);
                 }
 
                 toast.success('La tâche a été validée et complétée avec succès');
@@ -1463,7 +1476,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                                                 )}
                                             </>
                                         ) : (
-                                            <p>La tâche a été marquée comme prête à être révisée par le responsable.</p>
+                                            <p></p>
                                         )}
 
                                         {isCurrentUserSuivi && !showReturnReason && (
@@ -1562,34 +1575,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                     )}
 
                     {/* Add validation banner for suivi tasks that are linked to realization tasks */}
-                    {isSuiviTask && linkedTaskData && (
-                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0">
-                                    <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <div className="ml-3 flex-1">
-                                    <h3 className="text-sm font-medium text-green-800">Tâche de suivi liée à une tâche de réalisation</h3>
-                                    <div className="mt-2 text-sm text-green-700">
-                                        <p>
-                                            Cette tâche de suivi est liée à la tâche de réalisation "{linkedTaskData.title}".
-                                            {task.status === 'done' && linkedTaskData.status === 'done' && (
-                                                <span className="font-semibold"> Les deux tâches ont été validées et terminées.</span>
-                                            )}
-                                            {task.status === 'done' && linkedTaskData.status !== 'done' && (
-                                                <span className="font-semibold"> La tâche de suivi est terminée mais la tâche de réalisation est toujours en cours.</span>
-                                            )}
-                                            {task.status !== 'done' && linkedTaskData.status === 'done' && (
-                                                <span className="font-semibold"> La tâche de réalisation est terminée mais la tâche de suivi est toujours en cours.</span>
-                                            )}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Suivi task indicator */}
                     {isSuiviTask && !isTaskInReview && (
@@ -1616,29 +1602,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                         </div>
                     )}
 
-                    {/* Realization task indicator */}
-                    {isRealizationTask && !isTaskInReview && linkedTaskData && (
-                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                                    </svg>
-                                </div>
-                                <div className="ml-3 flex-1">
-                                    <h3 className="text-sm font-medium text-green-800">Tâche de réalisation liée</h3>
-                                    <p className="mt-2 text-sm text-green-700">
-                                        Cette tâche de réalisation mettra automatiquement à jour le statut de la tâche de suivi associée.
-                                    </p>
-                                    {linkedTaskData && (
-                                        <p className="mt-2 text-sm text-green-700">
-                                            <strong>Tâche de suivi:</strong> {linkedTaskData.title}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Completion status banner for done tasks */}
                     {task && task.status === 'done' && (

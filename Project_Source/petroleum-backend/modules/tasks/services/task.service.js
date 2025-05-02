@@ -303,28 +303,119 @@ class TaskService {
             }
 
             // Send notification to creator/manager if status changed to inReview
-            if (status === 'inReview' &&
-                task.creator &&
-                task.creator.toString() !== userId &&
-                task.needsValidation) {
+            if (status === 'inReview') {
+                // Check if this is a Suivi task
+                const isSuiviTask = (
+                    (task.title && (
+                        task.title.startsWith('Suivi:') ||
+                        task.title.startsWith('SUIVI:') ||
+                        task.title.toLowerCase().includes('suivi:')
+                    )) ||
+                    (task.tags && task.tags.some(tag =>
+                        ['Follow-up', 'Suivi', 'Project Action Validation', 'Validation'].includes(tag)
+                    ))
+                );
 
-                await createNotification({
-                    type: 'TASK_REVIEW_REQUESTED',
-                    message: `La tâche "${task.title}" est prête pour révision`,
-                    userId: task.creator.toString(),
-                    isRead: false
-                });
+                // Check if this is a realization task
+                const isRealizationTask = task.title && task.title.startsWith('Réalisation:') ||
+                    (task.tags && task.tags.includes('Realization'));
 
-                // Real-time notification
-                if (global.io) {
-                    global.io.to(task.creator.toString()).emit('notification', {
-                        type: 'NEW_NOTIFICATION',
-                        payload: {
-                            type: 'TASK_REVIEW_REQUESTED',
-                            message: `La tâche "${task.title}" est prête pour révision`,
-                            userId: task.creator.toString()
+                if (isRealizationTask && task.linkedTaskId) {
+                    // For realization tasks, notify the suivi person
+                    const linkedTask = await Task.findById(task.linkedTaskId);
+                    if (linkedTask && linkedTask.assignee) {
+                        await createNotification({
+                            type: 'TASK_NEEDS_SUIVI_VALIDATION',
+                            message: `La tâche "${task.title}" nécessite votre validation avant d'être envoyée au manager`,
+                            userId: linkedTask.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                linkedTaskId: task.linkedTaskId
+                            }
+                        });
+
+                        // Real-time notification
+                        if (global.io) {
+                            const socketId = global.userSockets?.get(String(linkedTask.assignee));
+                            if (socketId) {
+                                global.io.to(socketId).emit('notification', {
+                                    type: 'NEW_NOTIFICATION',
+                                    payload: {
+                                        type: 'TASK_NEEDS_SUIVI_VALIDATION',
+                                        message: `La tâche "${task.title}" nécessite votre validation avant d'être envoyée au manager`,
+                                        userId: linkedTask.assignee.toString(),
+                                        metadata: {
+                                            taskId: task._id,
+                                            linkedTaskId: task.linkedTaskId
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } else if (isSuiviTask && task.needsValidation) {
+                    // For Suivi tasks that need validation, notify the suivi person
+                    if (task.assignee && task.assignee.toString() !== userId) {
+                        await createNotification({
+                            type: 'TASK_NEEDS_SUIVI_VALIDATION',
+                            message: `La tâche "${task.title}" nécessite votre validation avant d'être envoyée au manager`,
+                            userId: task.assignee.toString(),
+                            isRead: false,
+                            metadata: {
+                                taskId: task._id,
+                                linkedTaskId: task.linkedTaskId
+                            }
+                        });
+
+                        // Real-time notification
+                        if (global.io) {
+                            const socketId = global.userSockets?.get(String(task.assignee));
+                            if (socketId) {
+                                global.io.to(socketId).emit('notification', {
+                                    type: 'NEW_NOTIFICATION',
+                                    payload: {
+                                        type: 'TASK_NEEDS_SUIVI_VALIDATION',
+                                        message: `La tâche "${task.title}" nécessite votre validation avant d'être envoyée au manager`,
+                                        userId: task.assignee.toString(),
+                                        metadata: {
+                                            taskId: task._id,
+                                            linkedTaskId: task.linkedTaskId
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } else if (task.creator && task.creator.toString() !== userId && !task.needsValidation) {
+                    // For non-Suivi tasks or Suivi tasks that don't need validation, notify the manager
+                    await createNotification({
+                        type: 'TASK_REVIEW_REQUESTED',
+                        message: `La tâche "${task.title}" est prête pour révision`,
+                        userId: task.creator.toString(),
+                        isRead: false,
+                        metadata: {
+                            taskId: task._id
                         }
                     });
+
+                    // Real-time notification
+                    if (global.io) {
+                        const socketId = global.userSockets?.get(String(task.creator));
+                        if (socketId) {
+                            global.io.to(socketId).emit('notification', {
+                                type: 'NEW_NOTIFICATION',
+                                payload: {
+                                    type: 'TASK_REVIEW_REQUESTED',
+                                    message: `La tâche "${task.title}" est prête pour révision`,
+                                    userId: task.creator.toString(),
+                                    metadata: {
+                                        taskId: task._id
+                                    }
+                                }
+                            });
+                        }
+                    }
                 }
             }
 
@@ -775,7 +866,7 @@ class TaskService {
                     { new: true }
                 );
 
-                // Send notification to the manager (creator)
+                // Send notification to the manager (creator) ONLY when suivi validates
                 if (task.creator) {
                     await Notification.create({
                         type: 'TASK_NEEDS_MANAGER_VALIDATION',
@@ -841,7 +932,7 @@ class TaskService {
                             { new: true }
                         );
 
-                        // Send notifications to both assignees
+                        // Send notifications to both assignees (suivi and realization)
                         if (linkedTask.assignee) {
                             await Notification.create({
                                 type: 'TASK_VALIDATED_BY_MANAGER',
@@ -854,6 +945,26 @@ class TaskService {
                                     validatedBy: userId
                                 }
                             });
+
+                            // Real-time notification for realization person
+                            if (global.io) {
+                                const socketId = global.userSockets?.get(String(linkedTask.assignee));
+                                if (socketId) {
+                                    global.io.to(socketId).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            type: 'TASK_VALIDATED_BY_MANAGER',
+                                            message: `La tâche "${linkedTask.title}" a été validée par le manager et est terminée`,
+                                            userId: linkedTask.assignee.toString(),
+                                            metadata: {
+                                                taskId: linkedTask._id,
+                                                linkedTaskId: task._id,
+                                                validatedBy: userId
+                                            }
+                                        }
+                                    });
+                                }
+                            }
                         }
 
                         if (task.assignee) {
@@ -868,6 +979,26 @@ class TaskService {
                                     validatedBy: userId
                                 }
                             });
+
+                            // Real-time notification for suivi person
+                            if (global.io) {
+                                const socketId = global.userSockets?.get(String(task.assignee._id));
+                                if (socketId) {
+                                    global.io.to(socketId).emit('notification', {
+                                        type: 'NEW_NOTIFICATION',
+                                        payload: {
+                                            type: 'TASK_VALIDATED_BY_MANAGER',
+                                            message: `La tâche "${task.title}" a été validée par le manager et est terminée`,
+                                            userId: task.assignee._id.toString(),
+                                            metadata: {
+                                                taskId: task._id,
+                                                linkedTaskId: linkedTask._id,
+                                                validatedBy: userId
+                                            }
+                                        }
+                                    });
+                                }
+                            }
                         }
 
                         // Clear cache for both users
