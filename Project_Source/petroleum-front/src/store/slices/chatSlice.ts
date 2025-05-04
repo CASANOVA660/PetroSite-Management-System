@@ -115,6 +115,18 @@ export const removeParticipant = createAsyncThunk(
     }
 );
 
+export const fetchUserByAccountId = createAsyncThunk(
+    'chat/fetchUserByAccountId',
+    async (accountId: string, { rejectWithValue }) => {
+        try {
+            const response = await axios.get(`/users/by-account/${accountId}`);
+            return { accountId, userData: response.data };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data.message || 'Failed to fetch user details');
+        }
+    }
+);
+
 // Create slice
 const chatSlice = createSlice({
     name: 'chat',
@@ -368,6 +380,30 @@ const chatSlice = createSlice({
             .addCase(removeParticipant.rejected, (state, action) => {
                 state.loading.operations = false;
                 state.error = action.payload as string;
+            })
+
+            // Fetch user by account ID
+            .addCase(fetchUserByAccountId.fulfilled, (state, action) => {
+                const { accountId, userData } = action.payload;
+
+                // Update user data in all chats where this account is a participant
+                state.chats.forEach(chat => {
+                    chat.participants.forEach((participant, index) => {
+                        if (participant._id === accountId) {
+                            // Store the user data in an utilisateurAssocie field
+                            (chat.participants[index] as any).utilisateurAssocie = userData;
+                        }
+                    });
+                });
+
+                // Also update in the selected chat if applicable
+                if (state.selectedChat) {
+                    state.selectedChat.participants.forEach((participant, index) => {
+                        if (participant._id === accountId) {
+                            (state.selectedChat!.participants[index] as any).utilisateurAssocie = userData;
+                        }
+                    });
+                }
             });
     }
 });

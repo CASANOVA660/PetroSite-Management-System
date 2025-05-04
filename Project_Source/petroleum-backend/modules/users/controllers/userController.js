@@ -418,4 +418,35 @@ const getUserById = async (req, res) => {
   }
 };
 
-module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile, getUserById };
+// Get user by account ID - Used for chat participants
+const getUserByAccountId = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    console.log('Fetching user for account ID:', accountId);
+
+    // Find the account and populate the associated user
+    // Using findOne with an explicit query instead of findById
+    const account = await Account.findOne({ _id: accountId }).populate('utilisateurAssocie');
+
+    console.log('Account found:', account ? 'Yes' : 'No');
+
+    if (!account) {
+      console.log('Account not found for ID:', accountId);
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    if (!account.utilisateurAssocie) {
+      console.log('No user associated with account ID:', accountId);
+      return res.status(404).json({ error: 'No user associated with this account' });
+    }
+
+    console.log('Returning user data for account:', accountId);
+    // Return the user data
+    return res.json(account.utilisateurAssocie);
+  } catch (error) {
+    console.error('Error fetching user by account ID:', error);
+    return res.status(500).json({ error: 'Server error', details: error.message });
+  }
+};
+
+module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile, getUserById, getUserByAccountId };
