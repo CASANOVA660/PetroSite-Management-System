@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef } from 'react';
-import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon } from '@heroicons/react/24/solid';
 import { AnimatedUploadIcon } from './AnimatedUploadIcon';
 import NotificationDropdown from '../header/NotificationDropdown';
 
@@ -15,12 +15,23 @@ interface Message {
     fileName?: string;
 }
 
+interface Member {
+    id: string;
+    name: string;
+    avatar: string;
+    isAdmin?: boolean;
+    isOnline?: boolean;
+    email?: string;
+}
+
 interface ChatWindowProps {
     messages: Message[];
     onSendMessage: (message: string) => void;
     isTyping?: boolean;
     typingUser?: string;
     isLoading?: boolean;
+    participants?: Member[];
+    isGroup?: boolean;
 }
 
 type ChatMode = 'messages' | 'participants';
@@ -30,7 +41,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onSendMessage,
     isTyping,
     typingUser,
-    isLoading = false
+    isLoading = false,
+    participants = [],
+    isGroup = false
 }) => {
     const [messageInput, setMessageInput] = useState('');
     const [mode, setMode] = useState<ChatMode>('messages');
@@ -69,6 +82,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             setDragActive(false);
         }
     };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -111,7 +125,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <button className="p-2 rounded-full hover:bg-gray-100">
                         <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
                     </button>
-                    <span className="text-lg font-semibold text-gray-800 truncate">Group Chat</span>
+                    <span className="text-lg font-semibold text-gray-800 truncate">
+                        {isGroup ? 'Group Chat' : 'Direct Message'}
+                        {participants && participants.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-500">
+                                ({participants.length} {participants.length === 1 ? 'participant' : 'participants'})
+                            </span>
+                        )}
+                    </span>
                 </div>
                 <div className="flex items-center space-x-3">
                     <button
@@ -212,8 +233,59 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
                 {mode === 'participants' && (
                     <div className="flex-1 overflow-y-auto px-6 py-4">
-                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Participants</h3>
-                        <p className="text-gray-500">Participants list would appear here.</p>
+                        <div className="max-w-3xl mx-auto">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                                Participants
+                                <span className="text-sm font-normal text-gray-500 ml-2">
+                                    ({participants.length})
+                                </span>
+                            </h3>
+
+                            {participants.length === 0 ? (
+                                <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+                                    <UserCircleIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                    <p className="text-gray-500">No participants found.</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {participants.map((member) => (
+                                        <motion.div
+                                            key={member.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="flex items-center p-3 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200"
+                                        >
+                                            <div className="relative">
+                                                <img
+                                                    src={member.avatar}
+                                                    alt={member.name}
+                                                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                                />
+                                                {member.isOnline !== undefined && (
+                                                    <div
+                                                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border border-white ${member.isOnline ? 'bg-green-500' : 'bg-gray-300'}`}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="ml-3 flex-1 min-w-0">
+                                                <div className="flex items-center">
+                                                    <p className="font-medium text-gray-800 truncate">{member.name}</p>
+                                                    {member.isAdmin && (
+                                                        <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                                            Admin
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {member.email && (
+                                                    <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
