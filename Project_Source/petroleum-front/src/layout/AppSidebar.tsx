@@ -21,7 +21,7 @@ import {
   WarehouseIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { ClipboardIcon } from "@heroicons/react/24/outline";
+import { ClipboardIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 
 
 type NavItem = {
@@ -240,6 +240,11 @@ const AppSidebar: React.FC = () => {
       icon: <PageIcon />,
       name: "Documents",
       path: "/documents"
+    },
+    {
+      icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
+      name: "Messagerie",
+      path: "/chat"
     },
     {
       icon: <WarehouseIcon />,
