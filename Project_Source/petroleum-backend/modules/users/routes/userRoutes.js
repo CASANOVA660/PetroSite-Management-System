@@ -26,8 +26,6 @@ router.get('/activate/:token', userController.activateAccount);
 router.post('/complete-profile/:token', userController.completeProfile);
 
 // Route to get user by account ID (used by chat)
-router.get('/by-account/:accountId', userController.getUserByAccountId);
-
 // Protected routes - require authentication
 router.use(authenticateToken);
 

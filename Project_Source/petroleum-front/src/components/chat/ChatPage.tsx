@@ -7,7 +7,8 @@ import { VerticalNav } from './VerticalNav';
 import { ChevronRightIcon, ChevronLeftIcon, DocumentIcon, PhotoIcon, FilmIcon, LinkIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RootState, useAppDispatch } from '../../store';
-import { fetchChats, fetchChatById, fetchMessages, sendMessage, markChatAsRead, setSelectedChat, fetchUserByAccountId } from '../../store/slices/chatSlice';
+import { fetchChats, fetchChatById, fetchMessages, sendMessage, markChatAsRead, setSelectedChat } from '../../store/slices/chatSlice';
+import { getUserById } from '../../store/slices/userSlice';
 import { Chat } from '../../types/chat';
 import socketService from '../../services/socketService';
 
@@ -27,6 +28,7 @@ export const ChatPage: React.FC = () => {
     const dispatch = useAppDispatch();
     const { user } = useSelector((state: RootState) => state.auth);
     const { chats, selectedChat, messages, loading, typing } = useSelector((state: RootState) => state.chat);
+    const [userDetailsMap, setUserDetailsMap] = useState<Record<string, any>>({});
 
     const [rightOpen, setRightOpen] = useState(true);
     const [leftOpen, setLeftOpen] = useState(false); // for mobile left sidebar
@@ -50,36 +52,61 @@ export const ChatPage: React.FC = () => {
     // Fetch user details for any accounts that don't have associated user data
     useEffect(() => {
         if (chats && chats.length > 0) {
+            console.log('All chats data:', chats);
+
             // Collect all account IDs that need to be fetched
             const accountsToFetch = new Set<string>();
 
             chats.forEach(chat => {
                 chat.participants.forEach(participant => {
-                    const properties = Object.keys(participant);
-                    // If there's an _id and email but no utilisateurAssocie, we need to fetch the user
-                    if (participant._id &&
-                        !properties.includes('utilisateurAssocie') &&
-                        !properties.includes('nom') &&
-                        !properties.includes('prenom')) {
+                    // Always fetch user details for each participant to ensure we have the most up-to-date information
+                    if (participant._id && participant._id !== user?._id) {
                         accountsToFetch.add(participant._id);
+
+                        // If we have a reference to utilisateurAssocie as a string, fetch that user too
+                        if ((participant as any).utilisateurAssocie && typeof (participant as any).utilisateurAssocie === 'string') {
+                            accountsToFetch.add((participant as any).utilisateurAssocie);
+                        }
                     }
                 });
             });
 
-            // Fetch user details for each account
+            console.log('Accounts to fetch:', [...accountsToFetch]);
+
+            // Fetch user details for each account and store them in a map
+            const fetchPromises: Promise<any>[] = [];
+
             accountsToFetch.forEach(accountId => {
-                console.log("Fetching user details for account:", accountId);
-                dispatch(fetchUserByAccountId(accountId))
+                const promise = dispatch(getUserById(accountId))
                     .unwrap()
                     .then(response => {
-                        console.log("Successfully fetched user details:", response);
+                        console.log(`User details fetched for ${accountId}:`, response);
+
+                        // Store user details in the map
+                        setUserDetailsMap(prev => ({
+                            ...prev,
+                            [accountId]: response
+                        }));
+
+                        return response;
                     })
                     .catch(error => {
-                        console.log("Failed to fetch user details:", error);
+                        console.error(`Failed to fetch user details for ${accountId}:`, error);
+                        return null;
                     });
+
+                fetchPromises.push(promise);
+            });
+
+            // Wait for all promises to complete
+            Promise.all(fetchPromises).then(() => {
+                console.log('All user details fetched');
+
+                // Force a re-render after fetching all user details
+                setUserDetailsMap(prevMap => ({ ...prevMap }));
             });
         }
-    }, [chats, dispatch]);
+    }, [chats, dispatch, user?._id]);
 
     // Handle chat selection
     const handleChatSelect = useCallback((chatId: string) => {
@@ -108,14 +135,88 @@ export const ChatPage: React.FC = () => {
         }
     }, [dispatch, selectedChat]);
 
+    // Get participant name without using email
+    const getParticipantName = (participant: any): string => {
+        if (!participant) return 'Unknown';
+
+        console.log('Getting name for participant:', participant);
+
+        // First check if we have this user in our userDetailsMap
+        if (participant._id && userDetailsMap[participant._id]) {
+            const userData = userDetailsMap[participant._id];
+            console.log('Found user details in map:', userData);
+
+            if (userData.nom && userData.prenom) {
+                return `${userData.nom} ${userData.prenom}`;
+            }
+
+            if (userData.firstname && userData.lastname) {
+                return `${userData.firstname} ${userData.lastname}`;
+            }
+
+            if (userData.name) {
+                return userData.name;
+            }
+        }
+
+        // If we don't have the user details, fetch them
+        if (participant._id && !userDetailsMap[participant._id]) {
+            console.log('Fetching user details for:', participant._id);
+            dispatch(getUserById(participant._id))
+                .unwrap()
+                .then(response => {
+                    console.log('User details fetched:', response);
+                    setUserDetailsMap(prev => ({
+                        ...prev,
+                        [participant._id]: response
+                    }));
+                })
+                .catch(error => {
+                    console.error('Failed to fetch user details:', error);
+                });
+        }
+
+        // Check direct properties
+        if ((participant as any).nom && (participant as any).prenom) {
+            return `${(participant as any).nom} ${(participant as any).prenom}`;
+        }
+
+        if ((participant as any).firstname && (participant as any).lastname) {
+            return `${(participant as any).firstname} ${(participant as any).lastname}`;
+        }
+
+        if (participant.name) {
+            return participant.name;
+        }
+
+        // Try to get name from email without showing email
+        if ((participant as any).email) {
+            const emailName = (participant as any).email.split('@')[0];
+            // Capitalize first letter and replace dots/underscores with spaces
+            return emailName
+                .replace(/\./g, ' ')
+                .replace(/_/g, ' ')
+                .replace(/^(.)/, (match: string) => match.toUpperCase());
+        }
+
+        // Get name from _id as last resort
+        if (participant._id) {
+            return `User ${participant._id.substring(0, 8)}`;
+        }
+
+        return 'Unknown User';
+    };
+
     // Format chats for the LeftSidebar component
     const formattedChats = chats.map(chat => {
         // Get the other participant's name for direct messages
         let chatName = '';
         let chatAvatar = '';
 
+        console.log('Formatting chat:', chat);
+
         if (chat.isGroup) {
-            // For group chats, use the group title without any tag
+            // For group chats, use the group title
             chatName = chat.title || 'Unnamed Group';
             chatAvatar = '/group-avatar.jpg';
         } else {
@@ -123,69 +224,14 @@ export const ChatPage: React.FC = () => {
             const otherParticipant = chat.participants.find(p => p._id !== user?._id);
 
             if (otherParticipant) {
-                // Check if we need to use utilisateurAssocie field
-                const properties = Object.keys(otherParticipant);
-
-                // Check for utilisateurAssocie field which points to the actual user data
-                if (properties.includes('utilisateurAssocie') && (otherParticipant as any).utilisateurAssocie) {
-                    const associatedUser = (otherParticipant as any).utilisateurAssocie;
-
-                    if (typeof associatedUser === 'object') {
-                        // If utilisateurAssocie is an expanded object with user details
-                        if (associatedUser.nom && associatedUser.prenom) {
-                            chatName = `${associatedUser.nom} ${associatedUser.prenom}`;
-                        } else {
-                            // Try other properties on the associated user
-                            const userProps = Object.keys(associatedUser);
-                            if (userProps.includes('name')) {
-                                chatName = associatedUser.name;
-                            } else {
-                                chatName = "User";
-                            }
-                        }
-                    } else {
-                        // If utilisateurAssocie is just an ID, use email
-                        chatName = (otherParticipant as any).email || "User";
-                    }
-
-                    chatAvatar = (otherParticipant as any).profilePicture || '/avatar-placeholder.jpg';
-                } else if (properties.includes('nom') && properties.includes('prenom')) {
-                    // Handle backend format with nom and prenom fields
-                    chatName = `${(otherParticipant as any).nom} ${(otherParticipant as any).prenom}`;
-                } else if (properties.includes('firstname') && properties.includes('lastname')) {
-                    // Handle alternative format with firstname and lastname fields
-                    chatName = `${(otherParticipant as any).firstname} ${(otherParticipant as any).lastname}`;
-                } else if (properties.includes('name')) {
-                    // Fallback to name field if nom/prenom not available
-                    chatName = otherParticipant.name;
-                } else if (properties.includes('email')) {
-                    // Use email as name if no other name is available - this is the most common case for direct participants
-                    chatName = (otherParticipant as any).email.split('@')[0] || "User";
-                } else if (properties.length > 0) {
-                    // Last resort: Use any property that might contain the name
-                    const nameProps = ['displayName', 'username'];
-                    for (const prop of nameProps) {
-                        if (properties.includes(prop) && (otherParticipant as any)[prop]) {
-                            chatName = (otherParticipant as any)[prop];
-                            break;
-                        }
-                    }
-
-                    // If still no name, use the first available property
-                    if (!chatName && properties.length > 0) {
-                        const firstProp = properties[0];
-                        chatName = String((otherParticipant as any)[firstProp]) || 'User';
-                    }
-                } else {
-                    chatName = 'User';
-                }
-
+                chatName = getParticipantName(otherParticipant);
                 chatAvatar = otherParticipant.profilePicture || '/avatar-placeholder.jpg';
             } else {
-                // Fallback name without tag
                 chatName = 'Chat';
                 chatAvatar = '/avatar-placeholder.jpg';
             }
+
+            console.log('Chat name determined:', chatName);
         }
 
         return {
@@ -204,66 +250,8 @@ export const ChatPage: React.FC = () => {
 
     // Format messages for the ChatWindow component
     const activeMessages = selectedChat && messages[selectedChat._id]?.data.map(msg => {
-        // Use the same name detection logic for message sender
-        let senderName = '';
-        const sender = msg.sender;
-
-        if (!sender) {
-            senderName = 'Unknown';
-        } else {
-            const properties = Object.keys(sender);
-
-            // Check for utilisateurAssocie field which points to the actual user data
-            if (properties.includes('utilisateurAssocie') && (sender as any).utilisateurAssocie) {
-                const associatedUser = (sender as any).utilisateurAssocie;
-
-                if (typeof associatedUser === 'object') {
-                    // If utilisateurAssocie is an expanded object with user details
-                    if (associatedUser.nom && associatedUser.prenom) {
-                        senderName = `${associatedUser.nom} ${associatedUser.prenom}`;
-                    } else {
-                        // Try other properties on the associated user
-                        const userProps = Object.keys(associatedUser);
-                        if (userProps.includes('name')) {
-                            senderName = associatedUser.name;
-                        } else if (userProps.includes('email')) {
-                            senderName = associatedUser.email;
-                        } else {
-                            senderName = "User";
-                        }
-                    }
-                } else {
-                    // If utilisateurAssocie is just an ID, use other fields
-                    senderName = (sender as any).email || "User";
-                }
-            } else if (properties.includes('nom') && properties.includes('prenom')) {
-                senderName = `${(sender as any).nom} ${(sender as any).prenom}`;
-            } else if (properties.includes('firstname') && properties.includes('lastname')) {
-                senderName = `${(sender as any).firstname} ${(sender as any).lastname}`;
-            } else if (properties.includes('name')) {
-                senderName = sender.name;
-            } else if (properties.includes('email')) {
-                // Use email username as name if no other name is available
-                senderName = (sender as any).email.split('@')[0] || "User";
-            } else if (properties.length > 0) {
-                // Try any property that might contain the name
-                const nameProps = ['displayName', 'username'];
-                for (const prop of nameProps) {
-                    if (properties.includes(prop) && (sender as any)[prop]) {
-                        senderName = (sender as any)[prop];
-                        break;
-                    }
-                }
-
-                // If still no name, use the first available property
-                if (!senderName && properties.length > 0) {
-                    const firstProp = properties[0];
-                    senderName = String((sender as any)[firstProp]) || 'User';
-                }
-            } else {
-                senderName = 'User';
-            }
-        }
+        // Get sender name
+        const senderName = getParticipantName(msg.sender);
 
         return {
             id: msg._id,
@@ -283,7 +271,7 @@ export const ChatPage: React.FC = () => {
     const typingUsers = selectedChat && isTyping
         ? chats.find(c => c._id === selectedChat._id)?.participants
             .filter(p => typing[selectedChat._id]?.includes(p._id))
-            .map(p => p.name)
+            .map(p => getParticipantName(p))
         : [];
     const typingUser = typingUsers?.length ? typingUsers[0] : '';
 
@@ -364,83 +352,12 @@ export const ChatPage: React.FC = () => {
                             typingUser={typingUser}
                             isLoading={loading.messages}
                             participants={selectedChat.participants.map(p => {
-                                // Check if we need to use utilisateurAssocie field
-                                const properties = Object.keys(p);
-                                let displayName = '';
-                                let email = '';
-
-                                // Check for utilisateurAssocie field which points to the actual user data
-                                if (properties.includes('utilisateurAssocie') && (p as any).utilisateurAssocie) {
-                                    const associatedUser = (p as any).utilisateurAssocie;
-
-                                    if (typeof associatedUser === 'object') {
-                                        // If utilisateurAssocie is an expanded object with user details
-                                        if (associatedUser.nom && associatedUser.prenom) {
-                                            displayName = `${associatedUser.nom} ${associatedUser.prenom}`;
-                                        } else {
-                                            // Try other properties on the associated user
-                                            const userProps = Object.keys(associatedUser);
-                                            if (userProps.includes('name')) {
-                                                displayName = associatedUser.name;
-                                            } else {
-                                                displayName = "User";
-                                            }
-                                        }
-                                        if (associatedUser.email) {
-                                            email = associatedUser.email;
-                                        }
-                                    } else {
-                                        // If utilisateurAssocie is just an ID, use other fields
-                                        displayName = (p as any).email.split('@')[0] || "User";
-                                        email = (p as any).email || "";
-                                    }
-                                } else if (properties.includes('nom') && properties.includes('prenom')) {
-                                    // Handle backend format with nom and prenom fields
-                                    displayName = `${(p as any).nom} ${(p as any).prenom}`;
-                                    if (properties.includes('email')) {
-                                        email = (p as any).email;
-                                    }
-                                } else if (properties.includes('firstname') && properties.includes('lastname')) {
-                                    // Handle alternative format with firstname and lastname fields
-                                    displayName = `${(p as any).firstname} ${(p as any).lastname}`;
-                                    if (properties.includes('email')) {
-                                        email = (p as any).email;
-                                    }
-                                } else if (properties.includes('name')) {
-                                    // Fallback to name field if nom/prenom not available
-                                    displayName = p.name;
-                                    if (properties.includes('email')) {
-                                        email = (p as any).email;
-                                    }
-                                } else if (properties.includes('email')) {
-                                    // Use email as name if no other name is available
-                                    displayName = (p as any).email.split('@')[0] || "User";
-                                    email = (p as any).email;
-                                } else if (properties.length > 0) {
-                                    // Last resort: Use any property that might contain the name
-                                    const nameProps = ['displayName', 'username'];
-                                    for (const prop of nameProps) {
-                                        if (properties.includes(prop) && (p as any)[prop]) {
-                                            displayName = (p as any)[prop];
-                                            break;
-                                        }
-                                    }
-
-                                    // If still no name, use the first available property
-                                    if (!displayName && properties.length > 0) {
-                                        const firstProp = properties[0];
-                                        displayName = String((p as any)[firstProp]) || 'User';
-                                    }
-                                } else {
-                                    displayName = 'User';
-                                }
-
                                 return {
                                     id: p._id,
-                                    name: displayName,
+                                    name: getParticipantName(p),
                                     avatar: p.profilePicture || '/user-avatar.jpg',
                                     isAdmin: p._id === selectedChat.admin?._id,
-                                    email: email
+                                    email: '' // Removing email display as requested
                                 };
                             })}
                             isGroup={selectedChat.isGroup}
