@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon } from '@heroicons/react/24/solid';
 import { AnimatedUploadIcon } from './AnimatedUploadIcon';
 import NotificationDropdown from '../header/NotificationDropdown';
@@ -52,6 +52,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
     const dropRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messageContainerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom when messages change or when typing starts
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isTyping]);
+
+    // Function to scroll to bottom of messages
+    const scrollToBottom = () => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     const simulateUpload = (file: File) => {
         setUploading(true);
@@ -125,14 +139,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <button className="p-2 rounded-full hover:bg-gray-100">
                         <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
                     </button>
-                    <span className="text-lg font-semibold text-gray-800 truncate">
-                        {isGroup ? 'Group Chat' : 'Direct Message'}
-                        {participants && participants.length > 0 && (
-                            <span className="ml-2 text-xs text-gray-500">
-                                ({participants.length} {participants.length === 1 ? 'participant' : 'participants'})
+                    <div className="flex flex-col">
+                        <span className="text-lg font-semibold text-gray-800 truncate">
+                            {isGroup ? 'Group Chat' : 'Direct Message'}
+                            {participants && participants.length > 0 && (
+                                <span className="ml-2 text-xs text-gray-500">
+                                    ({participants.length} {participants.length === 1 ? 'participant' : 'participants'})
+                                </span>
+                            )}
+                        </span>
+                        {isTyping && (
+                            <span className="text-xs text-green-600 flex items-center">
+                                <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                                {typingUser || 'Someone'} is typing...
                             </span>
                         )}
-                    </span>
+                    </div>
                 </div>
                 <div className="flex items-center space-x-3">
                     <button
@@ -168,6 +190,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div
                         className={`flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4 ${dragActive ? 'pointer-events-none blur-sm opacity-70' : ''}`}
                         style={{ maxHeight: '100%' }}
+                        ref={messageContainerRef}
                     >
                         {isLoading ? (
                             <div className="flex items-center justify-center h-full">
@@ -219,15 +242,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </AnimatePresence>
                         )}
                         {isTyping && (
-                            <div className="flex items-center space-x-1 text-gray-500 text-sm pl-4">
-                                <span>{typingUser || 'Someone'} is typing</span>
-                                <span className="flex">
-                                    <span className="animate-bounce">.</span>
-                                    <span className="animate-bounce delay-100">.</span>
-                                    <span className="animate-bounce delay-200">.</span>
-                                </span>
+                            <div className="flex items-center py-2 px-4 bg-white shadow-sm rounded-full border border-gray-100 animate-pulse">
+                                <div className="flex items-center space-x-1 text-green-600 text-sm">
+                                    <span>{typingUser || 'Someone'} is typing</span>
+                                    <span className="flex">
+                                        <span className="animate-bounce">.</span>
+                                        <span className="animate-bounce delay-100">.</span>
+                                        <span className="animate-bounce delay-200">.</span>
+                                    </span>
+                                </div>
                             </div>
                         )}
+                        {/* Invisible element to scroll to */}
+                        <div ref={messagesEndRef} />
                     </div>
                 )}
 

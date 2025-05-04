@@ -268,16 +268,25 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                         className="w-10 h-10 rounded-full"
                                     />
                                     {chat.isTyping && (
-                                        <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                                        <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                                            <span className="flex space-x-0.5">
+                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce"></span>
+                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce delay-100"></span>
+                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce delay-200"></span>
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     {getChatDisplayName(chat)}
-                                    <p className="text-xs text-gray-600 truncate max-w-[160px]">
-                                        {chat.lastMessage || 'No messages yet'}
-                                    </p>
-                                    {chat.isTyping && (
-                                        <p className="text-xs text-green-600 italic">Typing...</p>
+                                    {chat.isTyping ? (
+                                        <p className="text-xs text-green-600 font-medium">
+                                            Typing...
+                                        </p>
+                                    ) : (
+                                        <p className="text-xs text-gray-600 truncate max-w-[160px]">
+                                            {chat.lastMessage || 'No messages yet'}
+                                        </p>
                                     )}
                                 </div>
                             </div>
