@@ -1,23 +1,21 @@
+import React from 'react';
 import { HomeIcon, UserGroupIcon, ChartBarIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
-export const VerticalNav: React.FC = () => (
-    <nav className="flex flex-col items-center py-6 bg-white rounded-l-3xl shadow-lg h-full w-16">
-        <div className="flex-1 flex flex-col items-center space-y-8">
-            <button className="p-2 rounded-full hover:bg-gray-100">
-                <HomeIcon className="w-6 h-6 text-gray-400" />
-            </button>
-            <button className="p-2 rounded-full bg-green-100">
-                <ChatBubbleLeftRightIcon className="w-6 h-6 text-green-500" />
-            </button>
-            <button className="p-2 rounded-full hover:bg-gray-100">
-                <UserGroupIcon className="w-6 h-6 text-gray-400" />
-            </button>
-            <button className="p-2 rounded-full hover:bg-gray-100">
-                <ChartBarIcon className="w-6 h-6 text-gray-400" />
-            </button>
+interface VerticalNavProps {
+    icons: {
+        icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+        color: string;
+    }[];
+}
+
+export const VerticalNav: React.FC<VerticalNavProps> = ({ icons }) => {
+    return (
+        <div className="flex flex-col gap-3 mt-4 w-full items-center">
+            {icons.map(({ icon: Icon, color }, idx) => (
+                <div key={idx} className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
+                    <Icon className="w-5 h-5" />
+                </div>
+            ))}
         </div>
-        <div className="mt-auto mb-2">
-            <img src="/avatar-placeholder.jpg" alt="User" className="w-8 h-8 rounded-full border-2 border-white shadow" />
-        </div>
-    </nav>
-); 
+    );
+}; 

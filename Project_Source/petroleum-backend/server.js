@@ -14,12 +14,14 @@ const documentRoutes = require('./modules/documents/routes/document.routes');
 const actionRoutes = require('./modules/actions/routes/action.routes');
 const taskRoutes = require('./modules/tasks/routes/task.routes');
 const equipmentRoutes = require('./modules/equipment/routes/equipment.routes');
+const chatRoutes = require('./modules/chat/routes/chatRoutes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
 const socketIo = require('socket.io');
 const logger = require('./utils/logger');
 const globalActionRoutes = require('./modules/actions/routes/globalAction.routes');
+const { handleTyping } = require('./modules/chat/controllers/messageController');
 
 dotenv.config();
 
@@ -69,6 +71,9 @@ io.on('connection', (socket) => {
             logger.info(`User ${userId} joined their room`);
         }
     });
+
+    // Handle typing events for chat
+    handleTyping(socket, io, userSockets);
 
     // Direct notification from frontend to specific user
     socket.on('direct-notification', async (data) => {
@@ -180,6 +185,7 @@ app.use('/api/actions', actionRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/global-actions', globalActionRoutes);
 app.use('/api/equipment', equipmentRoutes);
+app.use('/api/chats', chatRoutes);
 
 // Error handling
 app.use(errorHandler);

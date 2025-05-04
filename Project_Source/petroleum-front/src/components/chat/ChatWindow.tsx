@@ -20,6 +20,7 @@ interface ChatWindowProps {
     onSendMessage: (message: string) => void;
     isTyping?: boolean;
     typingUser?: string;
+    isLoading?: boolean;
 }
 
 type ChatMode = 'messages' | 'participants';
@@ -29,6 +30,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onSendMessage,
     isTyping,
     typingUser,
+    isLoading = false
 }) => {
     const [messageInput, setMessageInput] = useState('');
     const [mode, setMode] = useState<ChatMode>('messages');
@@ -37,18 +39,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
     const dropRef = useRef<HTMLDivElement>(null);
-
-    const filledMessages = [
-        ...messages,
-        ...Array.from({ length: 20 }, (_, i) => ({
-            id: `filler-${i}`,
-            sender: i % 2 === 0 ? 'Evan Scott' : 'You',
-            content: i % 2 === 0 ? `This is a filler message #${i + 1}` : `Another message from you #${i + 1}`,
-            timestamp: `11:${30 + i} AM`,
-            isCurrentUser: i % 2 !== 0,
-            avatar: i % 2 === 0 ? '/evan-avatar.jpg' : '/user-avatar.jpg',
-        }))
-    ];
 
     const simulateUpload = (file: File) => {
         setUploading(true);
@@ -158,143 +148,159 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         className={`flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4 ${dragActive ? 'pointer-events-none blur-sm opacity-70' : ''}`}
                         style={{ maxHeight: '100%' }}
                     >
-                        <AnimatePresence>
-                            {filledMessages.map((message) => (
-                                <motion.div
-                                    key={message.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    className={`flex ${message.isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                                >
-                                    <div className={`flex ${message.isCurrentUser ? 'flex-row-reverse' : 'flex-row'} items-start space-x-2 max-w-[75%]`}>
-                                        <img
-                                            src={message.avatar}
-                                            alt={message.sender}
-                                            className="w-8 h-8 rounded-full"
-                                        />
-                                        <div>
-                                            <div className={`text-xs text-gray-500 ${message.isCurrentUser ? 'text-right' : ''}`}>
-                                                {message.sender} {message.timestamp && `• ${message.timestamp}`}
-                                            </div>
-                                            <div
-                                                className={`mt-1 px-3 py-2 rounded-lg ${message.isCurrentUser
-                                                    ? 'bg-green-100 text-gray-900'
-                                                    : 'bg-white text-gray-800 border border-gray-200'
-                                                    }`}
-                                            >
-                                                {message.content}
-                                                {'fileUrl' in message && (message as Message).fileUrl && (
-                                                    <div className="flex items-center mt-2 bg-white border border-gray-100 rounded-md p-2">
-                                                        <ArrowUpTrayIcon className="w-4 h-4 text-green-500 mr-2" />
-                                                        <span className="text-sm text-gray-700">{(message as Message).fileName ?? ''}</span>
-                                                        <a href={(message as Message).fileUrl ?? ''} download className="ml-auto text-green-500 text-xs hover:underline">Download</a>
-                                                    </div>
-                                                )}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-full">
+                                <p className="text-gray-500">Loading messages...</p>
+                            </div>
+                        ) : messages.length === 0 ? (
+                            <div className="flex items-center justify-center h-full">
+                                <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                            </div>
+                        ) : (
+                            <AnimatePresence>
+                                {messages.map((message) => (
+                                    <motion.div
+                                        key={message.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className={`flex ${message.isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div className={`flex ${message.isCurrentUser ? 'flex-row-reverse' : 'flex-row'} items-start space-x-2 max-w-[75%]`}>
+                                            <img
+                                                src={message.avatar}
+                                                alt={message.sender}
+                                                className="w-8 h-8 rounded-full"
+                                            />
+                                            <div>
+                                                <div className={`text-xs text-gray-500 ${message.isCurrentUser ? 'text-right' : ''}`}>
+                                                    {message.sender} {message.timestamp && `• ${message.timestamp}`}
+                                                </div>
+                                                <div
+                                                    className={`mt-1 px-3 py-2 rounded-lg ${message.isCurrentUser
+                                                        ? 'bg-green-100 text-gray-900'
+                                                        : 'bg-white text-gray-800 border border-gray-200'
+                                                        }`}
+                                                >
+                                                    {message.content}
+                                                    {'fileUrl' in message && (message as Message).fileUrl && (
+                                                        <div className="flex items-center mt-2 bg-white border border-gray-100 rounded-md p-2">
+                                                            <ArrowUpTrayIcon className="w-4 h-4 text-green-500 mr-2" />
+                                                            <span className="text-sm text-gray-700">{(message as Message).fileName ?? ''}</span>
+                                                            <a href={(message as Message).fileUrl ?? ''} download className="ml-auto text-green-500 text-xs hover:underline">Download</a>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                        )}
                         {isTyping && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex items-center space-x-2 text-sm text-gray-500 pl-6"
-                            >
-                                <div className="flex space-x-1">
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-100" />
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-200" />
-                                </div>
-                                <span>{typingUser} is typing...</span>
-                            </motion.div>
+                            <div className="flex items-center space-x-1 text-gray-500 text-sm pl-4">
+                                <span>{typingUser || 'Someone'} is typing</span>
+                                <span className="flex">
+                                    <span className="animate-bounce">.</span>
+                                    <span className="animate-bounce delay-100">.</span>
+                                    <span className="animate-bounce delay-200">.</span>
+                                </span>
+                            </div>
                         )}
                     </div>
                 )}
-                {mode === 'participants' && (
-                    <motion.div
-                        key="participants"
-                        initial={{ opacity: 0, x: 40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -40 }}
-                        transition={{ duration: 0.25 }}
-                        className="flex items-center justify-center text-gray-500 text-lg h-full"
-                    >
-                        Participants view (static placeholder)
-                    </motion.div>
-                )}
-            </div>
 
-            {uploading && (
-                <div className="px-6 py-3 bg-white border-t border-gray-200">
-                    <div className="flex items-center space-x-3">
-                        <div className="flex-1">
-                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <motion.div
-                                    className="h-1.5 bg-green-500 rounded-full"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${uploadProgress}%` }}
-                                    transition={{ duration: 0.3 }}
-                                />
+                {mode === 'participants' && (
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Participants</h3>
+                        <p className="text-gray-500">Participants list would appear here.</p>
+                    </div>
+                )}
+
+                {/* Drag overlay */}
+                {dragActive && (
+                    <div className="absolute inset-0 flex items-center justify-center z-50 bg-gray-900/20 backdrop-blur-sm pointer-events-none">
+                        <div className="bg-white p-8 rounded-xl shadow-2xl">
+                            <div className="w-16 h-16 mx-auto mb-4">
+                                <AnimatedUploadIcon />
                             </div>
-                            <div className="flex justify-between mt-1 text-xs text-gray-500">
-                                <span>{Math.round(uploadProgress)}%</span>
-                                <span>{uploadProgress === 100 ? 'Completed' : 'Uploading...'}</span>
+                            <p className="text-gray-800 font-medium text-center">Drop your file to upload</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Uploading progress */}
+                {uploading && (
+                    <div className="px-6 py-4 bg-white border-t border-gray-200">
+                        <div className="flex items-center">
+                            <div className="w-8 h-8 mr-3 flex-shrink-0">
+                                <svg className="w-full h-full text-green-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-sm font-medium text-gray-700">Uploading...</span>
+                                    <span className="text-sm text-gray-500">{Math.round(uploadProgress)}%</span>
+                                </div>
+                                <div className="h-2 bg-gray-200 rounded-full">
+                                    <div className="h-2 bg-green-500 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+                                </div>
                             </div>
                         </div>
-                        <button
-                            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
-                            onClick={() => setUploading(false)}
-                        >
-                            ✕
-                        </button>
                     </div>
-                </div>
-            )}
-            {uploadedFile && !uploading && (
-                <div className="px-6 py-3 bg-white border-t border-gray-200 flex items-center">
-                    <div className="flex-1 flex items-center bg-green-50 rounded-lg px-3 py-2">
-                        <ArrowUpTrayIcon className="w-5 h-5 text-green-500 mr-2" />
-                        <span className="text-sm text-gray-800">{uploadedFile.name}</span>
-                        <span className="ml-auto text-green-500 text-xs">100% Completed</span>
+                )}
+
+                {/* File ready to send */}
+                {!uploading && uploadedFile && (
+                    <div className="px-6 py-4 bg-white border-t border-gray-200">
+                        <div className="flex items-center">
+                            <div className="w-8 h-8 bg-green-100 rounded-lg mr-3 flex items-center justify-center flex-shrink-0">
+                                <ArrowUpTrayIcon className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div className="flex-1 minw-0">
+                                <span className="text-sm font-medium text-gray-700 truncate block">{uploadedFile.name}</span>
+                                <span className="text-xs text-gray-500">Ready to send</span>
+                            </div>
+                            <button
+                                onClick={handleSendFileMessage}
+                                className="ml-3 px-3 py-1.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600"
+                            >
+                                Send
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        className="ml-2 p-2 rounded-full hover:bg-gray-100 text-green-500"
-                        onClick={handleSendFileMessage}
-                    >
-                        <PaperAirplaneIcon className="w-5 h-5" />
-                    </button>
-                </div>
-            )}
-            {mode === 'messages' && !uploading && !uploadedFile && (
-                <form onSubmit={handleSendMessage} className="px-6 py-3 bg-white border-t border-gray-200">
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="text"
-                            value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                            placeholder="Type a message..."
-                            className="flex-1 px-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                        />
-                        <button
-                            type="button"
-                            className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
-                        >
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                        </button>
-                        <motion.button
-                            type="submit"
-                            className="bg-green-500 p-2.5 rounded-full text-white shadow-md"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <PaperAirplaneIcon className="w-5 h-5" />
-                        </motion.button>
-                    </div>
-                </form>
-            )}
+                )}
+
+                {mode === 'messages' && !uploading && !uploadedFile && (
+                    <form onSubmit={handleSendMessage} className="px-6 py-3 bg-white border-t border-gray-200">
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="text"
+                                value={messageInput}
+                                onChange={(e) => setMessageInput(e.target.value)}
+                                placeholder="Type a message..."
+                                className="flex-1 px-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                            />
+                            <button
+                                type="button"
+                                className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
+                            >
+                                <ArrowUpTrayIcon className="w-5 h-5" />
+                            </button>
+                            <motion.button
+                                type="submit"
+                                className="bg-green-500 p-2.5 rounded-full text-white shadow-md"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                <PaperAirplaneIcon className="w-5 h-5" />
+                            </motion.button>
+                        </div>
+                    </form>
+                )}
+            </div>
         </div>
     );
 };
