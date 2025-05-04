@@ -29,12 +29,14 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  badge?: number;
 };
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { chats } = useSelector((state: RootState) => state.chat);
   const isManager = user?.role === 'Manager';
 
   const [openSubmenu, setOpenSubmenu] = useState<{
@@ -45,6 +47,9 @@ const AppSidebar: React.FC = () => {
     {}
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Calculate total unread message count from all chats
+  const totalUnreadMessages = chats.reduce((total, chat) => total + (chat.unreadCount || 0), 0);
 
   // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
@@ -141,7 +146,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
-                className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
+                className={`menu-item group relative ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
               >
                 <span
@@ -154,6 +159,15 @@ const AppSidebar: React.FC = () => {
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
                   <span className="menu-item-text">{nav.name}</span>
+                )}
+                {nav.badge !== undefined && nav.badge > 0 && (
+                  <span
+                    className={`${!isExpanded && !isHovered ? 'absolute -top-1 -right-1' : 'ml-auto'} 
+                      flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-medium text-white 
+                      bg-green-500 rounded-full transition-all duration-300 animate-pulse`}
+                  >
+                    {nav.badge > 99 ? '99+' : nav.badge}
+                  </span>
                 )}
               </Link>
             )
@@ -244,7 +258,8 @@ const AppSidebar: React.FC = () => {
     {
       icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
       name: "Messagerie",
-      path: "/chat"
+      path: "/chat",
+      badge: totalUnreadMessages
     },
     {
       icon: <WarehouseIcon />,
