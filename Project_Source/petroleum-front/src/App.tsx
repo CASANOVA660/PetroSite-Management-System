@@ -32,6 +32,7 @@ import EquipmentList from './pages/Equipment/EquipmentList';
 import EquipmentDetailView from './pages/Equipment/EquipmentDetailView';
 import EquipmentAdd from './pages/Equipment/EquipmentAdd';
 import EquipmentEdit from './pages/Equipment/EquipmentEdit';
+import { Chat } from './pages/Chat';
 import { useEffect } from "react";
 import { setupTokenExpirationChecker } from "./utils/authUtils";
 
@@ -136,6 +137,9 @@ export default function App() {
             <Route path="/equipments/:id" element={<EquipmentDetailView />} />
             <Route path="/equipments/add" element={<EquipmentAdd />} />
             <Route path="/equipments/:id/edit" element={<EquipmentEdit />} />
+
+            {/* Chat */}
+            <Route path="/chat" element={<Chat />} />
           </Route>
 
           {/* Redirect root to signin */}

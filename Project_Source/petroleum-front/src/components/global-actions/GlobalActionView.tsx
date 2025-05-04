@@ -302,7 +302,10 @@ const GlobalActionView: React.FC<GlobalActionViewProps> = ({ action, isOpen, onC
                     actionId: action._id,
                     isProjectAction: !!action.isProjectAction
                 }));
-            }
+            }            // Close panel and refresh page
+            onClose();
+            window.location.reload();
+
         } catch (error: any) {
             console.error('Error during task validation:', error);
             toast.error(`Erreur: ${error.message || 'Problème lors de la validation'}`);

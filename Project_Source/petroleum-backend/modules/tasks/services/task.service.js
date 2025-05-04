@@ -869,8 +869,8 @@ class TaskService {
                 // Send notification to the manager (creator) ONLY when suivi validates
                 if (task.creator) {
                     await Notification.create({
-                        type: 'TASK_NEEDS_MANAGER_VALIDATION',
-                        message: `La tâche "${task.title}" a été validée par le superviseur et nécessite votre validation finale`,
+                        type: 'TASK_VALIDATION_REQUESTED',
+                        message: `La tâche "${task.title}" nécessite votre validation finale`,
                         userId: task.creator.toString(),
                         isRead: false,
                         metadata: {
@@ -879,26 +879,6 @@ class TaskService {
                             validatedBy: userId
                         }
                     });
-
-                    // Real-time notification
-                    if (global.io) {
-                        const socketId = global.userSockets?.get(String(task.creator));
-                        if (socketId) {
-                            global.io.to(socketId).emit('notification', {
-                                type: 'NEW_NOTIFICATION',
-                                payload: {
-                                    type: 'TASK_NEEDS_MANAGER_VALIDATION',
-                                    message: `La tâche "${task.title}" a été validée par le superviseur et nécessite votre validation finale`,
-                                    userId: task.creator.toString(),
-                                    metadata: {
-                                        taskId: task._id,
-                                        linkedTaskId: task.linkedTaskId,
-                                        validatedBy: userId
-                                    }
-                                }
-                            });
-                        }
-                    }
                 }
 
                 return updatedTask;
@@ -945,26 +925,6 @@ class TaskService {
                                     validatedBy: userId
                                 }
                             });
-
-                            // Real-time notification for realization person
-                            if (global.io) {
-                                const socketId = global.userSockets?.get(String(linkedTask.assignee));
-                                if (socketId) {
-                                    global.io.to(socketId).emit('notification', {
-                                        type: 'NEW_NOTIFICATION',
-                                        payload: {
-                                            type: 'TASK_VALIDATED_BY_MANAGER',
-                                            message: `La tâche "${linkedTask.title}" a été validée par le manager et est terminée`,
-                                            userId: linkedTask.assignee.toString(),
-                                            metadata: {
-                                                taskId: linkedTask._id,
-                                                linkedTaskId: task._id,
-                                                validatedBy: userId
-                                            }
-                                        }
-                                    });
-                                }
-                            }
                         }
 
                         if (task.assignee) {
@@ -979,26 +939,6 @@ class TaskService {
                                     validatedBy: userId
                                 }
                             });
-
-                            // Real-time notification for suivi person
-                            if (global.io) {
-                                const socketId = global.userSockets?.get(String(task.assignee._id));
-                                if (socketId) {
-                                    global.io.to(socketId).emit('notification', {
-                                        type: 'NEW_NOTIFICATION',
-                                        payload: {
-                                            type: 'TASK_VALIDATED_BY_MANAGER',
-                                            message: `La tâche "${task.title}" a été validée par le manager et est terminée`,
-                                            userId: task.assignee._id.toString(),
-                                            metadata: {
-                                                taskId: task._id,
-                                                linkedTaskId: linkedTask._id,
-                                                validatedBy: userId
-                                            }
-                                        }
-                                    });
-                                }
-                            }
                         }
 
                         // Clear cache for both users
@@ -1207,7 +1147,7 @@ class TaskService {
                             }
 
                             // Notify the linked task's assignee
-                            await createNotification({
+                            await Notification.create({
                                 type: 'TASK_COMPLETED',
                                 message: `La tâche "${linkedTask.title}" a été automatiquement complétée suite à la validation de la tâche liée`,
                                 userId: linkedTask.assignee.toString(),
@@ -1354,7 +1294,7 @@ class TaskService {
 
                     // Notify assignee about task declination
                     if (task.assignee && task.assignee.toString() !== userId) {
-                        await createNotification({
+                        await Notification.create({
                             type: 'TASK_DECLINED',
                             message: `Votre tâche "${task.title}" a été refusée. Raison: ${feedback || 'Aucune raison fournie'}`,
                             userId: task.assignee.toString(),
@@ -1391,7 +1331,7 @@ class TaskService {
                         if (linkedTask && linkedTask.assignee) {
                             // Only notify if assignee is different from current task assignee
                             if (linkedTask.assignee.toString() !== task.assignee?.toString()) {
-                                await createNotification({
+                                await Notification.create({
                                     type: 'LINKED_TASK_DECLINED',
                                     message: `La tâche liée "${task.title}" a été refusée, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
                                     userId: linkedTask.assignee.toString(),
@@ -1440,7 +1380,7 @@ class TaskService {
 
                     // Notify assignee about task being returned
                     if (task.assignee && task.assignee.toString() !== userId) {
-                        await createNotification({
+                        await Notification.create({
                             type: 'TASK_RETURNED',
                             message: `Votre tâche "${task.title}" a été retournée pour modification. Commentaires: ${feedback || 'Aucune précision fournie'}`,
                             userId: task.assignee.toString(),
@@ -1477,7 +1417,7 @@ class TaskService {
                         if (linkedTask && linkedTask.assignee) {
                             // Only notify if assignee is different from current task assignee
                             if (linkedTask.assignee.toString() !== task.assignee?.toString()) {
-                                await createNotification({
+                                await Notification.create({
                                     type: 'LINKED_TASK_RETURNED',
                                     message: `La tâche liée "${task.title}" a été retournée pour modification, ce qui pourrait affecter votre tâche "${linkedTask.title}"`,
                                     userId: linkedTask.assignee.toString(),
