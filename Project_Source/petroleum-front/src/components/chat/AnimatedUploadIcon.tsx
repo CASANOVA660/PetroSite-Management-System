@@ -11,7 +11,7 @@ const RINGS = [
 
 export const AnimatedUploadIcon: React.FC = () => {
     return (
-        <div className="relative w-32 h-32 flex items-center justify-center">
+        <div className="relative w-[276px] h-[200px] flex items-center justify-center">
             {/* Animated dots in multiple rings */}
             {RINGS.map((ring, ringIdx) => {
                 return Array.from({ length: ring.count }, (_, i) => {
@@ -24,8 +24,10 @@ export const AnimatedUploadIcon: React.FC = () => {
                             key={`ring-${ringIdx}-dot-${i}`}
                             className="absolute bg-green-300"
                             style={{
-                                left: 64 + x,
-                                top: 64 + y,
+                                left: "50%",
+                                top: "50%",
+                                marginLeft: x,
+                                marginTop: y,
                                 width: ring.size,
                                 height: ring.size,
                                 borderRadius: '50%',
@@ -45,8 +47,8 @@ export const AnimatedUploadIcon: React.FC = () => {
                 });
             })}
             {/* Center circle and icon */}
-            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg z-10">
-                <FolderIcon className="w-10 h-10 text-white" />
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                <FolderIcon className="w-8 h-8 text-white" />
             </div>
         </div>
     );

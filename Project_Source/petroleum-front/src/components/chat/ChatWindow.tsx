@@ -220,11 +220,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {/* Drag overlay */}
                 {dragActive && (
                     <div className="absolute inset-0 flex items-center justify-center z-50 bg-gray-900/20 backdrop-blur-sm pointer-events-none">
-                        <div className="bg-white p-8 rounded-xl shadow-2xl">
-                            <div className="w-16 h-16 mx-auto mb-4">
-                                <AnimatedUploadIcon />
-                            </div>
-                            <p className="text-gray-800 font-medium text-center">Drop your file to upload</p>
+                        <div className="bg-white rounded-2xl shadow-md overflow-hidden px-8 py-6 max-w-md w-full flex flex-col items-center justify-center">
+                            <AnimatedUploadIcon />
+                            <p className="text-gray-800 font-medium text-center pb-4">Drop your file to upload</p>
                         </div>
                     </div>
                 )}
