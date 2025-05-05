@@ -220,15 +220,9 @@ const completeProfile = async (req, res) => {
 
 const listUsers = async (req, res) => {
   try {
-    let users;
-
-    // If user is Manager, return all users
-    if (req.user.role === 'Manager') {
-      users = await User.find().sort({ createdAt: -1 });
-    } else {
-      // For non-managers, only return their own data
-      users = await User.find({ _id: req.user._id });
-    }
+    // Allow all users to see the list of users
+    // This change enables chat functionality for all users
+    const users = await User.find().sort({ createdAt: -1 });
 
     console.log('Sending users:', users); // Debug log
     res.status(200).json(users);
@@ -242,12 +236,9 @@ const getUser = async (req, res) => {
   try {
     const userId = req.params.id;
 
-    // Allow users to only see their own profile unless they are Manager
-    if (req.user.role !== 'Manager' && req.user._id !== userId) {
-      return res.status(403).json({ error: 'Accès non autorisé' });
-    }
-
+    // All authenticated users can access basic user info for chat functionality
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
@@ -367,8 +358,6 @@ const getUserById = async (req, res) => {
       });
     }
 
-    const requestingUser = req.user;
-
     // Validate MongoDB ObjectId format
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
@@ -377,19 +366,10 @@ const getUserById = async (req, res) => {
       });
     }
 
-    // Convert both IDs to strings for comparison
-    const requestedId = id;
-    const requestingUserId = requestingUser.userId;
-
-    // If user is not a manager, they can only view their own profile
-    if (requestingUser.role !== 'Manager' && requestedId !== requestingUserId) {
-      return res.status(403).json({
-        error: 'Accès non autorisé',
-        message: 'Vous ne pouvez consulter que votre propre profil'
-      });
-    }
-
+    // Find user - all authenticated users can access any user profile
+    // This enables proper chat functionality for all users
     const user = await User.findById(id);
+
     if (!user) {
       return res.status(404).json({
         error: 'Utilisateur non trouvé',
