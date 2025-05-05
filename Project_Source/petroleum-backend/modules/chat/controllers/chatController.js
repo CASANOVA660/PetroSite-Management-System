@@ -5,6 +5,8 @@ const Message = require('../models/Message');
 const mongoose = require('mongoose');
 const logger = require('../../../utils/logger');
 const ApiError = require('../../../utils/ApiError');
+const cloudinary = require('../../../config/cloudinary');
+const fs = require('fs');
 
 /**
  * @desc    Create a new chat
@@ -13,14 +15,15 @@ const ApiError = require('../../../utils/ApiError');
  */
 const createChat = asyncHandler(async (req, res) => {
     const { title, participants, isGroup } = req.body;
+    const participantsArray = Array.isArray(participants) ? participants : JSON.parse(participants || '[]');
 
-    if ((!participants || participants.length === 0) && !isGroup) {
+    if ((!participantsArray || participantsArray.length === 0) && !isGroup) {
         res.status(400);
         throw new Error('Chat must have at least one participant');
     }
 
     // Validate all participants exist
-    const participantIds = [...participants, req.user.id];
+    const participantIds = [...participantsArray, req.user.id];
     const uniqueParticipantIds = [...new Set(participantIds)];
 
     const users = await User.find({ _id: { $in: uniqueParticipantIds } });
@@ -31,7 +34,7 @@ const createChat = asyncHandler(async (req, res) => {
     }
 
     // If it's a direct chat (not a group), check if a chat already exists between these users
-    if (!isGroup && participants.length === 1) {
+    if (!isGroup && participantsArray.length === 1) {
         const existingChat = await Chat.findOne({
             isGroup: false,
             participants: {
@@ -45,13 +48,65 @@ const createChat = asyncHandler(async (req, res) => {
         }
     }
 
+    // Handle group picture upload if provided
+    let groupPicture = null;
+    if (req.file && isGroup === 'true') {
+        try {
+            console.log('Uploading group picture to Cloudinary:', req.file.path);
+
+            // Make sure uploads directory exists
+            if (!fs.existsSync(req.file.path)) {
+                console.error('File does not exist at path:', req.file.path);
+                res.status(500);
+                throw new Error('File upload failed - file not found');
+            }
+
+            // Upload to Cloudinary
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'petroleum/chat_pictures',
+                width: 500,
+                height: 500,
+                crop: 'fill',
+                gravity: 'face',
+                resource_type: 'image',
+                overwrite: true
+            });
+
+            console.log('Cloudinary upload successful:', result);
+
+            groupPicture = {
+                url: result.secure_url,
+                publicId: result.public_id
+            };
+
+            // Remove the local file after upload
+            fs.unlinkSync(req.file.path);
+            console.log('Successfully uploaded group picture and removed local file');
+        } catch (error) {
+            console.error('Error uploading group picture to Cloudinary:', error);
+            logger.error('Error uploading group picture:', error);
+            // Continue without the picture if upload fails
+        }
+    } else {
+        console.log('No file uploaded or not a group chat:', {
+            hasFile: !!req.file,
+            isGroup: isGroup
+        });
+    }
+
     // Create new chat
-    const chat = await Chat.create({
+    const chatData = {
         title: title || null,
-        isGroup,
+        isGroup: isGroup === 'true',
         participants: uniqueParticipantIds,
         admin: req.user.id
-    });
+    };
+
+    if (groupPicture) {
+        chatData.groupPicture = groupPicture;
+    }
+
+    const chat = await Chat.create(chatData);
 
     const populatedChat = await Chat.findById(chat._id)
         .populate('participants', 'name email profilePicture')
@@ -70,7 +125,7 @@ const createChat = asyncHandler(async (req, res) => {
                         type: 'NEW_CHAT',
                         payload: {
                             chatId: chat._id,
-                            message: isGroup
+                            message: isGroup === 'true'
                                 ? `You were added to group chat "${title || 'New Group'}" by ${req.user.name}`
                                 : `${req.user.name} started a conversation with you`
                         }

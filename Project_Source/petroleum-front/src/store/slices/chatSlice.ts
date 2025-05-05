@@ -43,9 +43,43 @@ export const fetchChatById = createAsyncThunk(
 
 export const createChat = createAsyncThunk(
     'chat/createChat',
-    async (data: { title?: string; participants: string[]; isGroup?: boolean }, { rejectWithValue }) => {
+    async (data: { title?: string; participants: string[]; isGroup?: boolean; groupPicture?: File } | FormData, { rejectWithValue }) => {
         try {
-            const response = await axios.post('/chats', data);
+            let response;
+
+            if (data instanceof FormData) {
+                // FormData is already prepared with all necessary fields
+                response = await axios.post('/chats', data, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else if (data.groupPicture) {
+                // For backwards compatibility - convert object to FormData
+                const formData = new FormData();
+
+                // Add chat data
+                if (data.title) formData.append('title', data.title);
+                formData.append('isGroup', String(!!data.isGroup));
+
+                // Add participants as an array
+                data.participants.forEach((participantId, index) => {
+                    formData.append(`participants[${index}]`, participantId);
+                });
+
+                // Add the file
+                formData.append('groupPicture', data.groupPicture);
+
+                response = await axios.post('/chats', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else {
+                // No file, use regular JSON request
+                response = await axios.post('/chats', data);
+            }
+
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data.message || 'Failed to create chat');

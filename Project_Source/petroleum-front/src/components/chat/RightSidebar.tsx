@@ -10,8 +10,11 @@ import {
     BellIcon,
     MicrophoneIcon,
     VideoCameraIcon,
-    XMarkIcon
+    XMarkIcon,
+    UserGroupIcon,
+    CameraIcon
 } from '@heroicons/react/24/outline';
+import { useState } from 'react';
 
 interface FileStats {
     totalFiles: number;
@@ -41,6 +44,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     isGroup = false,
     onClose,
 }) => {
+    const [isHoveringImage, setIsHoveringImage] = useState(false);
+
     // Default file stats if none provided
     const stats = fileStats || {
         totalFiles: 0,
@@ -86,30 +91,69 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             {/* Chat/Group Info */}
             <div className="px-4 sm:px-6 py-6 border-b border-gray-100">
                 <div className="flex flex-col items-center">
-                    <div className="relative">
-                        <img
-                            src={groupAvatar}
-                            alt={groupName || 'Chat'}
-                            className="w-20 h-20 rounded-full object-cover shadow-sm border-2 border-white"
-                        />
-                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                    <div
+                        className="relative cursor-pointer group"
+                        onMouseEnter={() => setIsHoveringImage(true)}
+                        onMouseLeave={() => setIsHoveringImage(false)}
+                    >
+                        <div className="w-24 h-24 rounded-full overflow-hidden shadow-md border-2 border-white relative">
+                            {groupAvatar && groupAvatar !== '/group-avatar.jpg' ? (
+                                <img
+                                    src={groupAvatar}
+                                    alt={groupName || 'Chat'}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-indigo-50 to-purple-100 flex items-center justify-center">
+                                    <UserGroupIcon className="w-12 h-12 text-indigo-400" />
+                                </div>
+                            )}
+
+                            {/* Hover overlay effect */}
+                            <motion.div
+                                className="absolute inset-0 bg-black/30 flex items-center justify-center"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: isHoveringImage ? 1 : 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                {isGroup && (
+                                    <CameraIcon className="w-8 h-8 text-white" />
+                                )}
+                            </motion.div>
+                        </div>
+
+                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
                     </div>
+
                     <h3 className="mt-4 text-lg font-semibold text-gray-900">{groupName || 'Chat'}</h3>
                     <p className="mt-1 text-sm text-gray-500">
                         {isGroup ? `${memberCount} members` : 'Direct Message'}
                     </p>
 
+                    {/* Action buttons */}
+                    <div className="mt-5 flex items-center space-x-3">
+                        <button className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                            <MicrophoneIcon className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                            <VideoCameraIcon className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                            <EllipsisVerticalIcon className="w-5 h-5 text-gray-600" />
+                        </button>
+                    </div>
+
                     {/* Member count info */}
                     {isGroup && (
                         <div className="mt-6 w-full">
-                            <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-center justify-between py-3 px-4 bg-gradient-to-r from-indigo-50 to-indigo-100 rounded-xl hover:shadow-sm transition-all duration-200 cursor-pointer">
                                 <div className="flex items-center">
-                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                                        <span className="text-xs font-medium text-gray-600">{memberCount}</span>
+                                    <div className="w-9 h-9 bg-indigo-200 rounded-lg flex items-center justify-center overflow-hidden">
+                                        <UserGroupIcon className="w-5 h-5 text-indigo-600" />
                                     </div>
                                     <div className="ml-3">
-                                        <p className="text-sm font-medium text-gray-800">Members</p>
-                                        <p className="text-xs text-gray-500">View in participants tab</p>
+                                        <p className="text-sm font-medium text-gray-800">Members ({memberCount})</p>
+                                        <p className="text-xs text-gray-500">View all participants</p>
                                     </div>
                                 </div>
                                 <ChevronRightIcon className="w-5 h-5 text-gray-400" />

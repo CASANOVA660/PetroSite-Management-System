@@ -218,14 +218,28 @@ export const ChatPage: React.FC = () => {
         if (chat.isGroup) {
             // For group chats, use the group title
             chatName = chat.title || 'Unnamed Group';
-            chatAvatar = '/group-avatar.jpg';
+
+            // Use group picture if available
+            if ((chat as any).groupPicture?.url) {
+                chatAvatar = (chat as any).groupPicture.url;
+            } else {
+                chatAvatar = '/group-avatar.jpg';
+            }
         } else {
             // For direct messages, find the other participant
             const otherParticipant = chat.participants.find(p => p._id !== user?._id);
 
             if (otherParticipant) {
                 chatName = getParticipantName(otherParticipant);
-                chatAvatar = otherParticipant.profilePicture || '/avatar-placeholder.jpg';
+
+                // Check if the participant has profile picture in the correct format
+                if ((otherParticipant as any).profilePicture?.url) {
+                    chatAvatar = (otherParticipant as any).profilePicture.url;
+                } else if (userDetailsMap[otherParticipant._id]?.profilePicture?.url) {
+                    chatAvatar = userDetailsMap[otherParticipant._id].profilePicture.url;
+                } else {
+                    chatAvatar = '/avatar-placeholder.jpg';
+                }
             } else {
                 chatName = 'Chat';
                 chatAvatar = '/avatar-placeholder.jpg';
@@ -253,13 +267,27 @@ export const ChatPage: React.FC = () => {
         // Get sender name
         const senderName = getParticipantName(msg.sender);
 
+        // Get proper avatar URL
+        let avatarUrl = '/avatar-placeholder.jpg';
+
+        if (msg.sender._id === user?._id && (user as any)?.profilePicture?.url) {
+            // Current user's avatar
+            avatarUrl = (user as any).profilePicture.url;
+        } else if ((msg.sender as any).profilePicture?.url) {
+            // Sender has profile picture directly
+            avatarUrl = (msg.sender as any).profilePicture.url;
+        } else if (userDetailsMap[msg.sender._id]?.profilePicture?.url) {
+            // Get from our user details map
+            avatarUrl = userDetailsMap[msg.sender._id].profilePicture.url;
+        }
+
         return {
             id: msg._id,
             sender: senderName,
             content: msg.content,
             timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isCurrentUser: msg.sender._id === user?._id,
-            avatar: msg.sender._id === user?._id ? '/user-avatar.jpg' : '/evan-avatar.jpg',
+            avatar: avatarUrl,
             // Add attachments if available
             fileUrl: msg.attachments?.length ? msg.attachments[0].url : undefined,
             fileName: msg.attachments?.length ? msg.attachments[0].filename : undefined
@@ -346,21 +374,29 @@ export const ChatPage: React.FC = () => {
                 >
                     {selectedChat ? (
                         <ChatWindow
-                            messages={activeMessages}
+                            messages={activeMessages || []}
                             onSendMessage={handleSendMessage}
-                            isTyping={isTyping}
-                            typingUser={typingUser}
+                            isTyping={typing[selectedChat._id]?.length > 0}
                             isLoading={loading.messages}
                             participants={selectedChat.participants.map(p => {
+                                // Check if this participant is the admin
+                                let isAdmin = false;
+                                if (typeof selectedChat.admin === 'string') {
+                                    isAdmin = p._id === selectedChat.admin;
+                                } else if (selectedChat.admin && typeof selectedChat.admin === 'object') {
+                                    isAdmin = p._id === (selectedChat.admin as any)._id;
+                                }
+
                                 return {
                                     id: p._id,
                                     name: getParticipantName(p),
-                                    avatar: p.profilePicture || '/user-avatar.jpg',
-                                    isAdmin: p._id === selectedChat.admin?._id,
-                                    email: '' // Removing email display as requested
+                                    avatar: (p as any)?.profilePicture?.url || userDetailsMap[p._id]?.profilePicture?.url || '/avatar-placeholder.jpg',
+                                    isAdmin,
+                                    email: (p as any).email
                                 };
                             })}
                             isGroup={selectedChat.isGroup}
+                            groupPictureUrl={(selectedChat as any)?.groupPicture?.url}
                         />
                     ) : (
                         <div className="flex-1 flex items-center justify-center bg-white">
@@ -391,7 +427,23 @@ export const ChatPage: React.FC = () => {
                                 <RightSidebar
                                     groupName={selectedChat.isGroup ? selectedChat.title || '' : ''}
                                     memberCount={selectedChat.participants.length}
-                                    groupAvatar="/group-avatar.jpg"
+                                    groupAvatar={
+                                        selectedChat.isGroup
+                                            ? ((selectedChat as any).groupPicture?.url || '/group-avatar.jpg')
+                                            : (() => {
+                                                // For direct messages, use other user's avatar
+                                                const otherParticipant = selectedChat.participants.find(p => p._id !== user?._id);
+                                                if (!otherParticipant) return '/avatar-placeholder.jpg';
+
+                                                // Try to get profile picture
+                                                if ((otherParticipant as any).profilePicture?.url) {
+                                                    return (otherParticipant as any).profilePicture.url;
+                                                } else if (userDetailsMap[otherParticipant._id]?.profilePicture?.url) {
+                                                    return userDetailsMap[otherParticipant._id].profilePicture.url;
+                                                }
+                                                return '/avatar-placeholder.jpg';
+                                            })()
+                                    }
                                     isGroup={selectedChat.isGroup}
                                     onClose={() => setRightOpen(false)}
                                 />

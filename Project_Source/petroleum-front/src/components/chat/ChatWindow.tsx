@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 import { AnimatedUploadIcon } from './AnimatedUploadIcon';
 import NotificationDropdown from '../header/NotificationDropdown';
 
@@ -32,6 +32,7 @@ interface ChatWindowProps {
     isLoading?: boolean;
     participants?: Member[];
     isGroup?: boolean;
+    groupPictureUrl?: string;
 }
 
 type ChatMode = 'messages' | 'participants';
@@ -43,7 +44,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     typingUser,
     isLoading = false,
     participants = [],
-    isGroup = false
+    isGroup = false,
+    groupPictureUrl
 }) => {
     const [messageInput, setMessageInput] = useState('');
     const [mode, setMode] = useState<ChatMode>('messages');
@@ -139,6 +141,31 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <button className="p-2 rounded-full hover:bg-gray-100">
                         <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
                     </button>
+                    {/* Avatar in header */}
+                    <div className="relative flex-shrink-0">
+                        {isGroup ? (
+                            groupPictureUrl ? (
+                                <img
+                                    src={groupPictureUrl}
+                                    alt="Group"
+                                    className="w-10 h-10 rounded-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <UserGroupIcon className="w-6 h-6 text-indigo-600" />
+                                </div>
+                            )
+                        ) : (
+                            participants.length > 0 && (
+                                <img
+                                    src={participants[0]?.avatar || '/avatar-placeholder.jpg'}
+                                    alt={participants[0]?.name || 'User'}
+                                    className="w-10 h-10 rounded-full object-cover"
+                                />
+                            )
+                        )}
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                    </div>
                     <div className="flex flex-col">
                         <span className="text-lg font-semibold text-gray-800 truncate">
                             {isGroup ? 'Group Chat' : 'Direct Message'}
