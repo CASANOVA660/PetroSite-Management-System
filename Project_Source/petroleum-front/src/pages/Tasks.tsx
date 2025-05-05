@@ -496,6 +496,12 @@ const Tasks: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [showHistory, setShowHistory] = useState(false);
 
+    // Track refresh attempts to prevent infinite retries
+    const refreshAttemptsRef = useRef(0);
+
+    // Add today's date formatted
+    const today = formatDate(new Date().toISOString());
+
     // Add a new state for filter type
     const [filterType, setFilterType] = useState<'all' | 'standard' | 'projectAction' | 'globalAction'>('all');
 
@@ -699,14 +705,6 @@ const Tasks: React.FC = () => {
 
     // Filter tasks by current user
     const taskData = filterTasksByCurrentUser(tasks);
-
-    // Get today's date in format "Day Month Date, Year"
-    const today = new Date().toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-    });
 
     // Fetch tasks on component mount
     useEffect(() => {
@@ -953,9 +951,6 @@ const Tasks: React.FC = () => {
             ...(tasks.inReview || []),
             ...(tasks.done || [])
         ];
-
-        // Track refresh attempts to prevent infinite retries
-        const refreshAttemptsRef = useRef(0);
 
         if (!loading && allTasksInStore.length === 0 && refreshAttemptsRef.current < 2) {
             console.log(`Tasks store is empty, scheduling auto-refresh (attempt ${refreshAttemptsRef.current + 1})`);
