@@ -209,6 +209,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         }
     };
 
+    // Function to handle file download
+    const handleFileDownload = async (url: string, filename: string) => {
+        try {
+            // Show download in progress
+            const response = await fetch(url);
+            const blob = await response.blob();
+
+            // Create a blob URL for the file
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            // Create a temporary link element to trigger the download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'download';
+            document.body.appendChild(link);
+            link.click();
+
+            // Clean up
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('Download failed. Please try again.');
+        }
+    };
+
     // Function to render message content based on type
     const renderMessageContent = (message: Message) => {
         // If message has a file attached
@@ -223,16 +249,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 alt={message.fileName || 'Image'}
                                 className="max-w-full rounded-lg max-h-[300px] object-contain bg-white"
                             />
-                            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <a
-                                    href={message.fileUrl}
-                                    download={message.fileName}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-sm hover:bg-white transition-colors"
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button
+                                    onClick={() => handleFileDownload(message.fileUrl || '', message.fileName || 'image')}
+                                    className="px-3 py-2 bg-white/90 backdrop-blur-sm rounded-lg text-gray-800 font-medium flex items-center space-x-2 hover:bg-white transition-colors shadow-lg"
                                 >
-                                    <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
-                                </a>
+                                    <DocumentArrowDownIcon className="w-5 h-5 text-gray-700" />
+                                    <span>Download</span>
+                                </button>
                             </div>
                         </div>
                         {message.content && <p className="mt-1">{message.content}</p>}
@@ -244,12 +268,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             else if (message.fileType?.startsWith('video/')) {
                 return (
                     <div className="mt-1 flex flex-col">
-                        <div className="relative rounded-lg overflow-hidden mb-1">
+                        <div className="relative rounded-lg overflow-hidden mb-1 group">
                             <video
                                 src={message.fileUrl}
                                 controls
                                 className="max-w-full rounded-lg max-h-[300px]"
                             />
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => handleFileDownload(message.fileUrl || '', message.fileName || 'video')}
+                                    className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-gray-800 font-medium flex items-center space-x-1 hover:bg-white transition-colors shadow-lg"
+                                >
+                                    <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
+                                    <span className="text-sm">Download</span>
+                                </button>
+                            </div>
                         </div>
                         {message.content && <p className="mt-1">{message.content}</p>}
                     </div>
@@ -267,15 +300,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <p className="text-sm font-medium text-gray-900 truncate">{message.fileName}</p>
                                 <p className="text-xs text-gray-500">{message.fileSize}</p>
                             </div>
-                            <a
-                                href={message.fileUrl}
-                                download={message.fileName}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-white p-1.5 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+                            <button
+                                onClick={() => handleFileDownload(message.fileUrl || '', message.fileName || 'file')}
+                                className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
                             >
                                 <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
-                            </a>
+                            </button>
                         </div>
                         {message.content && <p className="mt-1">{message.content}</p>}
                     </div>
