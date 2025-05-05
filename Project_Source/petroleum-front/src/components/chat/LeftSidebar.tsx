@@ -202,8 +202,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     };
 
     // Function to get appropriate avatar for the chat
-    const getChatAvatar = (chat: Chat) => {
-        if (!chat) return '/avatar-placeholder.jpg';
+    const getChatAvatar = (chat: Chat): string | null => {
+        if (!chat) return null;
 
         if (chat.isGroup) {
             // First check if chat has a groupPicture property directly
@@ -214,10 +214,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             if (chat.avatar && chat.avatar !== '/group-avatar.jpg') {
                 return chat.avatar;
             }
-            return '/group-avatar.jpg';
+            // Return null to indicate we should use a group icon
+            return null;
         }
-        // For direct messages, use the other user's avatar or a default
-        return chat.avatar || '/avatar-placeholder.jpg';
+        // For direct messages, use the other user's avatar or null for user icon
+        return chat.avatar && chat.avatar !== '/avatar-placeholder.jpg' ? chat.avatar : null;
     };
 
     // Ensure we're clearly showing the participant we're chatting with
@@ -329,48 +330,55 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     filteredChats.map((chat) => (
                         <motion.div
                             key={chat.id}
-                            className={`flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-colors ${activeChatId === chat.id ? 'bg-green-50' : 'hover:bg-gray-50'
-                                }`}
-                            whileHover={{ backgroundColor: '#f5f5f5' }}
-                            onClick={() => chat.id && onChatSelect(chat.id)}
+                            className={`flex items-center p-3 cursor-pointer 
+                                ${activeChatId === chat.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'} 
+                                transition-colors rounded-xl mb-1`}
+                            onClick={() => onChatSelect(chat.id)}
+                            whileHover={{ x: 4 }}
+                            whileTap={{ scale: 0.98 }}
                         >
-                            <div className="flex items-center space-x-3">
-                                <div className="relative">
+                            <div className="relative flex-shrink-0">
+                                {getChatAvatar(chat) !== null ? (
                                     <img
-                                        src={getChatAvatar(chat)}
-                                        alt={chat.name || 'Chat'}
-                                        className="w-10 h-10 rounded-full"
+                                        src={getChatAvatar(chat) || ''}
+                                        alt={chat.name}
+                                        className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-700"
                                     />
-                                    {chat.isTyping && (
-                                        <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-                                            <span className="flex space-x-0.5">
-                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce"></span>
-                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce delay-100"></span>
-                                                <span className="w-1 h-1 bg-white rounded-full animate-bounce delay-200"></span>
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    {getChatDisplayName(chat)}
-                                    {chat.isTyping ? (
-                                        <p className="text-xs text-green-600 font-medium">
-                                            Typing...
-                                        </p>
-                                    ) : (
-                                        <p className="text-xs text-gray-600 truncate max-w-[160px]">
-                                            {chat.lastMessage || 'No messages yet'}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-xs text-gray-500">{chat.time || ''}</span>
-                                {chat.unreadCount && chat.unreadCount > 0 && (
-                                    <span className="mt-1 bg-green-500 text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
-                                        {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
-                                    </span>
+                                ) : chat.isGroup ? (
+                                    // Group icon fallback
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                                        <UserGroupIcon className="w-6 h-6 text-indigo-500 dark:text-indigo-400" />
+                                    </div>
+                                ) : (
+                                    // User icon fallback
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                                        <UserIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                                    </div>
                                 )}
+                                <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${chat.unreadCount && chat.unreadCount > 0 ? 'bg-green-500 flex items-center justify-center text-xs text-white font-bold' : ''}`}>
+                                    {chat.unreadCount && chat.unreadCount > 0 ? chat.unreadCount : null}
+                                </span>
+                            </div>
+                            <div className="ml-4 flex-1">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+                                        {chat.name}
+                                    </h3>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                        {chat.time}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center mt-1">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate pr-2">
+                                        {chat.isTyping
+                                            ? <span className="text-green-500 dark:text-green-400 flex items-center">
+                                                <span className="w-1.5 h-1.5 bg-green-500 dark:bg-green-400 rounded-full mr-1 animate-pulse"></span>
+                                                Typing...
+                                            </span>
+                                            : chat.lastMessage
+                                        }
+                                    </p>
+                                </div>
                             </div>
                         </motion.div>
                     ))
