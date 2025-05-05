@@ -30,8 +30,6 @@ const authenticateToken = (req, res, next) => {
             _id: decoded.userId // Make sure _id is set for compatibility
         };
 
-        console.log('User object set in request:', req.user);
-
         next();
     });
 };

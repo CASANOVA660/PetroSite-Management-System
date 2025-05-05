@@ -43,8 +43,6 @@ const authMiddleware = (req, res, next) => {
         nom: decoded.nom
       };
 
-      console.log('User object set in request:', req.user);
-
       // Check if the route is for creating users and user is not a Manager
       if (req.path === '/api/users' && req.method === 'POST' && decoded.role !== 'Manager') {
         return res.status(403).json({

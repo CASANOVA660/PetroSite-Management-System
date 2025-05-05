@@ -64,7 +64,7 @@ const GlobalActionsTable: React.FC<GlobalActionsTableProps> = ({ actions: initia
     // Add polling interval and last update tracking
     const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const POLLING_INTERVAL = 300000; // 30 seconds
+    const POLLING_INTERVAL = 900000; // Increased from 300000 (5 min) to 900000 (15 min)
 
     // Helper functions - moved to the top before they are used in hooks
 

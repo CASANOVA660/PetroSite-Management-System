@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -954,13 +954,17 @@ const Tasks: React.FC = () => {
             ...(tasks.done || [])
         ];
 
-        if (!loading && allTasksInStore.length === 0) {
-            console.log('Tasks store is empty, scheduling auto-refresh');
+        // Track refresh attempts to prevent infinite retries
+        const refreshAttemptsRef = useRef(0);
 
-            // Set a timer to auto-refresh after 1 second
+        if (!loading && allTasksInStore.length === 0 && refreshAttemptsRef.current < 2) {
+            console.log(`Tasks store is empty, scheduling auto-refresh (attempt ${refreshAttemptsRef.current + 1})`);
+
+            // Set a timer to auto-refresh after 3 seconds
             const refreshTimer = setTimeout(async () => {
                 console.log('Auto-refreshing tasks...');
                 try {
+                    refreshAttemptsRef.current += 1;
                     toast.loading('Actualisation automatique des tâches...', { id: 'auto-refresh-timer' });
                     await dispatch(fetchUserTasks({ includeProjectActions: true })).unwrap();
                     await dispatch(fetchProjectActionTasks()).unwrap();
@@ -970,7 +974,7 @@ const Tasks: React.FC = () => {
                     console.error('Auto-refresh failed:', err);
                     toast.error('Échec de l\'actualisation automatique', { id: 'auto-refresh-timer' });
                 }
-            }, 1000);
+            }, 3000); // Increased from 1000ms to 3000ms
 
             return () => clearTimeout(refreshTimer);
         }

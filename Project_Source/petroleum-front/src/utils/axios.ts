@@ -10,8 +10,8 @@ const instance = axios.create({
 // Add request interceptor to add auth token
 instance.interceptors.request.use(
     (config) => {
-        // Log all requests for debugging
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config);
+        // Remove excessive logging of all requests
+        // console.log(`API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config);
 
         const token = localStorage.getItem('token');
         if (token) {
@@ -28,7 +28,8 @@ instance.interceptors.request.use(
 // Add response interceptor to handle token expiration
 instance.interceptors.response.use(
     (response) => {
-        console.log('API Response:', response);
+        // Remove excessive logging of all responses
+        // console.log('API Response:', response);
         return response;
     },
     (error) => {
