@@ -68,7 +68,6 @@ a) Create EmployeeDocument Model:
    - Document type categorization (HR creates folders/subfolders to store employee documents)
    - Document metadata (issue date, expiry date, issuing authority)
    - Storage details (file path, format, size)
-   - Approval workflow status
    - Version tracking
 
 b) Document Organization Interface:

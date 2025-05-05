@@ -1,60 +1,44 @@
-import { useEffect, useState } from "react";
-import { useModal } from "../../hooks/useModal";
-import { Modal } from "../ui/modal";
+import { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
-import { getUserById, updateProfile } from "../../store/slices/userSlice";
+import { updateProfile } from "../../store/slices/userSlice";
 
 interface UserProfileData {
   telephone?: string;
   country?: string;
   city?: string;
   state?: string;
+  postalCode?: string;
+  taxId?: string;
 }
 
-export default function UserInfoCard() {
-  const { isOpen, openModal, closeModal } = useModal();
+export default function UserInfoCard({ onAlert }: { onAlert: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false);
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
-  const { currentUser, loading, error } = useAppSelector((state) => state.users);
-  const [formData, setFormData] = useState<UserProfileData>({
-    telephone: '',
-    country: '',
-    city: '',
-    state: ''
-  });
+  const { currentUser, loading } = useAppSelector((state) => state.users);
 
+  // Memoize the initial form data
+  const initialFormData = useMemo(() => ({
+    telephone: currentUser?.telephone || '',
+    country: currentUser?.country || '',
+    city: currentUser?.city || '',
+    state: currentUser?.state || '',
+    postalCode: currentUser?.postalCode || '',
+    taxId: currentUser?.taxId || ''
+  }), [currentUser]);
+
+  const [formData, setFormData] = useState<UserProfileData>(initialFormData);
+
+  // Only update form data when currentUser changes and we're not editing
   useEffect(() => {
-    const fetchUserData = async () => {
-      const storedUser = localStorage.getItem('user');
-      const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
-      const userId = user?._id || user?.id || parsedStoredUser?.id || parsedStoredUser?._id;
-
-      if (userId) {
-        try {
-          await dispatch(getUserById(userId)).unwrap();
-        } catch (err) {
-          console.error('Error fetching user data:', err);
-        }
-      }
-    };
-
-    fetchUserData();
-  }, [dispatch, user]);
-
-  useEffect(() => {
-    if (currentUser) {
-      setFormData({
-        telephone: currentUser.telephone || '',
-        country: currentUser.country || '',
-        city: currentUser.city || '',
-        state: currentUser.state || ''
-      });
+    if (!isEditing && currentUser) {
+      setFormData(initialFormData);
     }
-  }, [currentUser]);
+  }, [currentUser, isEditing, initialFormData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -67,218 +51,243 @@ export default function UserInfoCard() {
   const handleSave = async () => {
     try {
       if (currentUser?._id) {
-        console.log('Updating profile for user:', currentUser._id, 'with data:', formData);
-
-        const result = await dispatch(updateProfile({
+        await dispatch(updateProfile({
           userId: currentUser._id,
           userData: formData
         })).unwrap();
 
-        console.log('Update result:', result);
-
-        if (result.user) {
-          // Refresh user data
-          await dispatch(getUserById(currentUser._id));
-          closeModal();
-        }
+        setIsEditing(false);
+        onAlert('success', 'Profile updated successfully');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error updating profile:', err);
-      // You might want to show this error to the user in a more user-friendly way
-      // For example, using a toast notification or alert component
+      onAlert('error', 'Failed to update profile');
     }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setFormData(initialFormData);
   };
 
   if (loading) {
     return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-gray-500">Loading...</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50"
+      >
+        <p className="text-center text-gray-500 dark:text-gray-400">Loading...</p>
+      </motion.div>
     );
   }
 
   if (!currentUser) {
     return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-gray-500">No user data available</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50"
+      >
+        <p className="text-center text-gray-500 dark:text-gray-400">No user data available</p>
+      </motion.div>
     );
   }
 
   return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-            Personal Information
-          </h4>
-
-          {currentUser.employeeId && (
-            <div className="mb-4">
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Employee ID
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.employeeId}
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                First Name
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.nom}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Last Name
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.prenom}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Email address
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.email}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Phone
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.telephone || 'Not specified'}
-              </p>
-            </div>
-
-            <div className="col-span-2">
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Address
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {currentUser.city && currentUser.country ?
-                  `${currentUser.city}, ${currentUser.state || ''} ${currentUser.country}` :
-                  'Not specified'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={openModal}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
-        >
-          <svg
-            className="fill-current"
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-shadow"
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="text-xl font-semibold text-gray-800 dark:text-white">
+          Profile Details
+        </h4>
+        {!isEditing && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsEditing(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
           >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206ZM12.9698 3.84272C13.2627 3.54982 13.7376 3.54982 14.0305 3.84272L14.6934 4.50563C14.9863 4.79852 14.9863 5.2734 14.6934 5.56629L14.044 6.21573L12.3204 4.49215L12.9698 3.84272ZM11.2597 5.55281L5.6359 11.1766C5.53309 11.2794 5.46238 11.4099 5.43238 11.5522L5.01758 13.5185L6.98394 13.1037C7.1262 13.0737 7.25666 13.003 7.35947 12.9002L12.9833 7.27639L11.2597 5.55281Z"
-            />
-          </svg>
-          Edit
-        </button>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit
+          </motion.button>
+        )}
       </div>
 
-      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
-        <div className="relative w-full p-4 overflow-y-auto bg-white no-scrollbar rounded-3xl dark:bg-gray-900 lg:p-11">
-          <div className="px-2 pr-14">
-            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Edit Profile Information
-            </h4>
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              Update your details to keep your profile up-to-date.
-            </p>
-          </div>
-          <form className="flex flex-col" onSubmit={(e) => {
-            e.preventDefault();
-            handleSave();
-          }}>
-            <div className="px-2 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                <div>
-                  <Label>First Name</Label>
-                  <Input type="text" value={currentUser.nom} disabled />
-                </div>
-
-                <div>
-                  <Label>Last Name</Label>
-                  <Input type="text" value={currentUser.prenom} disabled />
-                </div>
-
-                <div>
-                  <Label>Email Address</Label>
-                  <Input type="text" value={currentUser.email} disabled />
-                </div>
-
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    type="text"
-                    name="telephone"
-                    value={formData.telephone}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div>
-                  <Label>Country</Label>
-                  <Input
-                    type="text"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div>
-                  <Label>City</Label>
-                  <Input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div>
-                  <Label>State</Label>
-                  <Input
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                  />
-                </div>
+      <AnimatePresence mode="wait">
+        {isEditing ? (
+          <motion.form
+            key="edit"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <Label>First Name</Label>
+                <Input
+                  type="text"
+                  value={currentUser.nom}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-700"
+                />
+              </div>
+              <div>
+                <Label>Last Name</Label>
+                <Input
+                  type="text"
+                  value={currentUser.prenom}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-700"
+                />
+              </div>
+              <div>
+                <Label>Email Address</Label>
+                <Input
+                  type="text"
+                  value={currentUser.email}
+                  disabled
+                  className="bg-gray-100 dark:bg-gray-700"
+                />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input
+                  type="text"
+                  name="telephone"
+                  value={formData.telephone}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>Country</Label>
+                <Input
+                  type="text"
+                  name="country"
+                  value={formData.country}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>City</Label>
+                <Input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>State</Label>
+                <Input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>Postal Code</Label>
+                <Input
+                  type="text"
+                  name="postalCode"
+                  value={formData.postalCode}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>Tax ID</Label>
+                <Input
+                  type="text"
+                  name="taxId"
+                  value={formData.taxId}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
               </div>
             </div>
-            <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button size="sm" variant="outline" type="button" onClick={closeModal}>
-                Close
+            <div className="flex items-center gap-3 mt-6 justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={handleCancel}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cancel
               </Button>
-              <Button size="sm" type="submit">
+              <Button
+                size="sm"
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
                 Save Changes
               </Button>
             </div>
-          </form>
-        </div>
-      </Modal>
-    </div>
+          </motion.form>
+        ) : (
+          <motion.div
+            key="view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+          >
+            {currentUser.employeeId && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Employee ID</p>
+                <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.employeeId}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">First Name</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.nom}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Last Name</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.prenom}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.email}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Phone</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.telephone || 'Not specified'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Address</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">
+                {currentUser.city && currentUser.country
+                  ? `${currentUser.city}, ${currentUser.state || ''} ${currentUser.country}`
+                  : 'Not specified'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Postal Code</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.postalCode || 'Not specified'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tax ID</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{currentUser.taxId || 'Not specified'}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

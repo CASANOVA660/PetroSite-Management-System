@@ -53,6 +53,10 @@ const userSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  profilePicture: {
+    url: String,
+    publicId: String
+  },
   createdAt: {
     type: Date,
     default: Date.now,

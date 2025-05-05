@@ -12,6 +12,14 @@ interface User {
     country?: string;
     city?: string;
     state?: string;
+    postalCode?: string;
+    taxId?: string;
+    jobTitle?: string;
+    department?: string;
+    profilePicture?: {
+        url: string;
+        publicId: string;
+    };
     estActif: boolean;
     createdAt: Date;
     updatedAt?: Date;
@@ -162,6 +170,49 @@ export const updateProfile = createAsyncThunk(
     }
 );
 
+// Upload profile picture
+export const uploadProfilePicture = createAsyncThunk(
+    'users/uploadProfilePicture',
+    async (file: File, { rejectWithValue, getState, dispatch }) => {
+        try {
+            const formData = new FormData();
+            formData.append('profilePicture', file);
+
+            console.log('Uploading profile picture...');
+            const response = await axios.post('/users/profile-picture', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            console.log('Upload response:', response.data);
+
+            // Get the current user ID to refresh data
+            const state = getState() as { users: UserState, auth: { user: any } };
+            const userId = state.auth.user?._id;
+
+            // Update localStorage with new profile picture data
+            const currentUser = state.users.currentUser;
+            if (currentUser) {
+                const updatedUser = {
+                    ...currentUser,
+                    profilePicture: response.data.data.profilePicture
+                };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+            }
+
+            // Fetch fresh user data to ensure consistency
+            if (userId) {
+                dispatch(getUserById(userId));
+            }
+
+            return response.data.data.profilePicture;
+        } catch (error: any) {
+            console.error('Error uploading profile picture:', error.response || error);
+            return rejectWithValue(error.response?.data?.message || 'Failed to upload profile picture');
+        }
+    }
+);
+
 const userSlice = createSlice({
     name: 'users',
     initialState,
@@ -250,6 +301,22 @@ const userSlice = createSlice({
                 }
             })
             .addCase(updateProfile.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            // Upload profile picture cases
+            .addCase(uploadProfilePicture.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(uploadProfilePicture.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.currentUser) {
+                    state.currentUser.profilePicture = action.payload;
+                }
+                state.success = 'Profile picture updated successfully';
+            })
+            .addCase(uploadProfilePicture.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });

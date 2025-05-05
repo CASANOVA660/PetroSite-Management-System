@@ -1,130 +1,218 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Button from "../ui/button/Button";
+import Input from "../form/input/InputField";
+import Label from "../form/Label";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
-import { getUserById } from "../../store/slices/userSlice";
+import { updateProfile } from "../../store/slices/userSlice";
 
-interface UserData {
-  _id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  role: string;
-  employeeId?: string;
-  telephone?: string;
-  country?: string;
-  city?: string;
-  state?: string;
+interface UserMetaData {
+  employeeId: string;
+  jobTitle: string;
+  department: string;
 }
 
-export default function UserMetaCard() {
+export default function UserMetaCard({ onAlert }: { onAlert: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false);
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
-  const { currentUser, loading, error } = useAppSelector((state) => state.users);
+  const { currentUser, loading } = useAppSelector((state) => state.users);
+  const [formData, setFormData] = useState<UserMetaData>({
+    employeeId: '',
+    jobTitle: '',
+    department: ''
+  });
 
+  // Update form data when currentUser changes
   useEffect(() => {
-    const fetchUserData = async () => {
-      const storedUser = localStorage.getItem('user');
-      const parsedStoredUser = storedUser ? JSON.parse(storedUser) : null;
-      const token = localStorage.getItem('token');
-
-      if (!token) {
-        console.log('No auth token found');
-        return;
-      }
-
-      // Get the authenticated user's ID and role
-      const authUserId = user?._id || user?._id || parsedStoredUser?.id || parsedStoredUser?._id;
-      const userRole = user?.role || parsedStoredUser?.role;
-
-      console.log('Auth state:', {
-        authUserId,
-        userRole,
-        token: token ? 'Present' : 'Missing',
-        parsedStoredUser
+    if (currentUser) {
+      setFormData({
+        employeeId: currentUser.employeeId || 'Not assigned',
+        jobTitle: currentUser.jobTitle || 'Not specified',
+        department: currentUser.department || 'Not specified'
       });
+    }
+  }, [currentUser]);
 
-      if (!authUserId) {
-        console.log('No user ID found in auth state or localStorage');
-        return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      if (currentUser?._id) {
+        // Only send fields that have been changed from their default values
+        const updatedData = {
+          ...formData,
+          jobTitle: formData.jobTitle === 'Not specified' ? '' : formData.jobTitle,
+          department: formData.department === 'Not specified' ? '' : formData.department
+        };
+
+        await dispatch(updateProfile({
+          userId: currentUser._id,
+          userData: updatedData
+        })).unwrap();
+
+        setIsEditing(false);
+        onAlert('success', 'Professional information updated successfully');
       }
+    } catch (err) {
+      console.error('Error updating meta data:', err);
+      onAlert('error', 'Failed to update professional information');
+    }
+  };
 
-      try {
-        // Get the ID from the URL if it exists
-        const urlParams = new URLSearchParams(window.location.search);
-        const requestedUserId = urlParams.get('id');
-
-        // If no ID in URL or user is not manager, use their own ID
-        const idToFetch = (userRole === 'Manager' && requestedUserId) ? requestedUserId : authUserId;
-
-        // Ensure the ID is properly formatted
-        const formattedId = idToFetch.trim();
-
-        console.log('Fetching user data for ID:', formattedId);
-        const result = await dispatch(getUserById(formattedId)).unwrap();
-        console.log('Fetch result:', result);
-      } catch (err: any) {
-        console.error('Error fetching user data:', err);
-      }
-    };
-
-    fetchUserData();
-  }, [dispatch, user]);
+  const handleCancel = () => {
+    setIsEditing(false);
+    // Reset form data to current user values
+    if (currentUser) {
+      setFormData({
+        employeeId: currentUser.employeeId || 'Not assigned',
+        jobTitle: currentUser.jobTitle || 'Not specified',
+        department: currentUser.department || 'Not specified'
+      });
+    }
+  };
 
   if (loading) {
     return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-gray-500">Loading...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-red-500">
-          {error === 'Unauthorized access' ? "Vous ne pouvez consulter que votre propre profil" : error}
-        </p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50"
+      >
+        <p className="text-center text-gray-500 dark:text-gray-400">Loading...</p>
+      </motion.div>
     );
   }
 
   if (!currentUser) {
     return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-gray-500">No user data available</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50"
+      >
+        <p className="text-center text-gray-500 dark:text-gray-400">No user data available</p>
+      </motion.div>
     );
   }
 
   return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
-          <div className="w-20 h-20 overflow-hidden rounded-full bg-gray-100 dark:bg-navy-700 flex items-center justify-center">
-            <span className="text-3xl font-medium text-gray-600 dark:text-gray-300">
-              {currentUser.nom?.charAt(0).toUpperCase() || 'U'}
-            </span>
-          </div>
-          <div className="order-3 xl:order-2">
-            <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-              {currentUser.nom} {currentUser.prenom}
-            </h4>
-            <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {currentUser.role}
-              </p>
-              {currentUser.country && (
-                <>
-                  <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {currentUser.country}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-shadow"
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="text-xl font-semibold text-gray-800 dark:text-white">
+          Professional Information
+        </h4>
+        {!isEditing && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsEditing(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit
+          </motion.button>
+        )}
       </div>
-    </div>
+
+      <AnimatePresence mode="wait">
+        {isEditing ? (
+          <motion.form
+            key="edit"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <Label>Employee ID</Label>
+                <Input
+                  type="text"
+                  name="employeeId"
+                  value={formData.employeeId}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>Job Title</Label>
+                <Input
+                  type="text"
+                  name="jobTitle"
+                  value={formData.jobTitle}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <Label>Department</Label>
+                <Input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  className="focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-6 justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={handleCancel}
+                className="hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </motion.form>
+        ) : (
+          <motion.div
+            key="view"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+          >
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Employee ID</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{formData.employeeId}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Job Title</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{formData.jobTitle}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Department</p>
+              <p className="text-base font-medium text-gray-800 dark:text-white">{formData.department}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

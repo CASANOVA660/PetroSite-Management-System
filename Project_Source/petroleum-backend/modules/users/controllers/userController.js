@@ -5,6 +5,9 @@ const crypto = require('crypto');
 const { sendActivationEmail } = require('../services/emailService');
 const jwt = require('jsonwebtoken');
 const { createNotification } = require('../../../modules/notifications/controllers/notificationController');
+const cloudinary = require('../../../config/cloudinary');
+const redis = require('../../../config/redis');
+const { validationResult } = require('express-validator');
 
 
 const createUser = async (req, res) => {
@@ -366,13 +369,6 @@ const getUserById = async (req, res) => {
 
     const requestingUser = req.user;
 
-    // Log the raw values first
-    console.log('Raw values:', {
-      requestedId: id,
-      requestingUser: requestingUser,
-      requestingUserId: requestingUser.userId
-    });
-
     // Validate MongoDB ObjectId format
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
@@ -384,13 +380,6 @@ const getUserById = async (req, res) => {
     // Convert both IDs to strings for comparison
     const requestedId = id;
     const requestingUserId = requestingUser.userId;
-
-    console.log('Debug info:', {
-      requestedId,
-      requestingUserId,
-      requestingUserRole: requestingUser.role,
-      idsMatch: requestedId === requestingUserId
-    });
 
     // If user is not a manager, they can only view their own profile
     if (requestingUser.role !== 'Manager' && requestedId !== requestingUserId) {
@@ -418,6 +407,113 @@ const getUserById = async (req, res) => {
   }
 };
 
+const uploadProfilePicture = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
 
+    // Get user ID from the authenticated user
+    const userId = req.user._id || req.user.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
 
-module.exports = { createUser, activateAccount, completeProfile, listUsers, getUser, updateUser, deleteUser, updateProfile, getUserById };
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Convert buffer to base64
+    const buffer = req.file.buffer;
+    const base64File = buffer.toString('base64');
+    const uploadStr = `data:${req.file.mimetype};base64,${base64File}`;
+
+    // Generate a unique ID for the image to prevent caching issues
+    const timestamp = new Date().getTime();
+    const uniqueId = `profile-${userId}-${timestamp}`;
+
+    // Upload to Cloudinary with optimized settings
+    const uploadResult = await cloudinary.uploader.upload(uploadStr, {
+      resource_type: 'image',
+      folder: 'profile-pictures',
+      public_id: uniqueId,
+      overwrite: true,
+      transformation: [
+        { width: 400, height: 400, crop: 'fill' },
+        { quality: 'auto' },
+        { fetch_format: 'auto' }
+      ]
+    });
+
+    // Delete old profile picture if exists
+    if (user.profilePicture?.publicId) {
+      try {
+        await cloudinary.uploader.destroy(user.profilePicture.publicId);
+      } catch (error) {
+        console.error('Error deleting old profile picture:', error);
+      }
+    }
+
+    // Save updated user with new profile picture
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          profilePicture: {
+            url: uploadResult.secure_url,
+            publicId: uploadResult.public_id
+          }
+        }
+      },
+      { new: true }
+    );
+
+    // Invalidate user cache
+    try {
+      const cacheKey = `user:${userId}`;
+      await redis.del(cacheKey);
+    } catch (error) {
+      console.error('Error invalidating cache:', error);
+      // Continue execution even if cache invalidation fails
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        profilePicture: {
+          url: uploadResult.secure_url,
+          publicId: uploadResult.public_id
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error uploading profile picture'
+    });
+  }
+};
+
+module.exports = {
+  createUser,
+  activateAccount,
+  completeProfile,
+  listUsers,
+  getUser,
+  updateUser,
+  deleteUser,
+  updateProfile,
+  getUserById,
+  uploadProfilePicture
+};

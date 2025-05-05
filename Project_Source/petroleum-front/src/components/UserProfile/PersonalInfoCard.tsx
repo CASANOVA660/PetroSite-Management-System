@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import Form from '../form/Form';
-import Input from '../form/input/InputField';
-import Label from '../form/Label';
+import { useState } from "react";
+import { motion } from "framer-motion";
+import Form from "../form/Form";
+import Input from "../form/input/InputField";
+import Label from "../form/Label";
+import Button from "../ui/button/Button";
 
 interface PersonalInfo {
     firstName: string;
@@ -11,7 +13,7 @@ interface PersonalInfo {
     jobTitle: string;
 }
 
-export default function PersonalInfoCard() {
+export default function PersonalInfoCard({ onAlert }: { onAlert: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void }) {
     const [isEditing, setIsEditing] = useState(false);
     const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
         firstName: 'Musharof',
@@ -26,8 +28,15 @@ export default function PersonalInfoCard() {
     };
 
     const handleSave = () => {
-        setIsEditing(false);
-        // Here you'll add the API call to save changes
+        try {
+            // Simulate API call to save personal info
+            console.log("Saving personal info:", personalInfo);
+            setIsEditing(false);
+            onAlert('success', 'Personal information updated successfully');
+        } catch (err) {
+            console.error('Error saving personal info:', err);
+            onAlert('error', 'Failed to update personal information');
+        }
     };
 
     const handleCancel = () => {
@@ -35,26 +44,33 @@ export default function PersonalInfoCard() {
     };
 
     return (
-        <div className="rounded-sm border border-stroke bg-white px-5 py-6 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-black dark:text-white">
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-shadow"
+        >
+            <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xl font-semibold text-gray-800 dark:text-white">
                     Personal Information
-                </h3>
+                </h4>
                 {!isEditing && (
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={handleEdit}
-                        className="inline-flex items-center justify-center rounded-md border border-primary py-2 px-6 text-center font-medium text-primary hover:bg-opacity-90"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
                     >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                         Edit
-                    </button>
+                    </motion.button>
                 )}
             </div>
 
-            <Form onSubmit={(e) => {
-                e.preventDefault();
-                handleSave();
-            }}>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <Form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                         <Label htmlFor="firstName">First Name</Label>
                         <Input
@@ -63,9 +79,9 @@ export default function PersonalInfoCard() {
                             value={personalInfo.firstName}
                             disabled={!isEditing}
                             onChange={(e) => setPersonalInfo({ ...personalInfo, firstName: e.target.value })}
+                            className={isEditing ? "focus:ring-indigo-500" : "bg-gray-100 dark:bg-gray-700"}
                         />
                     </div>
-
                     <div>
                         <Label htmlFor="lastName">Last Name</Label>
                         <Input
@@ -74,9 +90,9 @@ export default function PersonalInfoCard() {
                             value={personalInfo.lastName}
                             disabled={!isEditing}
                             onChange={(e) => setPersonalInfo({ ...personalInfo, lastName: e.target.value })}
+                            className={isEditing ? "focus:ring-indigo-500" : "bg-gray-100 dark:bg-gray-700"}
                         />
                     </div>
-
                     <div>
                         <Label htmlFor="email">Email</Label>
                         <Input
@@ -84,9 +100,9 @@ export default function PersonalInfoCard() {
                             id="email"
                             value={personalInfo.email}
                             disabled={true}
+                            className="bg-gray-100 dark:bg-gray-700"
                         />
                     </div>
-
                     <div>
                         <Label htmlFor="phone">Phone</Label>
                         <Input
@@ -95,9 +111,9 @@ export default function PersonalInfoCard() {
                             value={personalInfo.phone}
                             disabled={!isEditing}
                             onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                            className={isEditing ? "focus:ring-indigo-500" : "bg-gray-100 dark:bg-gray-700"}
                         />
                     </div>
-
                     <div>
                         <Label htmlFor="jobTitle">Job Title</Label>
                         <Input
@@ -106,27 +122,36 @@ export default function PersonalInfoCard() {
                             value={personalInfo.jobTitle}
                             disabled={!isEditing}
                             onChange={(e) => setPersonalInfo({ ...personalInfo, jobTitle: e.target.value })}
+                            className={isEditing ? "focus:ring-indigo-500" : "bg-gray-100 dark:bg-gray-700"}
                         />
                     </div>
                 </div>
 
                 {isEditing && (
-                    <div className="mt-6 flex items-center justify-end gap-4">
-                        <button
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mt-6 flex items-center justify-end gap-4"
+                    >
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            type="button"
                             onClick={handleCancel}
-                            className="inline-flex items-center justify-center rounded-md border border-stroke py-2 px-6 text-center font-medium text-black hover:bg-opacity-90 dark:border-strokedark dark:text-white"
+                            className="hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                             Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            className="inline-flex items-center justify-center rounded-md bg-primary py-2 px-6 text-center font-medium text-white hover:bg-opacity-90"
+                        </Button>
+                        <Button
+                            size="sm"
+                            type="submit"
+                            className="bg-indigo-600 hover:bg-indigo-700"
                         >
                             Save Changes
-                        </button>
-                    </div>
+                        </Button>
+                    </motion.div>
                 )}
             </Form>
-        </div>
+        </motion.div>
     );
 }
