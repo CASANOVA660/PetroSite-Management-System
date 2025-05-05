@@ -58,5 +58,6 @@ export interface ChatState {
     typing: {
         [chatId: string]: string[];
     };
+    mutedChats: string[]; // IDs of chats with muted notifications
     error: string | null;
 } 

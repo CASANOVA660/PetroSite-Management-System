@@ -13,6 +13,7 @@ const initialState: ChatState = {
         operations: false
     },
     typing: {},
+    mutedChats: JSON.parse(localStorage.getItem('mutedChats') || '[]'),
     error: null
 };
 
@@ -205,6 +206,27 @@ const chatSlice = createSlice({
                 state.typing[chatId] = state.typing[chatId].filter(id => id !== userId);
             }
         },
+        muteChat: (state, action: PayloadAction<string>) => {
+            const chatId = action.payload;
+            if (!state.mutedChats.includes(chatId)) {
+                state.mutedChats.push(chatId);
+                localStorage.setItem('mutedChats', JSON.stringify(state.mutedChats));
+            }
+        },
+        unmuteChat: (state, action: PayloadAction<string>) => {
+            const chatId = action.payload;
+            state.mutedChats = state.mutedChats.filter(id => id !== chatId);
+            localStorage.setItem('mutedChats', JSON.stringify(state.mutedChats));
+        },
+        toggleChatMute: (state, action: PayloadAction<string>) => {
+            const chatId = action.payload;
+            if (state.mutedChats.includes(chatId)) {
+                state.mutedChats = state.mutedChats.filter(id => id !== chatId);
+            } else {
+                state.mutedChats.push(chatId);
+            }
+            localStorage.setItem('mutedChats', JSON.stringify(state.mutedChats));
+        },
         receiveMessage: (state, action: PayloadAction<{ chatId: string; message: Message }>) => {
             const { chatId, message } = action.payload;
 
@@ -221,6 +243,13 @@ const chatSlice = createSlice({
                 // Only increment unread if the message is not from the current user
                 if (message.sender._id !== localStorage.getItem('userId')) {
                     state.chats[chatIndex].unreadCount += 1;
+
+                    // Play notification sound when message is not from current user
+                    // and the chat is not muted
+                    if (!state.mutedChats.includes(chatId)) {
+                        const audio = new Audio('/sounds/new-message-2-125765.mp3');
+                        audio.play().catch(err => console.error('Erreur lors de la lecture du son:', err));
+                    }
                 }
 
                 // Move chat to top of list
@@ -507,6 +536,9 @@ export const {
     setSelectedChat,
     addTypingUser,
     removeTypingUser,
+    muteChat,
+    unmuteChat,
+    toggleChatMute,
     receiveMessage,
     clearErrors
 } = chatSlice.actions;

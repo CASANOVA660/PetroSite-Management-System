@@ -16,8 +16,9 @@ import {
     ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../store';
+import { toggleChatMute } from '../../store/slices/chatSlice';
 
 interface FileItem {
     id: string;
@@ -253,7 +254,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 }) => {
     const [isHoveringImage, setIsHoveringImage] = useState(false);
     const [modalType, setModalType] = useState<string | null>(null);
-    const { selectedChat, messages } = useSelector((state: RootState) => state.chat);
+    const { selectedChat, messages, mutedChats } = useSelector((state: RootState) => state.chat);
+    const dispatch = useDispatch();
     const [chatFiles, setChatFiles] = useState<{
         documents: FileItem[];
         photos: FileItem[];
@@ -275,6 +277,16 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             photos: { count: 0, size: '0MB' },
             movies: { count: 0, size: '0MB' },
             other: { count: 0, size: '0MB' },
+        }
+    };
+
+    // Check if the current chat is muted
+    const isMuted = selectedChat ? mutedChats.includes(selectedChat._id) : false;
+
+    // Handle toggling mute state for the current chat
+    const handleToggleMute = () => {
+        if (selectedChat) {
+            dispatch(toggleChatMute(selectedChat._id));
         }
     };
 
@@ -381,10 +393,20 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                     </h2>
                     <div className="flex items-center space-x-2">
                         <button
-                            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-                            aria-label="Mettre en sourdine"
+                            className={`p-1.5 rounded-full transition-colors ${isMuted
+                                ? "bg-red-100 text-red-500 hover:bg-red-200"
+                                : "hover:bg-gray-100 text-gray-500"
+                                }`}
+                            onClick={handleToggleMute}
+                            aria-label={isMuted ? "Activer les notifications" : "Désactiver les notifications"}
+                            title={isMuted ? "Activer les notifications" : "Désactiver les notifications"}
                         >
-                            <BellIcon className="w-5 h-5 text-gray-500" />
+                            <div className="relative">
+                                <BellIcon className={`w-5 h-5 ${isMuted ? "text-red-500" : "text-gray-500"}`} />
+                                {isMuted && (
+                                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+                                )}
+                            </div>
                         </button>
                         <button
                             className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"

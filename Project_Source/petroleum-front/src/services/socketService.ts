@@ -56,6 +56,9 @@ class SocketService {
         // Listen for new messages
         this.socket.on('message', (data) => {
             if (data.type === 'NEW_MESSAGE') {
+                // Un son sera joué automatiquement seulement pour les messages entrants (réception)
+                // et pas pour les messages envoyés par l'utilisateur lui-même
+                // via le reducer receiveMessage dans chatSlice.ts
                 store.dispatch(receiveMessage({
                     chatId: data.payload.chatId,
                     message: data.payload.message
