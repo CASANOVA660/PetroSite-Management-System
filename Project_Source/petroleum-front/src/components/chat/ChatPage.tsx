@@ -135,7 +135,7 @@ export const ChatPage: React.FC = () => {
 
     // Get participant name without using email
     const getParticipantName = (participant: any): string => {
-        if (!participant) return 'Unknown';
+        if (!participant) return 'Inconnu';
 
         console.log('Getting name for participant:', participant);
 
@@ -198,11 +198,7 @@ export const ChatPage: React.FC = () => {
         }
 
         // Get name from _id as last resort
-        if (participant._id) {
-            return `User ${participant._id.substring(0, 8)}`;
-        }
-
-        return 'Unknown User';
+        return `Utilisateur ${participant._id.substring(0, 5)}`;
     };
 
     // Get participant avatar
@@ -222,9 +218,9 @@ export const ChatPage: React.FC = () => {
     // Format file size
     const formatFileSize = (bytes: number): string => {
         if (bytes < 1024) return bytes + ' B';
-        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
-        else return (bytes / 1073741824).toFixed(1) + ' GB';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' Ko';
+        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' Mo';
+        else return (bytes / 1073741824).toFixed(1) + ' Go';
     };
 
     // Format messages for the ChatWindow component
@@ -309,7 +305,7 @@ export const ChatPage: React.FC = () => {
 
         if (chat.isGroup) {
             // For group chats, use the group title
-            chatName = chat.title || 'Unnamed Group';
+            chatName = chat.title || 'Groupe sans nom';
 
             // Use group picture if available
             if ((chat as any).groupPicture?.url) {
@@ -333,7 +329,7 @@ export const ChatPage: React.FC = () => {
                     chatAvatar = '/avatar-placeholder.jpg';
                 }
             } else {
-                chatName = 'Chat';
+                chatName = 'Discussion';
                 chatAvatar = '/avatar-placeholder.jpg';
             }
 
@@ -343,7 +339,7 @@ export const ChatPage: React.FC = () => {
         return {
             id: chat._id,
             name: chatName,
-            lastMessage: chat.lastMessage?.content || 'No messages yet',
+            lastMessage: chat.lastMessage?.content || 'Pas encore de messages',
             time: chat.lastMessage
                 ? new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : '',
@@ -475,7 +471,7 @@ export const ChatPage: React.FC = () => {
                             <button
                                 className="absolute top-4 right-4 z-20 bg-white border border-gray-200 rounded-full shadow p-2"
                                 onClick={() => setLeftOpen(false)}
-                                aria-label="Close sidebar"
+                                aria-label="Fermer le panneau latéral"
                             >
                                 <XMarkIcon className="w-6 h-6 text-gray-500" />
                             </button>
@@ -494,7 +490,7 @@ export const ChatPage: React.FC = () => {
             <button
                 className="fixed top-4 left-4 z-[99] bg-white border border-gray-200 rounded-full shadow p-2 md:hidden"
                 onClick={() => setLeftOpen(true)}
-                aria-label="Open sidebar"
+                aria-label="Ouvrir le menu"
             >
                 <Bars3Icon className="w-6 h-6 text-gray-500" />
             </button>
@@ -538,8 +534,8 @@ export const ChatPage: React.FC = () => {
                     ) : (
                         <div className="flex-1 flex items-center justify-center bg-white">
                             <div className="text-center">
-                                <h2 className="text-xl font-semibold text-gray-600">Welcome to Chat</h2>
-                                <p className="text-gray-500 mt-2">Select a conversation to start messaging</p>
+                                <h2 className="text-xl font-semibold text-gray-600">Bienvenue dans la messagerie</h2>
+                                <p className="text-gray-500 mt-2">Sélectionnez une conversation pour commencer à échanger</p>
                             </div>
                         </div>
                     )}
@@ -562,7 +558,7 @@ export const ChatPage: React.FC = () => {
                         {rightOpen ? (
                             <div className="w-full h-full">
                                 <RightSidebar
-                                    groupName={selectedChat.isGroup ? selectedChat.title || 'Group Chat' : getParticipantName(selectedChat.participants[0])}
+                                    groupName={selectedChat.isGroup ? selectedChat.title || 'Groupe de Discussion' : getParticipantName(selectedChat.participants[0])}
                                     memberCount={selectedChat.participants.length}
                                     groupAvatar={selectedChat.isGroup ? (selectedChat as any)?.groupPicture?.url || '/group-avatar.jpg' : getParticipantAvatar(selectedChat.participants[0])}
                                     isGroup={selectedChat.isGroup}
@@ -576,7 +572,7 @@ export const ChatPage: React.FC = () => {
                                     <button
                                         onClick={() => setRightOpen(true)}
                                         className="p-2 rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors"
-                                        aria-label="Open sidebar"
+                                        aria-label="Ouvrir le panneau latéral"
                                     >
                                         <ChevronLeftIcon className="w-5 h-5 text-gray-500" />
                                     </button>

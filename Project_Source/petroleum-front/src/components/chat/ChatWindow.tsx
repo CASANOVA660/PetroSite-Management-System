@@ -63,9 +63,9 @@ const getFileIcon = (fileType: string) => {
 // Format file size
 const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
-    else return (bytes / 1073741824).toFixed(1) + ' GB';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' Ko';
+    else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' Mo';
+    else return (bytes / 1073741824).toFixed(1) + ' Go';
 };
 
 // Function to format message content with clickable links
@@ -177,7 +177,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         // Check file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
-            setFileError('File size exceeds 10MB limit');
+            setFileError('La taille du fichier dépasse la limite de 10Mo');
             setUploading(false);
             return;
         }
@@ -296,7 +296,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download failed:', error);
-            alert('Download failed. Please try again.');
+            alert('Échec du téléchargement. Veuillez réessayer.');
         }
     };
 
@@ -320,7 +320,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     className="px-3 py-2 bg-white/90 backdrop-blur-sm rounded-lg text-gray-800 font-medium flex items-center space-x-2 hover:bg-white transition-colors shadow-lg"
                                 >
                                     <DocumentArrowDownIcon className="w-5 h-5 text-gray-700" />
-                                    <span>Download</span>
+                                    <span>Télécharger</span>
                                 </button>
                             </div>
                         </div>
@@ -345,7 +345,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-gray-800 font-medium flex items-center space-x-1 hover:bg-white transition-colors shadow-lg"
                                 >
                                     <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
-                                    <span className="text-sm">Download</span>
+                                    <span className="text-sm">Télécharger</span>
                                 </button>
                             </div>
                         </div>
@@ -368,6 +368,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             <button
                                 onClick={() => handleFileDownload(message.fileUrl || '', message.fileName || 'file')}
                                 className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+                                aria-label="Télécharger le fichier"
                             >
                                 <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
                             </button>
@@ -434,7 +435,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     </div>
                     <div className="flex flex-col">
                         <span className="text-lg font-semibold text-gray-800 truncate">
-                            {isGroup ? 'Group Chat' : 'Direct Message'}
+                            {isGroup ? 'Groupe de Discussion' : 'Message Direct'}
                             {participants && participants.length > 0 && (
                                 <span className="ml-2 text-xs text-gray-500">
                                     ({participants.length} {participants.length === 1 ? 'participant' : 'participants'})
@@ -444,7 +445,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         {isTyping && (
                             <span className="text-xs text-green-600 flex items-center">
                                 <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                                {typingUser || 'Someone'} is typing...
+                                {typingUser || 'Quelqu\'un'} est en train d'écrire...
                             </span>
                         )}
                     </div>
@@ -487,11 +488,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     >
                         {isLoading ? (
                             <div className="flex items-center justify-center h-full">
-                                <p className="text-gray-500">Loading messages...</p>
+                                <p className="text-gray-500">Chargement des messages...</p>
                             </div>
                         ) : messages.length === 0 ? (
                             <div className="flex items-center justify-center h-full">
-                                <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                                <p className="text-gray-500">Pas encore de messages. Commencez la conversation !</p>
                             </div>
                         ) : (
                             <AnimatePresence>
@@ -530,7 +531,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         {isTyping && (
                             <div className="flex items-center py-2 px-4 bg-white shadow-sm rounded-full border border-gray-100 animate-pulse">
                                 <div className="flex items-center space-x-1 text-green-600 text-sm">
-                                    <span>{typingUser || 'Someone'} is typing</span>
+                                    <span>{typingUser || 'Quelqu\'un'} est en train d'écrire</span>
                                     <span className="flex">
                                         <span className="animate-bounce">.</span>
                                         <span className="animate-bounce delay-100">.</span>
@@ -557,7 +558,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             {participants.length === 0 ? (
                                 <div className="bg-white rounded-xl shadow-sm p-6 text-center">
                                     <UserCircleIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                    <p className="text-gray-500">No participants found.</p>
+                                    <p className="text-gray-500">Aucun participant trouvé.</p>
                                 </div>
                             ) : (
                                 <div className="grid gap-3 sm:grid-cols-2">
@@ -607,7 +608,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <div className="absolute inset-0 flex items-center justify-center z-50 bg-gray-900/20 backdrop-blur-sm pointer-events-none">
                         <div className="bg-white rounded-2xl shadow-md overflow-hidden px-8 py-6 max-w-md w-full flex flex-col items-center justify-center">
                             <AnimatedUploadIcon />
-                            <p className="text-gray-800 font-medium text-center pb-4">Drop your file to upload</p>
+                            <p className="text-gray-800 font-medium text-center pb-4">Déposez votre fichier pour téléverser</p>
                         </div>
                     </div>
                 )}
@@ -624,7 +625,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between items-center mb-1">
-                                    <span className="text-sm font-medium text-gray-700">Uploading...</span>
+                                    <span className="text-sm font-medium text-gray-700">Téléversement en cours...</span>
                                     <span className="text-sm text-gray-500">{Math.round(uploadProgress)}%</span>
                                 </div>
                                 <div className="h-2 bg-gray-200 rounded-full">
@@ -643,7 +644,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <div className="w-12 h-12 bg-gray-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
                                     <img
                                         src={uploadedFilePreview}
-                                        alt="Preview"
+                                        alt="Aperçu"
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
@@ -654,7 +655,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             )}
                             <div className="flex-1 min-w-0">
                                 <span className="text-sm font-medium text-gray-700 truncate block">{uploadedFile.name}</span>
-                                <span className="text-xs text-gray-500">{formatFileSize(uploadedFile.size)} - Ready to send</span>
+                                <span className="text-xs text-gray-500">{formatFileSize(uploadedFile.size)} - Prêt à envoyer</span>
                             </div>
                             <div className="flex items-center space-x-2">
                                 <button
@@ -667,7 +668,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                     onClick={handleSendFileMessage}
                                     className="ml-2 px-3 py-1.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600"
                                 >
-                                    Send
+                                    Envoyer
                                 </button>
                             </div>
                         </div>
@@ -678,7 +679,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 type="text"
                                 value={messageInput}
                                 onChange={(e) => setMessageInput(e.target.value)}
-                                placeholder="Add a message... (optional)"
+                                placeholder="Ajouter un message... (optionnel)"
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                             />
                         </div>
@@ -707,7 +708,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 type="text"
                                 value={messageInput}
                                 onChange={(e) => setMessageInput(e.target.value)}
-                                placeholder="Type a message..."
+                                placeholder="Tapez un message..."
                                 className="flex-1 px-4 py-2 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                             />
                             <button

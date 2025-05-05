@@ -100,7 +100,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     const handleCreateChat = async () => {
         if (newChatType === 'direct' && selectedUsers.length === 1) {
             const selectedUser = users.find((u: User) => u?._id === selectedUsers[0]);
-            const chatName = selectedUser ? `${selectedUser.nom || ''} ${selectedUser.prenom || ''}`.trim() : 'Direct Message';
+            const chatName = selectedUser ? `${selectedUser.nom || ''} ${selectedUser.prenom || ''}`.trim() : 'Message Direct';
 
             try {
                 await dispatch(createChat({
@@ -108,10 +108,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     isGroup: false
                 })).unwrap();
 
-                toast.success(`Chat with ${chatName} created successfully`);
+                toast.success(`Discussion avec ${chatName} créée avec succès`);
                 closePopup();
             } catch (error) {
-                toast.error('Failed to create chat. Please try again.');
+                toast.error('Échec de la création de la discussion. Veuillez réessayer.');
             }
         } else if (newChatType === 'group' && selectedUsers.length > 0 && groupName) {
             try {
@@ -134,11 +134,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
                 // Dispatch the action with the FormData
                 await dispatch(createChat(formData)).unwrap();
-                toast.success(`Group "${groupName}" created successfully`);
+                toast.success(`Groupe "${groupName}" créé avec succès`);
                 closePopup();
             } catch (error: any) {
                 console.error('Error creating group chat:', error);
-                toast.error(error?.message || 'Failed to create group chat. Please try again.');
+                toast.error(error?.message || 'Échec de la création du groupe. Veuillez réessayer.');
             } finally {
                 setCreatingChat(false);
             }
@@ -151,13 +151,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
         // Check if the file is an image
         if (!file.type.match('image.*')) {
-            toast.error('Please select an image file');
+            toast.error('Veuillez sélectionner un fichier image');
             return;
         }
 
         // Check file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            toast.error('Image size should be less than 5MB');
+            toast.error('La taille de l\'image doit être inférieure à 5 Mo');
             return;
         }
 
@@ -223,11 +223,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
     // Ensure we're clearly showing the participant we're chatting with
     const getChatDisplayName = (chat: Chat) => {
-        if (!chat) return <span className="font-medium text-gray-900 text-sm">Unknown</span>;
+        if (!chat) return <span className="font-medium text-gray-900 text-sm">Inconnu</span>;
 
         return (
             <div className="flex items-center">
-                <span className="font-medium text-gray-900 text-sm">{chat.name || 'Chat'}</span>
+                <span className="font-medium text-gray-900 text-sm">{chat.name || 'Discussion'}</span>
             </div>
         );
     };
@@ -246,13 +246,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     {(user as any)?.profilePicture?.url ? (
                         <img
                             src={(user as any).profilePicture.url}
-                            alt="User"
+                            alt="Utilisateur"
                             className="w-16 h-16 rounded-full ring-2 ring-green-200 object-cover"
                         />
                     ) : (
                         <img
                             src="/avatar-placeholder.jpg"
-                            alt="User"
+                            alt="Utilisateur"
                             className="w-16 h-16 rounded-full ring-2 ring-green-200"
                         />
                     )}
@@ -262,7 +262,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     {(user as any)?.nom || ''} {(user as any)?.prenom || ''}
                 </h2>
                 <span className="mt-2 text-xs font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full cursor-pointer">
-                    Available
+                    Disponible
                 </span>
             </div>
 
@@ -271,7 +271,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 <div className="relative">
                     <input
                         type="text"
-                        placeholder="Search chats..."
+                        placeholder="Rechercher des discussions..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full px-4 py-2.5 pl-10 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400 transition-all"
@@ -283,7 +283,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             {/* Last Chats Header */}
             <div className="flex items-center justify-between px-6 py-2">
                 <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
-                    Recent Chats
+                    Discussions Récentes
                 </span>
                 <div className="flex items-center space-x-2">
                     <button
@@ -320,11 +320,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <div className="flex-1 overflow-y-auto px-4">
                 {isLoading ? (
                     <div className="py-4 text-center text-gray-500">
-                        Loading chats...
+                        Chargement des discussions...
                     </div>
                 ) : filteredChats.length === 0 ? (
                     <div className="py-4 text-center text-gray-500">
-                        No chats found
+                        Aucune discussion trouvée
                     </div>
                 ) : (
                     filteredChats.map((chat) => (
@@ -373,7 +373,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                         {chat.isTyping
                                             ? <span className="text-green-500 dark:text-green-400 flex items-center">
                                                 <span className="w-1.5 h-1.5 bg-green-500 dark:bg-green-400 rounded-full mr-1 animate-pulse"></span>
-                                                Typing...
+                                                En train d'écrire...
                                             </span>
                                             : chat.lastMessage
                                         }
@@ -410,14 +410,14 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             {/* Header */}
                             <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
                                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                                    {newChatType === null ? 'New Conversation' :
-                                        newChatType === 'direct' ? 'New Direct Message' : 'New Group Chat'}
+                                    {newChatType === null ? 'Nouvelle Conversation' :
+                                        newChatType === 'direct' ? 'Nouveau Message Direct' : 'Nouveau Groupe de Discussion'}
                                 </h3>
                                 <button
-                                    className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
                                     onClick={closePopup}
+                                    className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
                                 >
-                                    <XMarkIcon className="w-5 h-5" />
+                                    <XMarkIcon className="w-6 h-6" />
                                 </button>
                             </div>
 
@@ -500,18 +500,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                             whileHover={{ opacity: 1 }}
                                                         >
                                                             <p className="text-white text-xs font-medium">
-                                                                {groupImage ? 'Change' : 'Upload'} Image
+                                                                {groupImage ? 'Changer' : 'Ajouter'} Image
                                                             </p>
                                                         </motion.div>
                                                     </div>
                                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 mt-2 flex items-center">
-                                                        Group Picture
+                                                        Image du Groupe
                                                         {groupImage && (
                                                             <span className="ml-1.5 text-xs text-white bg-green-500 py-0.5 px-1.5 rounded-full flex items-center">
                                                                 <svg className="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                                                                 </svg>
-                                                                Selected
+                                                                Sélectionnée
                                                             </span>
                                                         )}
                                                     </label>
@@ -519,11 +519,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                 {/* Group Name */}
                                                 <div className="mb-2">
                                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                                        Group Name
+                                                        Nom du Groupe
                                                     </label>
                                                     <input
                                                         type="text"
-                                                        placeholder="Enter group name"
+                                                        placeholder="Entrez le nom du groupe"
                                                         value={groupName}
                                                         onChange={(e) => setGroupName(e.target.value)}
                                                         className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-white transition-all"
@@ -534,12 +534,12 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                                {newChatType === 'direct' ? 'Select User' : 'Add Participants'}
+                                                {newChatType === 'direct' ? 'Sélectionnez un Utilisateur' : 'Ajouter des Participants'}
                                             </label>
                                             <div className="relative mb-3">
                                                 <input
                                                     type="text"
-                                                    placeholder="Search users..."
+                                                    placeholder="Rechercher des utilisateurs..."
                                                     value={userSearchQuery || ''}
                                                     onChange={(e) => setUserSearchQuery(e.target.value)}
                                                     className="w-full px-4 py-2.5 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-white transition-all"
@@ -555,7 +555,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                 <div className="h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 custom-scrollbar">
                                                     {!filteredUsers || filteredUsers.length === 0 ? (
                                                         <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                            No users found
+                                                            Aucun utilisateur trouvé
                                                         </div>
                                                     ) : (
                                                         filteredUsers.map((user: User) => (
@@ -572,7 +572,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                                         {(user as any)?.profilePicture?.url ? (
                                                                             <img
                                                                                 src={(user as any).profilePicture.url}
-                                                                                alt={user.nom || 'User'}
+                                                                                alt={user.nom || 'Utilisateur'}
                                                                                 className="w-10 h-10 rounded-full object-cover mr-3"
                                                                             />
                                                                         ) : (
@@ -604,7 +604,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                         {newChatType === 'group' && selectedUsers.length > 0 && (
                                             <div className="mt-2">
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                                    Selected Participants ({selectedUsers.length})
+                                                    Participants Sélectionnés ({selectedUsers.length})
                                                 </label>
                                                 <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-20 overflow-y-auto custom-scrollbar">
                                                     {selectedUsers.map(userId => {
@@ -656,7 +656,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                         onClick={() => newChatType === null ? closePopup() : setNewChatType(null)}
                                         disabled={creatingChat}
                                     >
-                                        Back
+                                        Retour
                                     </motion.button>
                                     <motion.button
                                         className={`px-5 py-2.5 text-white rounded-lg flex items-center gap-2 ${(newChatType === 'direct' && selectedUsers.length === 1) ||
@@ -690,10 +690,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                <span>Creating...</span>
+                                                <span>Création en cours...</span>
                                             </>
                                         ) : (
-                                            <span>Create Chat</span>
+                                            <span>Créer Discussion</span>
                                         )}
                                     </motion.button>
                                 </div>

@@ -130,7 +130,7 @@ const FileTypeModal = ({
     };
 
     const handleDownload = (file: FileItem) => {
-        console.log(`Downloading file: ${file.name}`);
+        console.log(`Téléchargement du fichier: ${file.name}`);
 
         // Create a temporary link element
         const link = document.createElement('a');
@@ -140,6 +140,19 @@ const FileTypeModal = ({
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const getTranslatedType = (fileType: string) => {
+        switch (fileType) {
+            case 'documents':
+                return 'Documents';
+            case 'photos':
+                return 'Photos';
+            case 'movies':
+                return 'Vidéos';
+            default:
+                return 'Autres';
+        }
     };
 
     return (
@@ -168,10 +181,10 @@ const FileTypeModal = ({
                             <div className="flex items-center">
                                 {getIconByType(fileType)}
                                 <h3 className="text-lg font-semibold ml-2 text-gray-800">
-                                    {fileType.charAt(0).toUpperCase() + fileType.slice(1)}
+                                    {getTranslatedType(fileType)}
                                 </h3>
                                 <span className="ml-2 px-2 py-0.5 bg-white/80 rounded-full text-xs text-gray-600">
-                                    {files.length} files
+                                    {files.length} fichiers
                                 </span>
                             </div>
                             <button
@@ -187,7 +200,7 @@ const FileTypeModal = ({
                             {files.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-32 text-gray-500">
                                     <FolderIcon className="w-12 h-12 mb-2 text-gray-300" />
-                                    <p>No files found in this category</p>
+                                    <p>Aucun fichier trouvé dans cette catégorie</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -214,7 +227,7 @@ const FileTypeModal = ({
                                             <button
                                                 onClick={() => handleDownload(file)}
                                                 className="ml-2 p-2 rounded-full hover:bg-gray-100 transition-colors"
-                                                aria-label="Download file"
+                                                aria-label="Télécharger le fichier"
                                             >
                                                 <ArrowDownTrayIcon className="w-5 h-5 text-gray-500 hover:text-gray-700" />
                                             </button>
@@ -289,7 +302,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     // Format date for display
     const formatDate = (dateString: string): string => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('fr-FR', {
             day: 'numeric',
             month: 'short',
             year: 'numeric'
@@ -309,11 +322,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                     message.attachments.forEach(attachment => {
                         const { url, filename, type, size } = attachment;
                         const fileSize = size ? (
-                            size < 1024 ? `${size} B` :
-                                size < 1048576 ? `${(size / 1024).toFixed(1)} KB` :
-                                    size < 1073741824 ? `${(size / 1048576).toFixed(1)} MB` :
-                                        `${(size / 1073741824).toFixed(1)} GB`
-                        ) : 'Unknown size';
+                            size < 1024 ? `${size} o` :
+                                size < 1048576 ? `${(size / 1024).toFixed(1)} Ko` :
+                                    size < 1073741824 ? `${(size / 1048576).toFixed(1)} Mo` :
+                                        `${(size / 1073741824).toFixed(1)} Go`
+                        ) : 'Taille inconnue';
 
                         const extension = getFileExtension(filename);
                         const fileItem: FileItem = {
@@ -364,19 +377,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 {/* Header */}
                 <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 className="text-base font-medium text-gray-800">
-                        {isGroup ? 'Group Info' : 'Chat Info'}
+                        {isGroup ? 'Info du Groupe' : 'Info de la Discussion'}
                     </h2>
                     <div className="flex items-center space-x-2">
                         <button
                             className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-                            aria-label="Mute conversation"
+                            aria-label="Mettre en sourdine"
                         >
                             <BellIcon className="w-5 h-5 text-gray-500" />
                         </button>
                         <button
                             className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                             onClick={onClose}
-                            aria-label="Close sidebar"
+                            aria-label="Fermer le panneau"
                         >
                             <XMarkIcon className="w-5 h-5 text-gray-500" />
                         </button>
@@ -395,7 +408,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 {groupAvatar && groupAvatar !== '/group-avatar.jpg' ? (
                                     <img
                                         src={groupAvatar}
-                                        alt={groupName || 'Chat'}
+                                        alt={groupName || 'Discussion'}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
@@ -420,9 +433,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                             <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
                         </div>
 
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">{groupName || 'Chat'}</h3>
+                        <h3 className="mt-4 text-lg font-semibold text-gray-900">{groupName || 'Discussion'}</h3>
                         <p className="mt-1 text-sm text-gray-500">
-                            {isGroup ? `${memberCount} members` : 'Direct Message'}
+                            {isGroup ? `${memberCount} membres` : 'Message Direct'}
                         </p>
 
                         {/* Action buttons */}
@@ -447,8 +460,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                             <UserGroupIcon className="w-5 h-5 text-indigo-600" />
                                         </div>
                                         <div className="ml-3">
-                                            <p className="text-sm font-medium text-gray-800">Members ({memberCount})</p>
-                                            <p className="text-xs text-gray-500">View all participants</p>
+                                            <p className="text-sm font-medium text-gray-800">Membres ({memberCount})</p>
+                                            <p className="text-xs text-gray-500">Voir tous les participants</p>
                                         </div>
                                     </div>
                                     <ChevronRightIcon className="w-5 h-5 text-gray-400" />
@@ -460,7 +473,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
                 {/* Stats Cards - always show file stats */}
                 <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Shared Files</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Fichiers Partagés</h4>
                 </div>
                 <div className="px-3 sm:px-5 pb-3 sm:pb-5">
                     <div className="grid grid-cols-2 gap-3">
@@ -471,7 +484,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                     <p className="text-lg sm:text-xl font-bold text-gray-800">
                                         {chatFiles.documents.length + chatFiles.photos.length + chatFiles.movies.length + chatFiles.other.length}
                                     </p>
-                                    <p className="text-xs text-gray-500">All files</p>
+                                    <p className="text-xs text-gray-500">Tous les fichiers</p>
                                 </div>
                             </div>
                             <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
@@ -481,7 +494,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 <LinkIcon className="w-5 h-5 text-slate-400" />
                                 <div className="ml-1.5 sm:ml-2.5">
                                     <p className="text-lg sm:text-xl font-bold text-gray-800">{stats.totalLinks}</p>
-                                    <p className="text-xs text-gray-500">All links</p>
+                                    <p className="text-xs text-gray-500">Tous les liens</p>
                                 </div>
                             </div>
                         </div>
@@ -492,7 +505,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 <div className="px-3 sm:px-5 flex-1 overflow-y-auto">
                     <div className="mb-5">
                         <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium text-gray-700">File type</h4>
+                            <h4 className="text-sm font-medium text-gray-700">Type de fichier</h4>
                             <EllipsisVerticalIcon className="w-5 h-5 text-gray-400" />
                         </div>
 
@@ -510,7 +523,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 <div className="ml-2 sm:ml-3">
                                     <span className="text-sm font-medium text-gray-800">Documents</span>
                                     <p className="text-xs text-gray-500">
-                                        {chatFiles.documents.length} files, {stats.categories.documents.size}
+                                        {chatFiles.documents.length} fichiers, {stats.categories.documents.size}
                                     </p>
                                 </div>
                             </div>
@@ -531,7 +544,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 <div className="ml-2 sm:ml-3">
                                     <span className="text-sm font-medium text-gray-800">Photos</span>
                                     <p className="text-xs text-gray-500">
-                                        {chatFiles.photos.length} files, {stats.categories.photos.size}
+                                        {chatFiles.photos.length} fichiers, {stats.categories.photos.size}
                                     </p>
                                 </div>
                             </div>
@@ -550,9 +563,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                     <FilmIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-cyan-600" />
                                 </div>
                                 <div className="ml-2 sm:ml-3">
-                                    <span className="text-sm font-medium text-gray-800">Movies</span>
+                                    <span className="text-sm font-medium text-gray-800">Vidéos</span>
                                     <p className="text-xs text-gray-500">
-                                        {chatFiles.movies.length} files, {stats.categories.movies.size}
+                                        {chatFiles.movies.length} fichiers, {stats.categories.movies.size}
                                     </p>
                                 </div>
                             </div>
@@ -571,9 +584,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                     <FolderIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-rose-600" />
                                 </div>
                                 <div className="ml-2 sm:ml-3">
-                                    <span className="text-sm font-medium text-gray-800">Other</span>
+                                    <span className="text-sm font-medium text-gray-800">Autres</span>
                                     <p className="text-xs text-gray-500">
-                                        {chatFiles.other.length} files, {stats.categories.other.size}
+                                        {chatFiles.other.length} fichiers, {stats.categories.other.size}
                                     </p>
                                 </div>
                             </div>
