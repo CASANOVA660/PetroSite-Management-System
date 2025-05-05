@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon, UserGroupIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, Cog6ToothIcon, ArrowLeftIcon, ArrowUpTrayIcon, UserCircleIcon, UserGroupIcon, DocumentIcon, PaperClipIcon } from '@heroicons/react/24/solid';
+import { XMarkIcon, PhotoIcon, FilmIcon, DocumentTextIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import { AnimatedUploadIcon } from './AnimatedUploadIcon';
 import NotificationDropdown from '../header/NotificationDropdown';
+import axios from '../../utils/axios';
 
 interface Message {
     id: string;
@@ -13,6 +15,8 @@ interface Message {
     avatar: string;
     fileUrl?: string;
     fileName?: string;
+    fileType?: string;
+    fileSize?: string;
 }
 
 interface Member {
@@ -26,16 +30,42 @@ interface Member {
 
 interface ChatWindowProps {
     messages: Message[];
-    onSendMessage: (message: string) => void;
+    onSendMessage: (message: string, file?: File) => void;
     isTyping?: boolean;
     typingUser?: string;
     isLoading?: boolean;
     participants?: Member[];
     isGroup?: boolean;
     groupPictureUrl?: string;
+    chatId?: string;
 }
 
 type ChatMode = 'messages' | 'participants';
+
+// Helper function to get file icon and style based on type
+const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) {
+        return { icon: <PhotoIcon className="w-5 h-5 text-indigo-600" />, bgColor: 'bg-indigo-50' };
+    } else if (fileType.startsWith('video/')) {
+        return { icon: <FilmIcon className="w-5 h-5 text-red-600" />, bgColor: 'bg-red-50' };
+    } else if (fileType.includes('pdf')) {
+        return { icon: <DocumentTextIcon className="w-5 h-5 text-red-600" />, bgColor: 'bg-red-50' };
+    } else if (fileType.includes('excel') || fileType.includes('spreadsheet') || fileType.includes('csv')) {
+        return { icon: <DocumentTextIcon className="w-5 h-5 text-green-600" />, bgColor: 'bg-green-50' };
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+        return { icon: <DocumentTextIcon className="w-5 h-5 text-blue-600" />, bgColor: 'bg-blue-50' };
+    } else {
+        return { icon: <DocumentIcon className="w-5 h-5 text-gray-600" />, bgColor: 'bg-gray-50' };
+    }
+};
+
+// Format file size
+const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    else return (bytes / 1073741824).toFixed(1) + ' GB';
+};
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
     messages,
@@ -45,17 +75,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     isLoading = false,
     participants = [],
     isGroup = false,
-    groupPictureUrl
+    groupPictureUrl,
+    chatId
 }) => {
     const [messageInput, setMessageInput] = useState('');
     const [mode, setMode] = useState<ChatMode>('messages');
     const [dragActive, setDragActive] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
-    const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [uploadedFilePreview, setUploadedFilePreview] = useState<string | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
     const dropRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messageContainerRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Auto-scroll to bottom when messages change or when typing starts
     useEffect(() => {
@@ -69,24 +103,52 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         }
     };
 
-    const simulateUpload = (file: File) => {
+    const handleFileUpload = async (file: File) => {
+        // Reset states
+        setUploadedFilePreview(null);
+        setFileError(null);
         setUploading(true);
         setUploadProgress(0);
-        setUploadedFile(null);
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 20 + 10;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                setTimeout(() => {
-                    setUploading(false);
-                    setUploadProgress(100);
-                    setUploadedFile({ name: file.name, url: URL.createObjectURL(file) });
-                }, 400);
+
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            setFileError('File size exceeds 10MB limit');
+            setUploading(false);
+            return;
+        }
+
+        try {
+            // Create a preview for images and videos
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setUploadedFilePreview(e.target?.result as string);
+                };
+                reader.readAsDataURL(file);
             }
-            setUploadProgress(progress);
-        }, 300);
+
+            // Simulate upload progress
+            const interval = setInterval(() => {
+                setUploadProgress((prev) => {
+                    const newProgress = prev + Math.random() * 15;
+                    if (newProgress >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            setUploadedFile(file);
+                            setUploading(false);
+                            setUploadProgress(100);
+                        }, 300);
+                        return 100;
+                    }
+                    return newProgress;
+                });
+            }, 200);
+
+        } catch (error) {
+            console.error('Error processing file:', error);
+            setFileError('Error processing file');
+            setUploading(false);
+        }
     };
 
     const handleDrag = (e: React.DragEvent) => {
@@ -105,15 +167,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         setDragActive(false);
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-            simulateUpload(files[0]);
+            handleFileUpload(files[0]);
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    };
+
+    const handleBrowseClick = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
         }
     };
 
     const handleSendFileMessage = () => {
         if (uploadedFile) {
-            onSendMessage(`file:${uploadedFile.name}`);
+            onSendMessage(messageInput, uploadedFile);
             setUploadedFile(null);
+            setUploadedFilePreview(null);
+            setMessageInput('');
         }
+    };
+
+    const handleCancelUpload = () => {
+        setUploadedFile(null);
+        setUploadedFilePreview(null);
+        setFileError(null);
+        setUploading(false);
+        setUploadProgress(0);
     };
 
     const handleSendMessage = (e: React.FormEvent) => {
@@ -122,6 +207,84 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onSendMessage(messageInput.trim());
             setMessageInput('');
         }
+    };
+
+    // Function to render message content based on type
+    const renderMessageContent = (message: Message) => {
+        // If message has a file attached
+        if (message.fileUrl) {
+            // Check if it's an image
+            if (message.fileType?.startsWith('image/')) {
+                return (
+                    <div className="mt-1 flex flex-col">
+                        <div className="relative group rounded-lg overflow-hidden mb-1">
+                            <img
+                                src={message.fileUrl}
+                                alt={message.fileName || 'Image'}
+                                className="max-w-full rounded-lg max-h-[300px] object-contain bg-white"
+                            />
+                            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <a
+                                    href={message.fileUrl}
+                                    download={message.fileName}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-sm hover:bg-white transition-colors"
+                                >
+                                    <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
+                                </a>
+                            </div>
+                        </div>
+                        {message.content && <p className="mt-1">{message.content}</p>}
+                    </div>
+                );
+            }
+
+            // Check if it's a video
+            else if (message.fileType?.startsWith('video/')) {
+                return (
+                    <div className="mt-1 flex flex-col">
+                        <div className="relative rounded-lg overflow-hidden mb-1">
+                            <video
+                                src={message.fileUrl}
+                                controls
+                                className="max-w-full rounded-lg max-h-[300px]"
+                            />
+                        </div>
+                        {message.content && <p className="mt-1">{message.content}</p>}
+                    </div>
+                );
+            }
+
+            // For other file types
+            else {
+                const { icon, bgColor } = getFileIcon(message.fileType || '');
+                return (
+                    <div className="mt-1 flex flex-col">
+                        <div className={`${bgColor} rounded-lg p-3 flex items-center mb-1`}>
+                            <div className="mr-3">{icon}</div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{message.fileName}</p>
+                                <p className="text-xs text-gray-500">{message.fileSize}</p>
+                            </div>
+                            <a
+                                href={message.fileUrl}
+                                download={message.fileName}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white p-1.5 rounded-full shadow-sm hover:bg-gray-50 transition-colors"
+                            >
+                                <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
+                            </a>
+                        </div>
+                        {message.content && <p className="mt-1">{message.content}</p>}
+                    </div>
+                );
+            }
+        }
+
+        // Regular text message
+        return <p>{message.content}</p>;
     };
 
     return (
@@ -133,6 +296,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onDrop={handleDrop}
             ref={dropRef}
         >
+            {/* Hidden file input */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileSelect}
+            />
+
             {/* Blurred Header */}
             <motion.header
                 className="flex items-center px-6 py-3 backdrop-blur-md backdrop-saturate-150 bg-white/90 border-b border-gray-200 shadow-sm sticky top-0 z-40"
@@ -253,14 +424,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                         : 'bg-white text-gray-800 border border-gray-200'
                                                         }`}
                                                 >
-                                                    {message.content}
-                                                    {'fileUrl' in message && (message as Message).fileUrl && (
-                                                        <div className="flex items-center mt-2 bg-white border border-gray-100 rounded-md p-2">
-                                                            <ArrowUpTrayIcon className="w-4 h-4 text-green-500 mr-2" />
-                                                            <span className="text-sm text-gray-700">{(message as Message).fileName ?? ''}</span>
-                                                            <a href={(message as Message).fileUrl ?? ''} download className="ml-auto text-green-500 text-xs hover:underline">Download</a>
-                                                        </div>
-                                                    )}
+                                                    {renderMessageContent(message)}
                                                 </div>
                                             </div>
                                         </div>
@@ -380,24 +544,68 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {!uploading && uploadedFile && (
                     <div className="px-6 py-4 bg-white border-t border-gray-200">
                         <div className="flex items-center">
-                            <div className="w-8 h-8 bg-green-100 rounded-lg mr-3 flex items-center justify-center flex-shrink-0">
-                                <ArrowUpTrayIcon className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div className="flex-1 minw-0">
+                            {uploadedFilePreview ? (
+                                <div className="w-12 h-12 bg-gray-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
+                                    <img
+                                        src={uploadedFilePreview}
+                                        alt="Preview"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="w-12 h-12 bg-green-100 rounded-lg mr-3 flex items-center justify-center flex-shrink-0">
+                                    {getFileIcon(uploadedFile.type).icon}
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
                                 <span className="text-sm font-medium text-gray-700 truncate block">{uploadedFile.name}</span>
-                                <span className="text-xs text-gray-500">Ready to send</span>
+                                <span className="text-xs text-gray-500">{formatFileSize(uploadedFile.size)} - Ready to send</span>
                             </div>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={handleCancelUpload}
+                                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
+                                >
+                                    <XMarkIcon className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={handleSendFileMessage}
+                                    className="ml-2 px-3 py-1.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600"
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Optional text message with file */}
+                        <div className="mt-3">
+                            <input
+                                type="text"
+                                value={messageInput}
+                                onChange={(e) => setMessageInput(e.target.value)}
+                                placeholder="Add a message... (optional)"
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Error message */}
+                {fileError && (
+                    <div className="px-6 py-3 bg-red-50 border-t border-red-100">
+                        <div className="flex items-center text-red-600">
+                            <span className="text-sm">{fileError}</span>
                             <button
-                                onClick={handleSendFileMessage}
-                                className="ml-3 px-3 py-1.5 bg-green-500 text-white text-sm rounded-md shadow-sm hover:bg-green-600"
+                                onClick={() => setFileError(null)}
+                                className="ml-auto p-1 rounded-full hover:bg-red-100"
                             >
-                                Send
+                                <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
                 )}
 
-                {mode === 'messages' && !uploading && !uploadedFile && (
+                {mode === 'messages' && !uploading && !uploadedFile && !fileError && (
                     <form onSubmit={handleSendMessage} className="px-6 py-3 bg-white border-t border-gray-200">
                         <div className="flex items-center space-x-2">
                             <input
@@ -409,15 +617,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                             />
                             <button
                                 type="button"
+                                onClick={handleBrowseClick}
                                 className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
                             >
-                                <ArrowUpTrayIcon className="w-5 h-5" />
+                                <PaperClipIcon className="w-5 h-5" />
                             </button>
                             <motion.button
                                 type="submit"
                                 className="bg-green-500 p-2.5 rounded-full text-white shadow-md"
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.95 }}
+                                disabled={!messageInput.trim()}
                             >
                                 <PaperAirplaneIcon className="w-5 h-5" />
                             </motion.button>

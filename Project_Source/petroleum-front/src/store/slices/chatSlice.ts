@@ -113,6 +113,27 @@ export const sendMessage = createAsyncThunk(
     }
 );
 
+export const uploadChatFile = createAsyncThunk(
+    'chat/uploadChatFile',
+    async ({ chatId, file, content }: { chatId: string; file: File; content?: string }, { rejectWithValue }) => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            if (content) formData.append('content', content);
+
+            const response = await axios.post(`/chats/${chatId}/messages/attachment`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            return { chatId, message: response.data };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data.message || 'Failed to upload file');
+        }
+    }
+);
+
 export const markChatAsRead = createAsyncThunk(
     'chat/markChatAsRead',
     async (chatId: string, { rejectWithValue }) => {
@@ -336,6 +357,46 @@ const chatSlice = createSlice({
                 }
             })
             .addCase(sendMessage.rejected, (state, action) => {
+                state.loading.operations = false;
+                state.error = action.payload as string;
+            })
+
+            // Upload file
+            .addCase(uploadChatFile.pending, (state) => {
+                state.loading.operations = true;
+                state.error = null;
+            })
+            .addCase(uploadChatFile.fulfilled, (state, action) => {
+                const { chatId, message } = action.payload;
+                state.loading.operations = false;
+
+                // Add message to chat (same logic as sendMessage)
+                if (!state.messages[chatId]) {
+                    state.messages[chatId] = {
+                        data: [message],
+                        pagination: {
+                            page: 1,
+                            pages: 1,
+                            total: 1
+                        }
+                    };
+                } else {
+                    state.messages[chatId].data.push(message);
+                    state.messages[chatId].pagination.total += 1;
+                }
+
+                // Update chat's lastMessage
+                const chatIndex = state.chats.findIndex(chat => chat._id === chatId);
+                if (chatIndex !== -1) {
+                    state.chats[chatIndex].lastMessage = message;
+
+                    // Move chat to top of list
+                    const chat = state.chats[chatIndex];
+                    state.chats.splice(chatIndex, 1);
+                    state.chats.unshift(chat);
+                }
+            })
+            .addCase(uploadChatFile.rejected, (state, action) => {
                 state.loading.operations = false;
                 state.error = action.payload as string;
             })

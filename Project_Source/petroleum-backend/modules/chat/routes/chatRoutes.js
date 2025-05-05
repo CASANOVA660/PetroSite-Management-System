@@ -24,16 +24,40 @@ const storage = multer.diskStorage({
     }
 });
 
+// Define file types for message attachments
+const fileFilter = (req, file, cb) => {
+    // For group picture uploads, only allow images
+    if (req.path === '/' && !req.path.includes('messages')) {
+        // Allow only images for group pictures
+        if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed for group pictures!'), false);
+        }
+    } else {
+        // For chat attachments, allow various file types
+        const allowedMimeTypes = [
+            // Images
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            // Documents
+            'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain', 'text/csv',
+            // Videos
+            'video/mp4', 'video/webm', 'video/quicktime',
+            // Audio
+            'audio/mpeg', 'audio/wav', 'audio/ogg'
+        ];
+
+        if (!allowedMimeTypes.includes(file.mimetype)) {
+            return cb(new Error('File type not allowed'), false);
+        }
+    }
+    cb(null, true);
+};
+
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: function (req, file, cb) {
-        // Accept only images
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-            return cb(new Error('Only image files are allowed!'), false);
-        }
-        cb(null, true);
-    }
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: fileFilter
 });
 
 const router = express.Router();
@@ -60,6 +84,9 @@ router.route('/:chatId/participants/:userId')
 router.route('/:chatId/messages')
     .post(messageController.sendMessage)
     .get(messageController.getMessages);
+
+// Message attachment route
+router.post('/:chatId/messages/attachment', upload.single('file'), messageController.sendMessageWithAttachment);
 
 router.route('/:chatId/read')
     .put(messageController.markChatAsRead);

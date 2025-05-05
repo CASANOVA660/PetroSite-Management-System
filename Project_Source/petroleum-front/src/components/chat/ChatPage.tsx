@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { LeftSidebar } from './LeftSidebar';
 import { ChatWindow } from './ChatWindow';
@@ -7,9 +7,9 @@ import { VerticalNav } from './VerticalNav';
 import { ChevronRightIcon, ChevronLeftIcon, DocumentIcon, PhotoIcon, FilmIcon, LinkIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RootState, useAppDispatch } from '../../store';
-import { fetchChats, fetchChatById, fetchMessages, sendMessage, markChatAsRead, setSelectedChat } from '../../store/slices/chatSlice';
+import { fetchChats, fetchChatById, fetchMessages, sendMessage, markChatAsRead, setSelectedChat, uploadChatFile } from '../../store/slices/chatSlice';
 import { getUserById } from '../../store/slices/userSlice';
-import { Chat } from '../../types/chat';
+import { Chat, Attachment } from '../../types/chat';
 import socketService from '../../services/socketService';
 
 // Constants for sidebar dimensions
@@ -23,6 +23,14 @@ const miniSidebarIcons = [
     { icon: FilmIcon, color: 'bg-purple-100 text-purple-500' },
     { icon: LinkIcon, color: 'bg-gray-100 text-gray-500' },
 ];
+
+interface FileAttachment {
+    url: string;
+    filename: string;
+    contentType?: string;
+    type?: string;
+    size?: number;
+}
 
 export const ChatPage: React.FC = () => {
     const dispatch = useAppDispatch();
@@ -125,16 +133,6 @@ export const ChatPage: React.FC = () => {
         }
     }, [chats, dispatch, leftOpen]);
 
-    // Handle sending a message
-    const handleSendMessage = useCallback((content: string) => {
-        if (selectedChat && content.trim()) {
-            dispatch(sendMessage({
-                chatId: selectedChat._id,
-                content
-            }));
-        }
-    }, [dispatch, selectedChat]);
-
     // Get participant name without using email
     const getParticipantName = (participant: any): string => {
         if (!participant) return 'Unknown';
@@ -207,6 +205,100 @@ export const ChatPage: React.FC = () => {
         return 'Unknown User';
     };
 
+    // Get participant avatar
+    const getParticipantAvatar = (participant: any): string => {
+        if (!participant) return '/avatar-placeholder.jpg';
+
+        // Check if participant has a profile picture
+        if ((participant as any).profilePicture?.url) {
+            return (participant as any).profilePicture.url;
+        } else if (userDetailsMap[participant._id]?.profilePicture?.url) {
+            return userDetailsMap[participant._id].profilePicture.url;
+        }
+
+        return '/avatar-placeholder.jpg';
+    };
+
+    // Format file size
+    const formatFileSize = (bytes: number): string => {
+        if (bytes < 1024) return bytes + ' B';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        else return (bytes / 1073741824).toFixed(1) + ' GB';
+    };
+
+    // Format messages for the ChatWindow component
+    const activeMessages = selectedChat && messages[selectedChat._id]?.data.map(msg => {
+        // Get sender name
+        const senderName = getParticipantName(msg.sender);
+
+        // Get proper avatar URL
+        let avatarUrl = '/avatar-placeholder.jpg';
+
+        if (msg.sender._id === user?._id && (user as any)?.profilePicture?.url) {
+            // Current user's avatar
+            avatarUrl = (user as any).profilePicture.url;
+        } else if ((msg.sender as any).profilePicture?.url) {
+            // Sender has profile picture directly
+            avatarUrl = (msg.sender as any).profilePicture.url;
+        } else if (userDetailsMap[msg.sender._id]?.profilePicture?.url) {
+            // Get from our user details map
+            avatarUrl = userDetailsMap[msg.sender._id].profilePicture.url;
+        }
+
+        // Get file info if there are attachments
+        let fileUrl, fileName, fileType, fileSize;
+        if (msg.attachments?.length) {
+            const attachment = msg.attachments[0];
+            fileUrl = attachment.url;
+            fileName = attachment.filename;
+            // Make sure image and video types are correctly identified with proper MIME types
+            if (attachment.type === 'image') {
+                fileType = 'image/' + (attachment.filename.split('.').pop() || 'jpeg');
+            } else if (attachment.type === 'video') {
+                fileType = 'video/' + (attachment.filename.split('.').pop() || 'mp4');
+            } else {
+                fileType = attachment.type;
+            }
+            fileSize = attachment.size ? formatFileSize(attachment.size) : undefined;
+        }
+
+        return {
+            id: msg._id,
+            sender: senderName,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isCurrentUser: msg.sender._id === user?._id,
+            avatar: avatarUrl,
+            // Add file attachments if available
+            fileUrl,
+            fileName,
+            fileType,
+            fileSize
+        };
+    }) || [];
+
+    // Handle sending a message
+    const handleSendMessage = useCallback((content: string, file?: File) => {
+        if (!selectedChat) return;
+
+        // If there's a file, we need to upload it first
+        if (file) {
+            dispatch(uploadChatFile({
+                chatId: selectedChat._id,
+                file,
+                content: content.trim() || undefined // Only send content if it's not empty
+            }));
+        }
+        // If there's only text content, send as a regular message
+        else if (content.trim()) {
+            dispatch(sendMessage({
+                chatId: selectedChat._id,
+                content
+            }));
+        }
+    }, [dispatch, selectedChat]);
+
     // Format chats for the LeftSidebar component
     const formattedChats = chats.map(chat => {
         // Get the other participant's name for direct messages
@@ -262,38 +354,6 @@ export const ChatPage: React.FC = () => {
         };
     });
 
-    // Format messages for the ChatWindow component
-    const activeMessages = selectedChat && messages[selectedChat._id]?.data.map(msg => {
-        // Get sender name
-        const senderName = getParticipantName(msg.sender);
-
-        // Get proper avatar URL
-        let avatarUrl = '/avatar-placeholder.jpg';
-
-        if (msg.sender._id === user?._id && (user as any)?.profilePicture?.url) {
-            // Current user's avatar
-            avatarUrl = (user as any).profilePicture.url;
-        } else if ((msg.sender as any).profilePicture?.url) {
-            // Sender has profile picture directly
-            avatarUrl = (msg.sender as any).profilePicture.url;
-        } else if (userDetailsMap[msg.sender._id]?.profilePicture?.url) {
-            // Get from our user details map
-            avatarUrl = userDetailsMap[msg.sender._id].profilePicture.url;
-        }
-
-        return {
-            id: msg._id,
-            sender: senderName,
-            content: msg.content,
-            timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isCurrentUser: msg.sender._id === user?._id,
-            avatar: avatarUrl,
-            // Add attachments if available
-            fileUrl: msg.attachments?.length ? msg.attachments[0].url : undefined,
-            fileName: msg.attachments?.length ? msg.attachments[0].filename : undefined
-        };
-    }) || [];
-
     // Get typing status
     const isTyping = selectedChat ? typing[selectedChat._id]?.length > 0 : false;
     const typingUsers = selectedChat && isTyping
@@ -302,6 +362,83 @@ export const ChatPage: React.FC = () => {
             .map(p => getParticipantName(p))
         : [];
     const typingUser = typingUsers?.length ? typingUsers[0] : '';
+
+    // Calculate file statistics
+    const calculateFileStats = useCallback(() => {
+        if (!selectedChat || !messages[selectedChat._id]) return undefined;
+
+        let totalFiles = 0;
+        let totalLinks = 0;
+        const categories = {
+            documents: { count: 0, size: 0 },
+            photos: { count: 0, size: 0 },
+            movies: { count: 0, size: 0 },
+            other: { count: 0, size: 0 }
+        };
+
+        // Process all messages to count files and links
+        messages[selectedChat._id].data.forEach(msg => {
+            // Check for file attachments
+            if (msg.attachments && msg.attachments.length > 0) {
+                totalFiles += msg.attachments.length;
+
+                msg.attachments.forEach(attachment => {
+                    const fileType = attachment.type;
+                    const fileSize = attachment.size || 0;
+
+                    if (fileType === 'image') {
+                        categories.photos.count++;
+                        categories.photos.size += fileSize;
+                    } else if (fileType === 'video') {
+                        categories.movies.count++;
+                        categories.movies.size += fileSize;
+                    } else if (fileType === 'document') {
+                        categories.documents.count++;
+                        categories.documents.size += fileSize;
+                    } else {
+                        categories.other.count++;
+                        categories.other.size += fileSize;
+                    }
+                });
+            }
+
+            // Count links in message content
+            if (msg.content) {
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const matches = msg.content.match(urlRegex);
+                if (matches) {
+                    totalLinks += matches.length;
+                }
+            }
+        });
+
+        // Format sizes
+        return {
+            totalFiles,
+            totalLinks,
+            categories: {
+                documents: {
+                    count: categories.documents.count,
+                    size: formatFileSize(categories.documents.size)
+                },
+                photos: {
+                    count: categories.photos.count,
+                    size: formatFileSize(categories.photos.size)
+                },
+                movies: {
+                    count: categories.movies.count,
+                    size: formatFileSize(categories.movies.size)
+                },
+                other: {
+                    count: categories.other.count,
+                    size: formatFileSize(categories.other.size)
+                }
+            }
+        };
+    }, [selectedChat, messages]);
+
+    // Memoize calculated file stats
+    const fileStats = useMemo(() => calculateFileStats(), [calculateFileStats]);
 
     return (
         <div className="fixed top-0 bottom-0 right-0 left-0 md:left-[290px] flex flex-row overflow-hidden bg-[#F4F6FA] transition-all duration-300">
@@ -425,27 +562,12 @@ export const ChatPage: React.FC = () => {
                         {rightOpen ? (
                             <div className="w-full h-full">
                                 <RightSidebar
-                                    groupName={selectedChat.isGroup ? selectedChat.title || '' : ''}
+                                    groupName={selectedChat.isGroup ? selectedChat.title || 'Group Chat' : getParticipantName(selectedChat.participants[0])}
                                     memberCount={selectedChat.participants.length}
-                                    groupAvatar={
-                                        selectedChat.isGroup
-                                            ? ((selectedChat as any).groupPicture?.url || '/group-avatar.jpg')
-                                            : (() => {
-                                                // For direct messages, use other user's avatar
-                                                const otherParticipant = selectedChat.participants.find(p => p._id !== user?._id);
-                                                if (!otherParticipant) return '/avatar-placeholder.jpg';
-
-                                                // Try to get profile picture
-                                                if ((otherParticipant as any).profilePicture?.url) {
-                                                    return (otherParticipant as any).profilePicture.url;
-                                                } else if (userDetailsMap[otherParticipant._id]?.profilePicture?.url) {
-                                                    return userDetailsMap[otherParticipant._id].profilePicture.url;
-                                                }
-                                                return '/avatar-placeholder.jpg';
-                                            })()
-                                    }
+                                    groupAvatar={selectedChat.isGroup ? (selectedChat as any)?.groupPicture?.url || '/group-avatar.jpg' : getParticipantAvatar(selectedChat.participants[0])}
                                     isGroup={selectedChat.isGroup}
                                     onClose={() => setRightOpen(false)}
+                                    fileStats={fileStats}
                                 />
                             </div>
                         ) : (

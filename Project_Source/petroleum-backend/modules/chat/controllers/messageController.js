@@ -4,6 +4,9 @@ const Chat = require('../models/Chat');
 const mongoose = require('mongoose');
 const logger = require('../../../utils/logger');
 const ApiError = require('../../../utils/ApiError');
+const cloudinary = require('../../../config/cloudinary');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * @desc    Send a new message
@@ -261,10 +264,132 @@ const handleTyping = (socket, io, userSockets) => {
     });
 };
 
+/**
+ * @desc    Send a message with file attachment
+ * @route   POST /api/chats/:chatId/messages/attachment
+ * @access  Private
+ */
+const sendMessageWithAttachment = asyncHandler(async (req, res) => {
+    const chatId = req.params.chatId;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    // Check if chat exists and user is a participant
+    const chat = await Chat.findOne({
+        _id: chatId,
+        participants: userId
+    });
+
+    if (!chat) {
+        res.status(404);
+        throw new Error('Chat not found or you are not a participant');
+    }
+
+    // Check if a file was uploaded
+    if (!req.file) {
+        res.status(400);
+        throw new Error('No file uploaded');
+    }
+
+    try {
+        console.log('Processing file attachment:', req.file.originalname, 'for chat:', chatId);
+
+        // Determine file type category based on mimetype
+        let fileType = 'document'; // default
+        if (req.file.mimetype.startsWith('image/')) {
+            fileType = 'image';
+        } else if (req.file.mimetype.startsWith('video/')) {
+            fileType = 'video';
+        } else if (req.file.mimetype.startsWith('audio/')) {
+            fileType = 'audio';
+        }
+
+        // Make sure the file exists
+        if (!fs.existsSync(req.file.path)) {
+            console.error('File does not exist at path:', req.file.path);
+            res.status(500);
+            throw new Error('File upload failed - file not found');
+        }
+
+        // Upload to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'petroleum/chat_attachments',
+            resource_type: 'auto', // Let Cloudinary detect the resource type
+            public_id: path.parse(req.file.originalname).name + '_' + Date.now()
+        });
+
+        console.log('Cloudinary upload successful:', uploadResult);
+
+        // Remove the temporary file after upload
+        fs.unlinkSync(req.file.path);
+
+        // Create the message with the attachment
+        const messageData = {
+            chat: chatId,
+            sender: userId,
+            readBy: [userId], // Mark as read by sender
+            attachments: [{
+                url: uploadResult.secure_url,
+                type: fileType,
+                filename: req.file.originalname,
+                size: req.file.size
+            }]
+        };
+
+        // Only add content if it's provided and not empty
+        if (content && content.trim()) {
+            messageData.content = content.trim();
+        } else {
+            messageData.content = ""; // Set empty string as default
+        }
+
+        const message = await Message.create(messageData);
+
+        // Update chat's lastMessage
+        chat.lastMessage = message._id;
+        await chat.save();
+
+        // Populate sender details for the response
+        const populatedMessage = await Message.findById(message._id)
+            .populate('sender', 'name email profilePicture');
+
+        // Notify all participants using socket.io
+        const io = global.io;
+        if (io) {
+            // Get all online participants except sender
+            const onlineParticipants = chat.participants
+                .filter(p => p.toString() !== userId && global.userSockets[p.toString()]);
+
+            // Emit new message event to all online participants
+            onlineParticipants.forEach(participantId => {
+                const socketId = global.userSockets[participantId.toString()];
+                if (socketId) {
+                    console.log(`Emitting new message with attachment to user ${participantId}`);
+                    io.to(socketId).emit('new_message', {
+                        chatId,
+                        message: populatedMessage
+                    });
+                }
+            });
+        }
+
+        res.status(201).json(populatedMessage);
+    } catch (error) {
+        console.error('Error processing file attachment:', error);
+        // If message was created but file processing failed, delete the message
+        if (error.messageId) {
+            await Message.findByIdAndDelete(error.messageId);
+        }
+        res.status(500);
+        throw new Error(`Failed to process file attachment: ${error.message}`);
+    }
+});
+
 module.exports = {
     sendMessage,
     getMessages,
     markChatAsRead,
     getUnreadCount,
-    handleTyping
+    handleTyping,
+    sendMessageWithAttachment
 }; 
