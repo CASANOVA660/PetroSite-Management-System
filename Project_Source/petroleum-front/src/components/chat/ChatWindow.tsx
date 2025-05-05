@@ -5,6 +5,7 @@ import { XMarkIcon, PhotoIcon, FilmIcon, DocumentTextIcon, DocumentArrowDownIcon
 import { AnimatedUploadIcon } from './AnimatedUploadIcon';
 import NotificationDropdown from '../header/NotificationDropdown';
 import axios from '../../utils/axios';
+import React from 'react';
 
 interface Message {
     id: string;
@@ -65,6 +66,70 @@ const formatFileSize = (bytes: number): string => {
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
     else if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
     else return (bytes / 1073741824).toFixed(1) + ' GB';
+};
+
+// Function to format message content with clickable links
+const formatMessageWithLinks = (content: string) => {
+    if (!content) return <p className="break-words"></p>;
+
+    // Regex to match URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+    // If no URLs, just return the text
+    if (!content.match(urlRegex)) {
+        return <p className="break-words">{content}</p>;
+    }
+
+    // Replace URLs with links
+    const elements: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    let counter = 0;
+
+    // Reset the regex
+    urlRegex.lastIndex = 0;
+
+    while ((match = urlRegex.exec(content)) !== null) {
+        const url = match[0];
+        const index = match.index;
+
+        // Add text before the URL
+        if (index > lastIndex) {
+            elements.push(
+                <React.Fragment key={`text-${counter}`}>
+                    {content.substring(lastIndex, index)}
+                </React.Fragment>
+            );
+            counter++;
+        }
+
+        // Add the URL as a link
+        elements.push(
+            <a
+                key={`link-${counter}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+            >
+                {url}
+            </a>
+        );
+        counter++;
+
+        lastIndex = index + url.length;
+    }
+
+    // Add any remaining text
+    if (lastIndex < content.length) {
+        elements.push(
+            <React.Fragment key={`text-${counter}`}>
+                {content.substring(lastIndex)}
+            </React.Fragment>
+        );
+    }
+
+    return <p className="break-words">{elements}</p>;
 };
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -259,7 +324,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 </button>
                             </div>
                         </div>
-                        {message.content && <p className="mt-1">{message.content}</p>}
+                        {message.content && formatMessageWithLinks(message.content)}
                     </div>
                 );
             }
@@ -284,7 +349,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 </button>
                             </div>
                         </div>
-                        {message.content && <p className="mt-1">{message.content}</p>}
+                        {message.content && formatMessageWithLinks(message.content)}
                     </div>
                 );
             }
@@ -307,14 +372,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                 <DocumentArrowDownIcon className="w-4 h-4 text-gray-700" />
                             </button>
                         </div>
-                        {message.content && <p className="mt-1">{message.content}</p>}
+                        {message.content && formatMessageWithLinks(message.content)}
                     </div>
                 );
             }
         }
 
         // Regular text message
-        return <p>{message.content}</p>;
+        return formatMessageWithLinks(message.content);
     };
 
     return (
@@ -444,12 +509,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 alt={message.sender}
                                                 className="w-8 h-8 rounded-full"
                                             />
-                                            <div>
+                                            <div className="max-w-full overflow-hidden">
                                                 <div className={`text-xs text-gray-500 ${message.isCurrentUser ? 'text-right' : ''}`}>
                                                     {message.sender} {message.timestamp && `• ${message.timestamp}`}
                                                 </div>
                                                 <div
-                                                    className={`mt-1 px-3 py-2 rounded-lg ${message.isCurrentUser
+                                                    className={`mt-1 px-3 py-2 rounded-lg overflow-hidden ${message.isCurrentUser
                                                         ? 'bg-green-100 text-gray-900'
                                                         : 'bg-white text-gray-800 border border-gray-200'
                                                         }`}
