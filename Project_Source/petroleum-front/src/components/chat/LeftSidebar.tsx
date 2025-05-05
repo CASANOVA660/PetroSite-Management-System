@@ -392,7 +392,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
                         {/* Popup */}
                         <motion.div
-                            className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[90%] max-w-md z-[201] overflow-hidden"
+                            className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[90%] max-w-md z-[201] overflow-hidden max-h-[90vh] flex flex-col"
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -400,7 +400,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Header */}
-                            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
                                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                                     {newChatType === null ? 'New Conversation' :
                                         newChatType === 'direct' ? 'New Direct Message' : 'New Group Chat'}
@@ -413,8 +413,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                 </button>
                             </div>
 
-                            {/* Content */}
-                            <div className="p-5">
+                            {/* Content - make scrollable */}
+                            <div className="p-5 overflow-y-auto flex-grow">
                                 {newChatType === null ? (
                                     <div className="flex flex-col space-y-4">
                                         <motion.button
@@ -544,7 +544,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
                                                 </div>
                                             ) : (
-                                                <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                                <div className="h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 custom-scrollbar">
                                                     {!filteredUsers || filteredUsers.length === 0 ? (
                                                         <div className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                             No users found
@@ -598,13 +598,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                                     Selected Participants ({selectedUsers.length})
                                                 </label>
-                                                <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                <div className="flex flex-wrap gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-20 overflow-y-auto custom-scrollbar">
                                                     {selectedUsers.map(userId => {
                                                         const user = users.find((u: User) => u && u._id === userId);
                                                         return user ? (
                                                             <div
                                                                 key={userId}
-                                                                className="flex items-center bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 pl-2 pr-1 py-1 rounded-full text-sm"
+                                                                className="flex items-center bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 pl-2 pr-1 py-1 rounded-full text-sm flex-shrink-0"
                                                             >
                                                                 {/* Show mini profile picture */}
                                                                 {(user as any)?.profilePicture?.url ? (
@@ -616,11 +616,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                                                 ) : (
                                                                     <UserIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-1" />
                                                                 )}
-                                                                <span>
+                                                                <span className="truncate max-w-[80px]">
                                                                     {user.nom || ''} {user.prenom || ''}
                                                                 </span>
                                                                 <button
-                                                                    className="ml-1 p-1 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800"
+                                                                    className="ml-1 p-1 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 flex-shrink-0"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         toggleUserSelection(userId);
@@ -640,7 +640,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
                             {/* Footer */}
                             {newChatType !== null && (
-                                <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex justify-between">
+                                <div className="p-5 border-t border-gray-100 dark:border-gray-700 flex justify-between flex-shrink-0">
                                     <motion.button
                                         className="px-4 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                                         whileHover={{ scale: 1.03 }}
