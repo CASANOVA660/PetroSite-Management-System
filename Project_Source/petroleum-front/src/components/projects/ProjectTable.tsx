@@ -55,39 +55,39 @@ const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProjec
     };
 
     return (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-white/[0.05] dark:bg-white/[0.03]">
             <div className="max-w-full overflow-x-auto">
                 <div className="min-w-[1102px]">
                     <Table>
-                        <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                            <TableRow>
+                        <TableHeader className="border-b border-gray-100 bg-gray-50 dark:border-white/[0.05] dark:bg-gray-900/50">
+                            <TableRow className="hover:bg-transparent">
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-start text-theme-xs"
+                                    className="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-start text-sm"
                                 >
                                     Numéro Projet
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-start text-theme-xs"
+                                    className="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-start text-sm"
                                 >
                                     Client
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-start text-theme-xs"
+                                    className="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-start text-sm"
                                 >
                                     Date de Création
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-start text-theme-xs"
+                                    className="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-start text-sm"
                                 >
                                     Statut
                                 </TableCell>
                                 <TableCell
                                     isHeader
-                                    className="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-start text-theme-xs"
+                                    className="px-6 py-4 font-semibold text-gray-600 dark:text-gray-300 text-start text-sm"
                                 >
                                     Actions
                                 </TableCell>
@@ -96,31 +96,37 @@ const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProjec
                         <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                             {projects.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="px-5 py-4 text-center text-gray-500">
-                                        Aucun projet trouvé. Cliquez sur 'Ajouter Projet' pour commencer.
+                                    <TableCell colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                                        <div className="flex flex-col items-center justify-center space-y-2">
+                                            <p className="text-lg">Aucun projet trouvé</p>
+                                            <p className="text-sm text-gray-400">Cliquez sur 'Ajouter Projet' pour commencer</p>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 projects.map((project) => (
-                                    <TableRow key={project._id}>
-                                        <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
-                                            {project.projectNumber}
+                                    <TableRow
+                                        key={project._id}
+                                        className="transition-colors duration-200 hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                                    >
+                                        <TableCell className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                                            <span className="font-medium">{project.projectNumber}</span>
                                         </TableCell>
-                                        <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
+                                        <TableCell className="px-6 py-4 text-gray-700 dark:text-gray-300">
                                             {project.clientName}
                                         </TableCell>
-                                        <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
+                                        <TableCell className="px-6 py-4 text-gray-700 dark:text-gray-300">
                                             {formatDate(project.createdAt)}
                                         </TableCell>
-                                        <TableCell className="px-5 py-4 text-gray-500 dark:text-gray-400">
+                                        <TableCell className="px-6 py-4">
                                             <Badge size="sm" color={getStatusColor(project.status)}>
                                                 {project.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="px-5 py-4">
+                                        <TableCell className="px-6 py-4">
                                             <button
                                                 onClick={() => onViewProject(project._id)}
-                                                className="text-gray-500 hover:text-[#F28C38] transition-colors"
+                                                className="p-2 text-gray-500 hover:text-[#F28C38] transition-colors rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20"
                                                 title="Voir les détails"
                                             >
                                                 <EyeIcon className="w-5 h-5" />
