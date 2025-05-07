@@ -280,6 +280,108 @@ async function getAllEmployees() {
     return employees;
 }
 
+// Create employee
+async function createEmployee(body, files) {
+    const { name, email, phone, department, position, hireDate } = body;
+    const employeeData = {
+        name,
+        email,
+        phone,
+        department: department || '',
+        position,
+        hireDate,
+        status: 'active',
+        folders: [],
+    };
+
+    // Handle profile image upload to Cloudinary
+    if (files && files.profileImage && files.profileImage[0]) {
+        const imageFile = files.profileImage[0];
+        const uploadResult = await cloudinary.uploader.upload_stream_promise
+            ? await cloudinary.uploader.upload_stream_promise(imageFile.buffer, {
+                folder: 'employees/profileImages',
+                resource_type: 'image',
+                use_filename: true,
+                unique_filename: true
+            })
+            : await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        folder: 'employees/profileImages',
+                        resource_type: 'image',
+                        use_filename: true,
+                        unique_filename: true
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                const { Readable } = require('stream');
+                const bufferStream = new Readable();
+                bufferStream.push(imageFile.buffer);
+                bufferStream.push(null);
+                bufferStream.pipe(uploadStream);
+            });
+        employeeData.profileImage = uploadResult.secure_url;
+        employeeData.profileImagePublicId = uploadResult.public_id;
+    }
+
+    // Handle initial documents upload to Cloudinary
+    let initialDocuments = [];
+    if (files && files.documents && files.documents.length > 0) {
+        for (const docFile of files.documents) {
+            const uploadResult = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        folder: 'employees/documents',
+                        resource_type: 'auto',
+                        use_filename: true,
+                        unique_filename: true
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                const { Readable } = require('stream');
+                const bufferStream = new Readable();
+                bufferStream.push(docFile.buffer);
+                bufferStream.push(null);
+                bufferStream.pipe(uploadStream);
+            });
+            initialDocuments.push({
+                url: uploadResult.secure_url,
+                type: docFile.mimetype,
+                name: docFile.originalname,
+                publicId: uploadResult.public_id,
+                uploadedAt: new Date(),
+                size: uploadResult.bytes,
+                format: uploadResult.format,
+                resourceType: uploadResult.resource_type,
+                width: uploadResult.width,
+                height: uploadResult.height
+            });
+        }
+    }
+
+    // If there are initial documents, create a default folder
+    if (initialDocuments.length > 0) {
+        employeeData.folders.push({
+            id: uuidv4(),
+            name: 'Documents',
+            parentId: null,
+            documents: initialDocuments,
+            subfolders: []
+        });
+    }
+
+    // Create and save employee
+    const employee = new Employee(employeeData);
+    await employee.save();
+    return employee;
+}
+
 module.exports = {
     getEmployeeById,
     getAllEmployees,
@@ -287,5 +389,6 @@ module.exports = {
     renameFolder,
     deleteFolder,
     addDocumentToFolder,
-    deleteDocumentFromFolder
+    deleteDocumentFromFolder,
+    createEmployee
 };
