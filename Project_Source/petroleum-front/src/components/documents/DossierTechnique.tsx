@@ -72,7 +72,7 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
             console.log('Selected equipment data:', equipment);
 
             // First, add the equipment to the project
-            const response = await axios.post(`/projects/${projectId}/equipment`, {
+            await axios.post(`/projects/${projectId}/equipment`, {
                 equipment: equipment.map(item => ({
                     equipment: item.equipment,
                     description: item.description,
@@ -84,16 +84,14 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
                 projectName: projectName // Add project name to the request
             });
 
-            console.log('Equipment added response:', response.data);
-            setSelectedEquipment(response.data.data);
-
-            // Show success message
             toast.success('Équipements ajoutés avec succès');
             if (equipment.some(item => item.needsValidation)) {
                 toast.success('Demande de validation envoyée avec succès');
             }
 
             setIsEquipmentSelectorOpen(false);
+            // Reload the equipment list to get fully populated data
+            await loadProjectEquipment();
         } catch (error) {
             console.error('Error adding equipment:', error);
             toast.error('Erreur lors de l\'ajout des équipements');
