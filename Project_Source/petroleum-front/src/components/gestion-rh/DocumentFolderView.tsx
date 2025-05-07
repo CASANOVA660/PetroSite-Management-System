@@ -1,360 +1,230 @@
-import { useState } from 'react';
-import { XMarkIcon, FolderIcon, DocumentIcon, PlusCircleIcon, ArrowUpTrayIcon, DocumentDuplicateIcon, ArrowsUpDownIcon, FolderPlusIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';
+import {
+    addFolderAndRefresh,
+    renameFolderAndRefresh,
+    deleteFolderAndRefresh,
+    addDocumentToFolderAndRefresh,
+    deleteDocumentFromFolderAndRefresh,
+    fetchEmployeeById,
+    Employee,
+    Folder,
+    DocumentFile,
+} from '../../store/slices/employeesSlice';
+import { XMarkIcon, FolderIcon, DocumentIcon, PlusCircleIcon, ArrowUpTrayIcon, DocumentDuplicateIcon, ArrowsUpDownIcon, FolderPlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
-
-// Types
-interface Employee {
-    id: string;
-    name: string;
-    department: string;
-    position: string;
-    status: string;
-    lastUpdated: string;
-    profileImage?: string;
-}
-
-interface Folder {
-    id: string;
-    name: string;
-    type: string;
-    files: File[];
-    subfolders: Folder[];
-}
-
-interface File {
-    id: string;
-    name: string;
-    type: string;
-    size: string;
-    uploadedBy: string;
-    uploadDate: string;
-    preview?: string;
-}
+import { toast } from 'react-hot-toast';
 
 interface DocumentFolderViewProps {
-    employee: Employee;
+    employeeId: string;
     onClose: () => void;
+    maxTableHeight: number;
 }
 
-export default function DocumentFolderView({ employee, onClose }: DocumentFolderViewProps) {
+export default function DocumentFolderView({ employeeId, onClose, maxTableHeight }: DocumentFolderViewProps) {
+    const dispatch = useDispatch<AppDispatch>();
+    const employee = useSelector((state: RootState) => state.employees.selectedEmployee);
     const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
     const [path, setPath] = useState<Folder[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [newFolderName, setNewFolderName] = useState('');
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
 
-    // Mock folders and files - would be fetched from an API
-    const rootFolders: Folder[] = [
-        {
-            id: 'folder-1',
-            name: 'Documents Personnels',
-            type: 'personal',
-            files: [
-                {
-                    id: 'file-1',
-                    name: 'Pièce d\'identité.pdf',
-                    type: 'pdf',
-                    size: '2.5 MB',
-                    uploadedBy: 'Sarah Dupont',
-                    uploadDate: '2023-09-15T10:30:00Z'
-                },
-                {
-                    id: 'file-2',
-                    name: 'Attestation de résidence.pdf',
-                    type: 'pdf',
-                    size: '1.2 MB',
-                    uploadedBy: 'Marie Lambert',
-                    uploadDate: '2023-10-22T14:15:00Z'
-                }
-            ],
-            subfolders: []
-        },
-        {
-            id: 'folder-2',
-            name: 'Contrats',
-            type: 'contract',
-            files: [
-                {
-                    id: 'file-3',
-                    name: 'Contrat Initial.pdf',
-                    type: 'pdf',
-                    size: '3.1 MB',
-                    uploadedBy: 'Sarah Dupont',
-                    uploadDate: '2021-03-15T09:00:00Z'
-                },
-                {
-                    id: 'file-4',
-                    name: 'Avenant - 2022.pdf',
-                    type: 'pdf',
-                    size: '1.8 MB',
-                    uploadedBy: 'Thomas Martin',
-                    uploadDate: '2022-04-10T11:20:00Z'
-                }
-            ],
-            subfolders: []
-        },
-        {
-            id: 'folder-3',
-            name: 'Évaluations',
-            type: 'evaluation',
-            files: [
-                {
-                    id: 'file-5',
-                    name: 'Évaluation - 2022.pdf',
-                    type: 'pdf',
-                    size: '4.2 MB',
-                    uploadedBy: 'Thomas Martin',
-                    uploadDate: '2022-12-15T16:45:00Z'
-                }
-            ],
-            subfolders: [
-                {
-                    id: 'subfolder-1',
-                    name: 'Objectifs',
-                    type: 'objectives',
-                    files: [
-                        {
-                            id: 'file-6',
-                            name: 'Objectifs 2023.docx',
-                            type: 'docx',
-                            size: '1.5 MB',
-                            uploadedBy: 'Thomas Martin',
-                            uploadDate: '2023-01-15T14:30:00Z'
-                        }
-                    ],
-                    subfolders: []
-                }
-            ]
-        }
-    ];
+    // Load employee data when component mounts
+    useEffect(() => {
+        console.log('🔄 DocumentFolderView mounted, loading employee data...');
+        dispatch(fetchEmployeeById(employeeId));
+    }, [dispatch, employeeId]);
 
-    // Navigate to a folder
+    // Log employee data changes
+    useEffect(() => {
+        console.log('📝 Employee data updated:', employee);
+        console.log('📁 Current folders:', employee?.folders);
+    }, [employee]);
+
+    // Helper to get folders/files for current view
+    const getCurrentFolders = () => currentFolder ? currentFolder.subfolders : (employee?.folders || []);
+    const getCurrentFiles = () => currentFolder ? currentFolder.documents : [];
+
+    // Navigation
     const handleOpenFolder = (folder: Folder) => {
         setPath(currentFolder ? [...path, currentFolder] : []);
         setCurrentFolder(folder);
     };
-
-    // Navigate back one level
     const handleBack = () => {
         if (path.length > 0) {
-            // Go back to the previous folder
             const previousFolder = path[path.length - 1];
             setCurrentFolder(previousFolder);
             setPath(path.slice(0, -1));
         } else {
-            // Back to root
             setCurrentFolder(null);
             setPath([]);
         }
     };
-
-    // Navigate to root
     const handleHomeClick = () => {
         setCurrentFolder(null);
         setPath([]);
     };
 
-    // Format date string
+    // Folder actions
+    const handleAddFolder = async () => {
+        if (!newFolderName.trim()) {
+            alert('Le nom du dossier ne peut pas être vide.');
+            return;
+        }
+        await dispatch(addFolderAndRefresh({ employeeId, name: newFolderName, parentId: currentFolder?.id || null }) as any);
+        setNewFolderName('');
+    };
+    const handleRenameFolder = async (folderId: string) => {
+        await dispatch(renameFolderAndRefresh({ employeeId, folderId, newName: renameValue }) as any);
+        setRenamingFolderId(null);
+        setRenameValue('');
+    };
+    const handleDeleteFolder = async (folderId: string) => {
+        await dispatch(deleteFolderAndRefresh({ employeeId, folderId }) as any);
+        if (currentFolder && currentFolder.id === folderId) handleBack();
+    };
+
+    // Document actions
+    const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0]) return;
+
+        if (!currentFolder?.id) {
+            alert('Please select a folder first');
+            return;
+        }
+
+        const file = e.target.files[0];
+        console.log('[DEBUG] Uploading file:', {
+            name: file.name,
+            type: file.type,
+            size: file.size
+        });
+
+        try {
+            await dispatch(addDocumentToFolderAndRefresh({
+                employeeId,
+                folderId: currentFolder.id,
+                file
+            }) as any);
+
+            // Reset input to allow same file re-upload
+            e.target.value = '';
+        } catch (error) {
+            console.error('[ERROR] Error uploading document:', error);
+            toast.error('Erreur lors de l\'upload du document');
+        }
+    };
+    const handleDeleteDocument = async (url: string) => {
+        await dispatch(deleteDocumentFromFolderAndRefresh({ employeeId, folderId: currentFolder?.id || '', url }) as any);
+    };
+
+    // Format date
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
+            year: 'numeric', month: 'short', day: 'numeric'
         });
     };
 
-    // Get file icon based on file type
-    const getFileIcon = (fileType: string) => {
-        switch (fileType) {
-            case 'pdf':
-                return (
-                    <div className="h-8 w-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
-                        <DocumentIcon className="h-5 w-5" />
-                    </div>
-                );
-            case 'docx':
-                return (
-                    <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
-                        <DocumentIcon className="h-5 w-5" />
-                    </div>
-                );
-            default:
-                return (
-                    <div className="h-8 w-8 bg-gray-100 text-gray-600 rounded-lg flex items-center justify-center">
-                        <DocumentIcon className="h-5 w-5" />
-                    </div>
-                );
-        }
-    };
+    // File/folder icons
+    const getFileIcon = (fileType: string) => (
+        <div className="h-8 w-8 bg-gray-100 text-gray-600 rounded-lg flex items-center justify-center">
+            <DocumentIcon className="h-5 w-5" />
+        </div>
+    );
+    const getFolderIcon = () => (
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center text-blue-500 bg-blue-100">
+            <FolderIcon className="h-5 w-5" />
+        </div>
+    );
 
-    // Get folder icon based on folder type
-    const getFolderIcon = (folderType: string) => {
-        const colorMap: Record<string, string> = {
-            personal: 'text-blue-500 bg-blue-100',
-            contract: 'text-green-500 bg-green-100',
-            evaluation: 'text-orange-500 bg-orange-100',
-            objectives: 'text-purple-500 bg-purple-100'
-        };
-
-        const bgColor = colorMap[folderType] || 'text-gray-500 bg-gray-100';
-
-        return (
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${bgColor}`}>
-                <FolderIcon className="h-5 w-5" />
+    // Recursive folder rendering
+    const renderFolders = (folders: Folder[]) => folders.map(folder => (
+        <div key={folder.id} className="relative group">
+            <div onClick={() => handleOpenFolder(folder)} className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md flex flex-col items-center">
+                {getFolderIcon()}
+                <div className="mt-2 text-center">
+                    {renamingFolderId === folder.id ? (
+                        <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onBlur={() => handleRenameFolder(folder.id)} autoFocus className="text-sm font-medium text-gray-900 dark:text-white bg-transparent border-b border-blue-500" />
+                    ) : (
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate flex items-center gap-1">
+                            {folder.name}
+                            <button onClick={e => { e.stopPropagation(); setRenamingFolderId(folder.id); setRenameValue(folder.name); }} className="ml-1 text-xs text-blue-500"><PencilIcon className="h-3 w-3" /></button>
+                            <button onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="ml-1 text-xs text-red-500"><TrashIcon className="h-3 w-3" /></button>
+                        </div>
+                    )}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{folder.documents.length} fichier{folder.documents.length !== 1 ? 's' : ''}</div>
             </div>
-        );
-    };
+        </div>
+    ));
+
+    // File rendering
+    const renderFiles = (files: DocumentFile[]) => files.map(file => (
+        <div key={file.url} className="relative group">
+            <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center">
+                {getFileIcon(file.type || '')}
+                <div className="mt-2 text-center">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{file.type}</div>
+                </div>
+                <button onClick={() => handleDeleteDocument(file.url)} className="absolute top-1 right-1 text-xs text-red-500"><TrashIcon className="h-4 w-4" /></button>
+            </div>
+        </div>
+    ));
 
     return (
-        <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="relative h-full flex flex-col"
-        >
-            {/* Header with title and close button */}
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="relative h-full flex flex-col" style={{ height: maxTableHeight }}>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Documents de {employee.name}</h2>
-                <button
-                    onClick={onClose}
-                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Documents de {employee?.name}</h2>
+                <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                     <XMarkIcon className="h-5 w-5" />
                 </button>
             </div>
-
-            {/* Toolbar */}
             <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-3 flex flex-wrap gap-3 mb-4">
-                <button className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-blue-700">
+                <label className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-blue-700 cursor-pointer">
                     <ArrowUpTrayIcon className="h-4 w-4" />
                     <span>Importer</span>
-                </button>
-                <button className="px-3 py-1.5 bg-gray-100 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-slate-500">
-                    <FolderPlusIcon className="h-4 w-4" />
-                    <span>Nouveau Dossier</span>
-                </button>
+                    <input type="file" className="hidden" onChange={handleUploadDocument} />
+                </label>
+                <div className="flex items-center gap-2">
+                    <input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="Nouveau dossier" className="px-2 py-1 rounded border text-sm" />
+                    <button onClick={handleAddFolder} className="px-3 py-1.5 bg-gray-100 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-slate-500">
+                        <FolderPlusIcon className="h-4 w-4" />
+                        <span>Créer</span>
+                    </button>
+                </div>
                 <div className="ml-auto flex items-center">
-                    <button
-                        onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                        className="px-3 py-1.5 bg-gray-100 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-slate-500"
-                    >
+                    <button onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="px-3 py-1.5 bg-gray-100 dark:bg-slate-600 text-gray-700 dark:text-gray-200 rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-gray-200 dark:hover:bg-slate-500">
                         <ArrowsUpDownIcon className="h-4 w-4" />
                         <span>Vue {viewMode === 'grid' ? 'Liste' : 'Grille'}</span>
                     </button>
                 </div>
             </div>
-
-            {/* Navigation breadcrumbs */}
             <div className="mb-4 flex items-center text-sm text-gray-600 dark:text-gray-400 flex-wrap">
-                <button
-                    onClick={handleHomeClick}
-                    className="hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                    Racine
-                </button>
+                <button onClick={handleHomeClick} className="hover:text-blue-600 dark:hover:text-blue-400">Racine</button>
                 {path.map((folder, index) => (
                     <div key={folder.id} className="flex items-center">
                         <span className="mx-1">/</span>
-                        <button
-                            onClick={() => {
-                                // Navigate to this specific point in path
-                                setCurrentFolder(folder);
-                                setPath(path.slice(0, index));
-                            }}
-                            className="hover:text-blue-600 dark:hover:text-blue-400"
-                        >
-                            {folder.name}
-                        </button>
+                        <button onClick={() => { setCurrentFolder(folder); setPath(path.slice(0, index)); }} className="hover:text-blue-600 dark:hover:text-blue-400">{folder.name}</button>
                     </div>
                 ))}
-                {currentFolder && (
-                    <>
-                        <span className="mx-1">/</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{currentFolder.name}</span>
-                    </>
-                )}
+                {currentFolder && <><span className="mx-1">/</span><span className="font-medium text-gray-900 dark:text-white">{currentFolder.name}</span></>}
             </div>
-
-            {/* Folder Contents */}
-            <div className="flex-1 overflow-y-auto">
-                {/* Show current folder contents or root folders */}
+            <div className="flex-1">
                 <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-2'}>
-                    {/* Folders */}
-                    {(currentFolder?.subfolders || (!currentFolder ? rootFolders : [])).map((folder: Folder) => (
-                        <div
-                            key={folder.id}
-                            onClick={() => handleOpenFolder(folder)}
-                            className={
-                                viewMode === 'grid'
-                                    ? 'p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center'
-                                    : 'p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow flex items-center'
-                            }
-                        >
-                            {getFolderIcon(folder.type)}
-                            <div className={viewMode === 'grid' ? 'mt-2 text-center' : 'ml-3 flex-1'}>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                    {folder.name}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {folder.files.length} fichier{folder.files.length !== 1 ? 's' : ''}
-                                </div>
-                            </div>
-                            {viewMode === 'list' && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-                                    Dossier
-                                </span>
-                            )}
-                        </div>
-                    ))}
-
-                    {/* Files */}
-                    {currentFolder?.files.map(file => (
-                        <div
-                            key={file.id}
-                            className={
-                                viewMode === 'grid'
-                                    ? 'p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow flex flex-col items-center'
-                                    : 'p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow flex items-center'
-                            }
-                        >
-                            {getFileIcon(file.type)}
-                            <div className={viewMode === 'grid' ? 'mt-2 text-center' : 'ml-3 flex-1'}>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                    {file.name}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {file.size} • {formatDate(file.uploadDate)}
-                                </div>
-                            </div>
-                            {viewMode === 'list' && (
-                                <div className="flex gap-2">
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                                        <DocumentDuplicateIcon className="h-4 w-4" />
-                                    </button>
-                                    <button className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                                        <ArrowUpTrayIcon className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-
-                    {/* Empty state */}
-                    {currentFolder && currentFolder.files.length === 0 && currentFolder.subfolders.length === 0 && (
+                    {renderFolders(getCurrentFolders())}
+                    {renderFiles(getCurrentFiles())}
+                    {getCurrentFolders().length === 0 && getCurrentFiles().length === 0 && (
                         <div className="col-span-full p-8 text-center">
                             <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <FolderIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
                             </div>
                             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Aucun fichier</h3>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Ce dossier est vide. Commencez par ajouter des fichiers.
-                            </p>
-                            <div className="mt-6">
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                >
-                                    <PlusCircleIcon className="-ml-1 mr-2 h-5 w-5" />
-                                    Ajouter des fichiers
-                                </button>
-                            </div>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ce dossier est vide. Commencez par ajouter des fichiers.</p>
                         </div>
                     )}
                 </div>

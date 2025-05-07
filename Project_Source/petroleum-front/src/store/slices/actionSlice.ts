@@ -1,6 +1,6 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
-import { fetchUserTasks, fetchProjectActionTasks } from './taskSlice';
+import {  fetchProjectActionTasks } from './taskSlice';
 
 export interface Action {
     _id: string;

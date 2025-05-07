@@ -9,22 +9,52 @@ class DocumentService {
                 fileName: file.originalname,
                 category,
                 projectId,
-                userId
+                userId,
+                mimetype: file.mimetype,
+                size: file.size
             });
 
-            // Convert buffer to base64
-            const buffer = file.buffer;
-            const base64File = buffer.toString('base64');
-            const uploadStr = `data:${file.mimetype};base64,${base64File}`;
+            if (!file || !file.buffer) {
+                throw new Error('Invalid file: No buffer data found');
+            }
 
-            // Upload to Cloudinary with optimized settings
-            const uploadResult = await cloudinary.uploader.upload(uploadStr, {
-                resource_type: 'auto',
-                folder: `documents/${category.toLowerCase().replace(/\s+/g, '-')}`,
-                public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
-                overwrite: true,
-                chunk_size: 6000000 // 6MB chunks for large files
-            });
+            let uploadResult;
+
+            // Handle PDF files differently
+            if (file.mimetype === 'application/pdf') {
+                // For PDFs, use direct upload with base64
+                const buffer = file.buffer;
+                const base64File = buffer.toString('base64');
+                const uploadStr = `data:${file.mimetype};base64,${base64File}`;
+
+                uploadResult = await cloudinary.uploader.upload(uploadStr, {
+                    resource_type: 'raw',
+                    folder: `documents/${category.toLowerCase().replace(/\s+/g, '-')}`,
+                    public_id: `${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, '')}`,
+                    overwrite: true
+                });
+            } else {
+                // For other files (images, etc.), use upload_stream
+                uploadResult = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        {
+                            folder: `documents/${category.toLowerCase().replace(/\s+/g, '-')}`,
+                            resource_type: 'auto',
+                            use_filename: true,
+                            unique_filename: true
+                        },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+
+                    const stream = require('stream');
+                    const bufferStream = new stream.PassThrough();
+                    bufferStream.end(file.buffer);
+                    bufferStream.pipe(uploadStream);
+                });
+            }
 
             console.log('[DEBUG] Cloudinary upload result:', uploadResult);
 
@@ -37,7 +67,7 @@ class DocumentService {
                 projectId,
                 uploadedBy: userId,
                 type: file.mimetype,
-                format: uploadResult.format,
+                format: uploadResult.format || 'pdf',
                 resourceType: uploadResult.resource_type,
                 size: uploadResult.bytes,
                 width: uploadResult.width,
@@ -57,11 +87,11 @@ class DocumentService {
             console.error('[ERROR] Error in uploadDocument:', {
                 error: error.message,
                 stack: error.stack,
-                file: {
+                file: file ? {
                     originalname: file.originalname,
                     mimetype: file.mimetype,
                     size: file.size
-                }
+                } : null
             });
             throw error;
         }

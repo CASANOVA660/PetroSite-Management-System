@@ -1,5 +1,9 @@
 import { UsersIcon, ClipboardDocumentCheckIcon, ClockIcon, BellAlertIcon, FolderIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../../store/store';
+import { fetchEmployees } from '../../store/slices/employeesSlice';
 
 // Types
 interface StatCardProps {
@@ -11,44 +15,68 @@ interface StatCardProps {
 }
 
 export default function HRStatCards() {
-    // Mock data - would be replaced with real API calls
+    const dispatch = useDispatch();
+    const { employees, loading } = useSelector((state: RootState) => state.employees);
+
+    useEffect(() => {
+        dispatch(fetchEmployees() as any);
+    }, [dispatch]);
+
+    // Compute stats from employees
+    const totalEmployees = employees.length;
+    const activeContracts = employees.filter(e => e.status === 'active').length;
+    // For demo: contracts expiring soon = status 'pending' (customize as needed)
+    const pendingRenewals = employees.filter(e => e.status === 'pending').length;
+    // For demo: performance alerts = status 'onleave' (customize as needed)
+    const performanceAlerts = employees.filter(e => e.status === 'onleave').length;
+    // Document count: sum all documents in all folders (recursive)
+    function countDocuments(folders: any[]): number {
+        if (!folders) return 0;
+        return folders.reduce((acc, folder) => {
+            const docs = Array.isArray(folder.documents) ? folder.documents.length : 0;
+            const sub = folder.subfolders ? countDocuments(folder.subfolders) : 0;
+            return acc + docs + sub;
+        }, 0);
+    }
+    const documentCount = employees.reduce((acc, e) => acc + countDocuments(e.folders || []), 0);
+
+    // For percentChange, you may want to fetch previous period data. Here, we use dummy values.
     const stats = [
         {
             title: 'Total Employés',
-            value: 243,
-            percentChange: 12,
-            icon: <UsersIcon className="h-6 w-6" />,
-            color: 'bg-blue-500/10 text-blue-500'
+            value: totalEmployees,
+            percentChange: 12, // TODO: Replace with real delta
+            icon: <UsersIcon className="h-6 w-6" />, color: 'bg-blue-500/10 text-blue-500'
         },
         {
             title: 'Contrats Actifs',
-            value: 198,
-            percentChange: 4,
-            icon: <ClipboardDocumentCheckIcon className="h-6 w-6" />,
-            color: 'bg-green-500/10 text-green-500'
+            value: activeContracts,
+            percentChange: 4, // TODO: Replace with real delta
+            icon: <ClipboardDocumentCheckIcon className="h-6 w-6" />, color: 'bg-green-500/10 text-green-500'
         },
         {
             title: 'Renouvellements en Attente',
-            value: 16,
-            percentChange: -3,
-            icon: <ClockIcon className="h-6 w-6" />,
-            color: 'bg-orange-500/10 text-orange-500'
+            value: pendingRenewals,
+            percentChange: -3, // TODO: Replace with real delta
+            icon: <ClockIcon className="h-6 w-6" />, color: 'bg-orange-500/10 text-orange-500'
         },
         {
             title: 'Alertes Performance',
-            value: 8,
-            percentChange: -25,
-            icon: <BellAlertIcon className="h-6 w-6" />,
-            color: 'bg-red-500/10 text-red-500'
+            value: performanceAlerts,
+            percentChange: -25, // TODO: Replace with real delta
+            icon: <BellAlertIcon className="h-6 w-6" />, color: 'bg-red-500/10 text-red-500'
         },
         {
             title: 'Documents Chargés',
-            value: 2456,
-            percentChange: 17,
-            icon: <FolderIcon className="h-6 w-6" />,
-            color: 'bg-purple-500/10 text-purple-500'
+            value: documentCount,
+            percentChange: 17, // TODO: Replace with real delta
+            icon: <FolderIcon className="h-6 w-6" />, color: 'bg-purple-500/10 text-purple-500'
         }
     ];
+
+    if (loading) {
+        return <div className="h-32 flex items-center justify-center text-gray-500">Chargement des statistiques...</div>;
+    }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">

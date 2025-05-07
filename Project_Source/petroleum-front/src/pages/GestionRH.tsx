@@ -7,20 +7,10 @@ import EmployeeProfile from "../components/gestion-rh/EmployeeProfile";
 import DocumentFolderView from "../components/gestion-rh/DocumentFolderView";
 import AddEmployeePanel from "../components/gestion-rh/AddEmployeePanel";
 import { UserPlusIcon } from '@heroicons/react/24/outline';
+import { Employee } from '../store/slices/employeesSlice';
 
-// Define types
-interface Employee {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    department: string;
-    position: string;
-    status: string;
-    lastUpdated: string;
-    hireDate: string;
-    profileImage?: string;
-}
+// Remove local Employee interface
+// interface Employee { ... }
 
 interface SearchParams {
     query: string;
@@ -35,6 +25,7 @@ export default function GestionRH() {
     const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
     const tableRef = useRef<HTMLDivElement>(null);
     const [tableHeight, setTableHeight] = useState(0);
+    const [maxTableHeight, setMaxTableHeight] = useState(0);
     const [searchParams, setSearchParams] = useState<SearchParams>({
         query: '',
         department: '',
@@ -48,6 +39,10 @@ export default function GestionRH() {
             const updateHeight = () => {
                 const height = tableRef.current?.getBoundingClientRect().height || 0;
                 setTableHeight(height);
+                // If the table is fully filled (e.g., 10 employees), update maxTableHeight
+                if (height > maxTableHeight) {
+                    setMaxTableHeight(height);
+                }
             };
 
             // Initial measurement
@@ -61,7 +56,7 @@ export default function GestionRH() {
                 if (tableRef.current) observer.unobserve(tableRef.current);
             };
         }
-    }, [selectedEmployee, searchParams]);
+    }, [selectedEmployee, searchParams, maxTableHeight]);
 
     // Handle employee selection
     const handleSelectEmployee = (employee: Employee) => {
@@ -138,7 +133,7 @@ export default function GestionRH() {
                             searchParams={searchParams}
                             onSelectEmployee={handleSelectEmployee}
                             onViewDocuments={handleViewDocuments}
-                            selectedEmployeeId={selectedEmployee?.id}
+                            selectedEmployeeId={selectedEmployee?._id}
                         />
                     </div>
 
@@ -146,11 +141,11 @@ export default function GestionRH() {
                     {selectedEmployee && (
                         <div
                             className="w-full lg:w-1/3 bg-white dark:bg-slate-800 rounded-lg shadow-md p-5 border border-gray-200 dark:border-gray-700 lg:absolute lg:right-0 flex flex-col overflow-hidden"
-                            style={{ height: tableHeight > 0 ? `${tableHeight}px` : 'auto' }}
+                            style={{ height: maxTableHeight > 0 ? `${maxTableHeight}px` : 'auto' }}
                         >
                             <div className="flex-1 overflow-y-auto pr-1">
                                 {showDocuments ? (
-                                    <DocumentFolderView employee={selectedEmployee} onClose={handleClosePanel} />
+                                    <DocumentFolderView employeeId={selectedEmployee._id!} onClose={handleClosePanel} maxTableHeight={maxTableHeight} />
                                 ) : (
                                     <EmployeeProfile employee={selectedEmployee} onClose={handleClosePanel} />
                                 )}

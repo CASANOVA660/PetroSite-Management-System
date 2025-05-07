@@ -10,6 +10,7 @@ import globalActionReducer from './slices/globalActionSlice';
 import equipmentReducer from './slices/equipmentSlice';
 import taskReducer from './slices/taskSlice';
 import chatReducer from './slices/chatSlice';
+import employeesReducer from './slices/employeesSlice';
 
 export const store = configureStore({
     reducer: {
@@ -22,7 +23,8 @@ export const store = configureStore({
         globalActions: globalActionReducer,
         equipment: equipmentReducer,
         tasks: taskReducer,
-        chat: chatReducer
+        chat: chatReducer,
+        employees: employeesReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -35,3 +37,5 @@ export type AppDispatch = typeof store.dispatch;
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 
 export default store;
+
+export * from './slices/employeesSlice';

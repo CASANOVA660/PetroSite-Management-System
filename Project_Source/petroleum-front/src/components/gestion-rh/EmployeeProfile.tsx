@@ -1,20 +1,9 @@
 import { useState } from 'react';
-import { XMarkIcon, PencilSquareIcon, UserCircleIcon, ClockIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PencilSquareIcon, UserCircleIcon, ClockIcon, ChartBarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// Types
-interface Employee {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    department: string;
-    position: string;
-    status: string;
-    hireDate: string;
-    lastUpdated: string;
-    profileImage?: string;
-}
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';
+import { updateEmployee, deleteEmployee, Employee } from '../../store/slices/employeesSlice';
 
 interface EmployeeProfileProps {
     employee: Employee;
@@ -27,9 +16,14 @@ type TabType = 'personal' | 'employment' | 'performance';
 export default function EmployeeProfile({ employee, onClose }: EmployeeProfileProps) {
     const [activeTab, setActiveTab] = useState<TabType>('personal');
     const [isEditing, setIsEditing] = useState(false);
+    const dispatch: AppDispatch = useDispatch();
+    const { loading, error } = useSelector((state: RootState) => state.employees);
+    const [editForm, setEditForm] = useState<Employee>(employee);
+    const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
 
     // Format date to locale string
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
     };
@@ -102,6 +96,46 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
         visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
     };
 
+    // Handle edit form changes
+    const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setEditForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Handle profile image change
+    const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setProfileImageFile(file);
+            setEditForm(prev => ({ ...prev, profileImage: URL.createObjectURL(file) }));
+        }
+    };
+
+    // Handle save edit
+    const handleSaveEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const formData = new FormData();
+        Object.entries(editForm).forEach(([key, value]) => {
+            if (value && key !== 'profileImage') formData.append(key, value as string);
+        });
+        if (profileImageFile) {
+            formData.append('profileImage', profileImageFile);
+        }
+        try {
+            await dispatch(updateEmployee({ id: employee._id!, formData })).unwrap();
+            setIsEditing(false);
+        } catch (e) { }
+    };
+
+    // Handle delete
+    const handleDelete = async () => {
+        if (!employee._id) return;
+        try {
+            await dispatch(deleteEmployee(employee._id)).unwrap();
+            onClose();
+        } catch (e) { }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -117,6 +151,13 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                         className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     >
                         <PencilSquareIcon className="h-5 w-5" />
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={loading}
+                        className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                    >
+                        <TrashIcon className="h-5 w-5" />
                     </button>
                     <button
                         onClick={onClose}
@@ -143,10 +184,10 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                     )}
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">{employee.name}</h3>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{employee.position}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{employee.position || ''}</div>
                 <div className="mt-2">
-                    <span className={`px-3 py-1 inline-flex text-xs font-medium leading-5 rounded-full ${getStatusColor(employee.status)}`}>
-                        {getStatusText(employee.status)}
+                    <span className={`px-3 py-1 inline-flex text-xs font-medium leading-5 rounded-full ${getStatusColor(employee.status || '')}`}>
+                        {getStatusText(employee.status || '')}
                     </span>
                 </div>
             </div>
@@ -198,7 +239,16 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                         exit="hidden"
                     >
                         {isEditing ? (
-                            <PersonalInfoEdit employee={employee} onCancel={() => setIsEditing(false)} />
+                            <form onSubmit={handleSaveEdit} className="space-y-4">
+                                {/* Example fields, add more as needed */}
+                                <input name="name" value={editForm.name} onChange={handleEditChange} className="input" />
+                                <input name="email" value={editForm.email} onChange={handleEditChange} className="input" />
+                                <input name="phone" value={editForm.phone || ''} onChange={handleEditChange} className="input" />
+                                <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+                                <button type="submit" disabled={loading} className="btn btn-primary">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
+                                <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">Annuler</button>
+                                {error && <div className="text-red-500">Erreur: {error}</div>}
+                            </form>
                         ) : (
                             <PersonalInfoView employee={employee} />
                         )}
@@ -235,18 +285,19 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
 
 // Personal Info View Component
 function PersonalInfoView({ employee }: { employee: Employee }) {
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
     };
 
     const infoItems = [
-        { label: 'Email', value: employee.email },
-        { label: 'Téléphone', value: employee.phone },
-        { label: 'Département', value: employee.department },
-        { label: 'Poste', value: employee.position },
+        { label: 'Email', value: employee.email || '' },
+        { label: 'Téléphone', value: employee.phone || '' },
+        { label: 'Département', value: employee.department || '' },
+        { label: 'Poste', value: employee.position || '' },
         { label: 'Date d\'embauche', value: formatDate(employee.hireDate) },
-        { label: 'ID Employé', value: employee.id }
+        { label: 'ID Employé', value: employee._id || '' }
     ];
 
     return (
@@ -261,143 +312,10 @@ function PersonalInfoView({ employee }: { employee: Employee }) {
     );
 }
 
-// Personal Info Edit Component
-function PersonalInfoEdit({ employee, onCancel }: { employee: Employee; onCancel: () => void }) {
-    const [formData, setFormData] = useState({
-        name: employee.name,
-        email: employee.email,
-        phone: employee.phone,
-        department: employee.department,
-        position: employee.position,
-        hireDate: new Date(employee.hireDate).toISOString().substring(0, 10)
-    });
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        // In a real app, you would call an API to update the employee info
-        console.log('Updated employee data:', formData);
-        onCancel();
-    };
-
-    return (
-        <form onSubmit={handleSave} className="space-y-4">
-            <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Nom complet
-                </label>
-                <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                />
-            </div>
-
-            <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Email
-                </label>
-                <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                />
-            </div>
-
-            <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Téléphone
-                </label>
-                <input
-                    type="text"
-                    name="phone"
-                    id="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                />
-            </div>
-
-            <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Département
-                </label>
-                <select
-                    id="department"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                >
-                    <option value="engineering">Ingénierie</option>
-                    <option value="operations">Opérations</option>
-                    <option value="finance">Finance</option>
-                    <option value="hr">Ressources Humaines</option>
-                    <option value="it">IT</option>
-                    <option value="marketing">Marketing</option>
-                </select>
-            </div>
-
-            <div>
-                <label htmlFor="position" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Poste
-                </label>
-                <input
-                    type="text"
-                    name="position"
-                    id="position"
-                    value={formData.position}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                />
-            </div>
-
-            <div>
-                <label htmlFor="hireDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Date d'embauche
-                </label>
-                <input
-                    type="date"
-                    name="hireDate"
-                    id="hireDate"
-                    value={formData.hireDate}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 shadow-sm dark:bg-slate-900 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
-                />
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    Annuler
-                </button>
-                <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    Enregistrer
-                </button>
-            </div>
-        </form>
-    );
-}
-
 // Employment History Component
 function EmploymentHistory({ history }: { history: any[] }) {
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' });
     };
@@ -423,11 +341,11 @@ function EmploymentHistory({ history }: { history: any[] }) {
                                     <div>
                                         <p className="text-sm text-gray-900 dark:text-white font-medium">{event.title}</p>
                                         <div className="mt-1">
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">{event.position} • {event.department}</p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">{(event.position || '')} • {(event.department || '')}</p>
                                         </div>
                                     </div>
                                     <div className="text-right text-sm whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                        {formatDate(event.date)}
+                                        {formatDate(event.date ?? '')}
                                     </div>
                                 </div>
                             </div>

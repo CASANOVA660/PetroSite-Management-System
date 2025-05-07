@@ -15,6 +15,7 @@ const actionRoutes = require('./modules/actions/routes/action.routes');
 const taskRoutes = require('./modules/tasks/routes/task.routes');
 const equipmentRoutes = require('./modules/equipment/routes/equipment.routes');
 const chatRoutes = require('./modules/chat/routes/chatRoutes');
+const gestionRhRoutes = require('./modules/gestion-rh');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -186,6 +187,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/global-actions', globalActionRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/gestion-rh/employees', gestionRhRoutes);
 
 // Error handling
 app.use(errorHandler);

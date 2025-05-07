@@ -13,6 +13,9 @@ import {
     PlusIcon,
     UserIcon
 } from '@heroicons/react/24/outline';
+import { useDispatch, useSelector } from 'react-redux';
+import { addEmployee, Employee } from '../../store/slices/employeesSlice';
+import { AppDispatch, RootState } from '../../store/store';
 
 interface AddEmployeePanelProps {
     isOpen: boolean;
@@ -31,10 +34,15 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
 
+    const dispatch: AppDispatch = useDispatch();
+    const { loading, error } = useSelector((state: RootState) => state.employees);
+    const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+
     // Handle profile image upload
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            setProfileImageFile(file);
             const reader = new FileReader();
             reader.onload = (e) => {
                 setProfileImage(e.target?.result as string);
@@ -84,13 +92,34 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
     };
 
     // Handle save employee
-    const handleSaveEmployee = () => {
-        // For now, we'll just check if personal info is complete and then close
-        // In a real app, this would save to the database
-        if (personalInfoComplete) {
-            // Here would be the API call to save the employee data
-            console.log('Employee saved with name:', fullName);
+    const handleSaveEmployee = async () => {
+        if (!personalInfoComplete) return;
+        const formData = new FormData();
+        formData.append('name', fullName);
+        formData.append('email', email);
+        // Add other fields as needed (phone, department, position, status, hireDate, etc.)
+        // Example: formData.append('phone', phone);
+        if (profileImageFile) {
+            formData.append('profileImage', profileImageFile);
+        }
+        files.forEach((file, idx) => {
+            formData.append('documents', file);
+        });
+        // TODO: Add other form fields from other sections if needed
+        try {
+            await dispatch(addEmployee(formData)).unwrap();
+            // Reset form and close panel
+            setFullName('');
+            setEmail('');
+            setFiles([]);
+            setProfileImage(null);
+            setProfileImageFile(null);
+            setActiveSection(1);
+            setFormProgress(0);
+            setPersonalInfoComplete(false);
             onClose();
+        } catch (e) {
+            // Error is handled by Redux state
         }
     };
 
@@ -577,9 +606,10 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             {personalInfoComplete && (
                                                 <button
                                                     onClick={handleSaveEmployee}
+                                                    disabled={loading}
                                                     className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800"
                                                 >
-                                                    Enregistrer
+                                                    {loading ? 'Enregistrement...' : 'Enregistrer'}
                                                 </button>
                                             )}
                                             <button
@@ -598,14 +628,18 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     ) : (
                                         <button
                                             onClick={handleSaveEmployee}
-                                            disabled={!personalInfoComplete}
-                                            className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 flex items-center ${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={!personalInfoComplete || loading}
+                                            className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 flex items-center ${!personalInfoComplete || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            <span>Enregistrer l'employé</span>
+                                            {loading ? 'Enregistrement...' : <span>Enregistrer l'employé</span>}
                                         </button>
                                     )}
                                 </div>
                             </div>
+                            {/* Show error if any */}
+                            {error && (
+                                <div className="mt-2 text-sm text-red-500 dark:text-red-400">Erreur: {error}</div>
+                            )}
                         </footer>
                     </motion.div>
                 </>

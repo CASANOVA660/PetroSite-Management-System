@@ -1,21 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';
+import { fetchEmployees, Employee } from '../../store/slices/employeesSlice';
 import { EyeIcon, DocumentTextIcon, EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 
 // Types
-interface Employee {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    department: string;
-    position: string;
-    status: string;
-    hireDate: string;
-    lastUpdated: string;
-    profileImage?: string;
-}
-
 interface SearchParams {
     query: string;
     department: string;
@@ -31,56 +21,49 @@ interface EmployeeTableProps {
 }
 
 export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDocuments, selectedEmployeeId }: EmployeeTableProps) {
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
+    const dispatch: AppDispatch = useDispatch();
+    const { employees, loading, error } = useSelector((state: RootState) => state.employees);
+    const [currentPage, setCurrentPage] = useState<number>(1);
     const employeesPerPage = 10;
 
-    // Generate mock data - would be replaced with API call
     useEffect(() => {
-        setLoading(true);
-        // Simulate API call delay
-        const timer = setTimeout(() => {
-            const mockEmployees = generateMockEmployees(50);
-            setEmployees(mockEmployees);
-            setLoading(false);
-        }, 800);
-
-        return () => clearTimeout(timer);
-    }, []);
+        dispatch(fetchEmployees());
+    }, [dispatch]);
 
     // Filter and sort employees based on search params
-    const filteredEmployees = employees.filter(employee => {
-        // Filter by search query
-        const matchesQuery = searchParams.query === '' ||
-            employee.name.toLowerCase().includes(searchParams.query.toLowerCase()) ||
-            employee.email.toLowerCase().includes(searchParams.query.toLowerCase());
+    const filteredEmployees = useMemo(() => {
+        return employees.filter((employee: Employee) => {
+            // Filter by search query
+            const matchesQuery = searchParams.query === '' ||
+                employee.name.toLowerCase().includes(searchParams.query.toLowerCase()) ||
+                employee.email.toLowerCase().includes(searchParams.query.toLowerCase());
 
-        // Filter by department
-        const matchesDepartment = searchParams.department === '' ||
-            searchParams.department === 'all' ||
-            employee.department === searchParams.department;
+            // Filter by department
+            const matchesDepartment = searchParams.department === '' ||
+                searchParams.department === 'all' ||
+                employee.department === searchParams.department;
 
-        // Filter by status
-        const matchesStatus = searchParams.status === '' ||
-            searchParams.status === 'all' ||
-            employee.status === searchParams.status;
+            // Filter by status
+            const matchesStatus = searchParams.status === '' ||
+                searchParams.status === 'all' ||
+                employee.status === searchParams.status;
 
-        return matchesQuery && matchesDepartment && matchesStatus;
-    }).sort((a, b) => {
-        // Sort by selected sort option
-        switch (searchParams.sortBy) {
-            case 'name':
-                return a.name.localeCompare(b.name);
-            case 'hireDate':
-                return new Date(b.hireDate).getTime() - new Date(a.hireDate).getTime();
-            case 'department':
-                return a.department.localeCompare(b.department);
-            case 'recent':
-            default:
-                return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-        }
-    });
+            return matchesQuery && matchesDepartment && matchesStatus;
+        }).sort((a: Employee, b: Employee) => {
+            // Sort by selected sort option
+            switch (searchParams.sortBy) {
+                case 'name':
+                    return a.name.localeCompare(b.name);
+                case 'hireDate':
+                    return new Date(b.hireDate || '').getTime() - new Date(a.hireDate || '').getTime();
+                case 'department':
+                    return (a.department || '').localeCompare(b.department || '');
+                case 'recent':
+                default:
+                    return new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime();
+            }
+        });
+    }, [employees, searchParams]);
 
     // Pagination
     const indexOfLastEmployee = currentPage * employeesPerPage;
@@ -105,13 +88,15 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
     };
 
     // Format date to locale string
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
     // Calculate time ago for last updated
-    const getTimeAgo = (dateString: string) => {
+    const getTimeAgo = (dateString?: string) => {
+        if (!dateString) return '';
         const date = new Date(dateString);
         const now = new Date();
         const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -126,7 +111,6 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
     // Handle page change
     const handlePageChange = (newPage: number) => {
         setCurrentPage(newPage);
-        // Scroll to top of table
         document.getElementById('employee-table')?.scrollIntoView({ behavior: 'smooth' });
     };
 
@@ -149,6 +133,10 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                 {loading ? (
                     <div className="p-8 flex justify-center">
                         <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center text-red-500 dark:text-red-400">
+                        Erreur lors du chargement des employés: {error}
                     </div>
                 ) : filteredEmployees.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -179,14 +167,13 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {currentEmployees.map((employee) => (
+                            {currentEmployees.map((employee: Employee) => (
                                 <motion.tr
-                                    key={employee.id}
+                                    key={employee._id}
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ duration: 0.3 }}
-                                    className={`hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors ${selectedEmployeeId === employee.id ? 'bg-blue-50 dark:bg-slate-700' : ''
-                                        }`}
+                                    className={`hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors ${selectedEmployeeId === employee._id ? 'bg-blue-50 dark:bg-slate-700' : ''}`}
                                     onClick={() => onSelectEmployee(employee)}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -200,7 +187,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                                     />
                                                 ) : (
                                                     <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-teal-500 flex items-center justify-center text-white text-sm font-medium">
-                                                        {employee.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                                        {employee.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                                                     </div>
                                                 )}
                                             </div>
@@ -231,7 +218,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                         <div className="text-xs text-gray-500 dark:text-gray-400">Depuis le {formatDate(employee.hireDate)}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(employee.status)}`}>
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(employee.status || '')}`}>
                                             {employee.status === 'active' && 'Actif'}
                                             {employee.status === 'onleave' && 'En congé'}
                                             {employee.status === 'pending' && 'En attente'}
@@ -239,7 +226,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">
-                                        Il y a {getTimeAgo(employee.lastUpdated)}
+                                        Il y a {getTimeAgo(employee.updatedAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex justify-end space-x-2">
@@ -289,8 +276,8 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                     onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage === 1}
                                     className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 text-sm font-medium ${currentPage === 1
-                                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                            : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                        : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                                         }`}
                                 >
                                     <span className="sr-only">Précédent</span>
@@ -300,7 +287,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                 </button>
                                 {Array.from({ length: Math.min(totalPages, 5) }).map((_, index) => {
                                     // Logic to show pages around current page
-                                    let pageNumber;
+                                    let pageNumber: number;
                                     if (totalPages <= 5) {
                                         pageNumber = index + 1;
                                     } else if (currentPage <= 3) {
@@ -316,8 +303,8 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                             key={index}
                                             onClick={() => handlePageChange(pageNumber)}
                                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNumber
-                                                    ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-200'
-                                                    : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                                ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-200'
+                                                : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                                                 }`}
                                         >
                                             {pageNumber}
@@ -328,8 +315,8 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                     onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage === totalPages || totalPages === 0}
                                     className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 text-sm font-medium ${currentPage === totalPages || totalPages === 0
-                                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                                            : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                        : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                                         }`}
                                 >
                                     <span className="sr-only">Suivant</span>
@@ -344,45 +331,4 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
             )}
         </div>
     );
-}
-
-// Helper function to generate mock data
-function generateMockEmployees(count: number): Employee[] {
-    const departments = ['engineering', 'operations', 'finance', 'hr', 'it', 'marketing'];
-    const statuses = ['active', 'onleave', 'pending', 'terminated'];
-    const positions = [
-        'Ingénieur Senior', 'Chef de Projet', 'Analyste Financier',
-        'Spécialiste RH', 'Développeur Web', 'Responsable Marketing',
-        'Technicien', 'Assistant Administratif', 'Directeur de Département',
-        'Consultant', 'Coordinateur Logistique'
-    ];
-
-    const getRandomDate = (start: Date, end: Date) => {
-        return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString();
-    };
-
-    const getRandomPhone = () => {
-        return `+33 ${Math.floor(Math.random() * 10)} ${Math.floor(Math.random() * 10000).toString().padStart(2, '0')} ${Math.floor(Math.random() * 10000).toString().padStart(2, '0')} ${Math.floor(Math.random() * 10000).toString().padStart(2, '0')}`;
-    };
-
-    return Array.from({ length: count }).map((_, index) => {
-        const firstName = ['Jean', 'Marie', 'Ahmed', 'Sophie', 'Thomas', 'Lucie', 'Pierre', 'Emma', 'Karim', 'Julie'][Math.floor(Math.random() * 10)];
-        const lastName = ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau'][Math.floor(Math.random() * 10)];
-        const name = `${firstName} ${lastName}`;
-        const department = departments[Math.floor(Math.random() * departments.length)];
-        const position = positions[Math.floor(Math.random() * positions.length)];
-
-        return {
-            id: `EMP${(index + 1).toString().padStart(3, '0')}`,
-            name,
-            email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@petroleum.com`,
-            phone: getRandomPhone(),
-            department,
-            position,
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            hireDate: getRandomDate(new Date(2018, 0, 1), new Date(2023, 11, 31)),
-            lastUpdated: getRandomDate(new Date(2023, 0, 1), new Date()),
-            profileImage: Math.random() > 0.7 ? `https://i.pravatar.cc/150?u=${index}` : undefined,
-        };
-    });
 } 
