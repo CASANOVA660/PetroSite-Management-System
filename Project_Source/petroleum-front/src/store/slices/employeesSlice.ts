@@ -125,20 +125,13 @@ export const deleteFolder = createAsyncThunk<string, { employeeId: string; folde
     }
 );
 
-export const addDocumentToFolder = createAsyncThunk<DocumentFile, { employeeId: string; folderId: string; file: File }>(
+export const addDocumentToFolder = createAsyncThunk<DocumentFile, { employeeId: string; folderId: string; file: File; onUploadProgress?: (percent: number) => void }>(
     'employees/addDocumentToFolder',
-    async ({ employeeId, folderId, file }, thunkAPI) => {
+    async ({ employeeId, folderId, file, onUploadProgress }, thunkAPI) => {
         try {
             if (!file) {
                 throw new Error('No file selected');
             }
-
-            console.log('[DEBUG] Uploading file to folder:', {
-                folderId,
-                fileName: file.name,
-                type: file.type,
-                size: file.size
-            });
 
             const formData = new FormData();
             formData.append('file', file);
@@ -153,14 +146,11 @@ export const addDocumentToFolder = createAsyncThunk<DocumentFile, { employeeId: 
                     },
                     onUploadProgress: (progressEvent) => {
                         const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-                        console.log(`Upload Progress: ${percentCompleted}%`);
+                        if (onUploadProgress) onUploadProgress(percentCompleted);
                     }
                 }
             );
 
-            console.log('[DEBUG] Upload response:', res.data);
-
-            // Return the document data from the response
             return {
                 url: res.data.document.url,
                 type: res.data.document.type,
@@ -170,17 +160,7 @@ export const addDocumentToFolder = createAsyncThunk<DocumentFile, { employeeId: 
                 documentId: res.data.document.documentId
             };
         } catch (err: any) {
-            console.error('[ERROR] Document upload error:', {
-                status: err.response?.status,
-                data: err.response?.data,
-                message: err.message
-            });
-            return thunkAPI.rejectWithValue(
-                err.response?.data?.message ||
-                err.response?.data?.error ||
-                err.message ||
-                'Failed to upload document'
-            );
+            return thunkAPI.rejectWithValue(err.response?.data?.error || err.message);
         }
     }
 );
@@ -215,7 +195,7 @@ export const deleteFolderAndRefresh = (params: { employeeId: string; folderId: s
     return dispatch(fetchEmployeeById(params.employeeId));
 };
 
-export const addDocumentToFolderAndRefresh = (params: { employeeId: string; folderId: string; file: File }) => async (dispatch: AppDispatch) => {
+export const addDocumentToFolderAndRefresh = (params: { employeeId: string; folderId: string; file: File; onUploadProgress?: (percent: number) => void }) => async (dispatch: AppDispatch) => {
     await dispatch(addDocumentToFolder(params));
     return dispatch(fetchEmployeeById(params.employeeId));
 };

@@ -32,6 +32,7 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     // Load employee data when component mounts
     useEffect(() => {
@@ -121,22 +122,19 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
         }
 
         const file = e.target.files[0];
-        console.log('[DEBUG] Uploading file:', {
-            name: file.name,
-            type: file.type,
-            size: file.size
-        });
+        setUploadProgress(0);
 
         try {
             await dispatch(addDocumentToFolderAndRefresh({
                 employeeId,
                 folderId: currentFolder.id,
-                file
+                file,
+                onUploadProgress: (percent: number) => setUploadProgress(percent)
             }) as any);
-            // Reset input to allow same file re-upload
+            setUploadProgress(null);
             e.target.value = '';
         } catch (error) {
-            console.error('[ERROR] Error uploading document:', error);
+            setUploadProgress(null);
             toast.error('Erreur lors de l\'upload du document');
         }
     };
@@ -236,6 +234,17 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                 ))}
                 {currentFolder && <><span className="mx-1">/</span><span className="font-medium text-gray-900 dark:text-white">{currentFolder.name}</span></>}
             </div>
+            {uploadProgress !== null && (
+                <div className="w-full mb-2">
+                    <div className="h-2 bg-gray-200 rounded">
+                        <div
+                            className="h-2 bg-blue-500 rounded transition-all"
+                            style={{ width: `${uploadProgress}%` }}
+                        />
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1 text-center">{uploadProgress}%</div>
+                </div>
+            )}
             <div className="flex-1">
                 <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-2'}>
                     {renderFolders(getCurrentFolders())}
