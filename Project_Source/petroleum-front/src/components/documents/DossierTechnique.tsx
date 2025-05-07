@@ -7,10 +7,13 @@ import SelectedEquipmentList from './SelectedEquipmentList';
 import axios from '../../utils/axios';
 import { toast } from 'react-hot-toast';
 import { Equipment } from '../../types/equipment';
+import { useDispatch } from 'react-redux';
+import { sendValidationRequest } from '../../store/slices/projectSlice';
+import { AppDispatch } from '../../store';
 
 interface ProjectEquipment {
     _id: string;
-    equipmentId: Equipment;
+    equipmentId: string | Equipment;
     description: string;
     dossierType: string;
 }
@@ -20,47 +23,82 @@ interface DossierTechniqueProps {
 }
 
 const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
-    const [isEquipmentSelectorOpen, setIsEquipmentSelectorOpen] = useState(false);
+    const dispatch = useDispatch<AppDispatch>();
     const [selectedEquipment, setSelectedEquipment] = useState<ProjectEquipment[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isEquipmentSelectorOpen, setIsEquipmentSelectorOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    // Fetch existing equipment when component mounts
     useEffect(() => {
-        fetchProjectEquipment();
+        loadProjectEquipment();
     }, [projectId]);
 
-    const fetchProjectEquipment = async () => {
+    const loadProjectEquipment = async () => {
         try {
             setLoading(true);
             const response = await axios.get(`/projects/${projectId}/equipment/Dossier Technique`);
             setSelectedEquipment(response.data.data);
         } catch (error) {
-            toast.error('Error fetching project equipment');
+            console.error('Error loading project equipment:', error);
+            toast.error('Erreur lors du chargement des équipements');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleEquipmentSelect = async (equipment: { equipment: Equipment; description: string }[]) => {
+    const handleEquipmentSelect = async (equipment: {
+        equipment: Equipment;
+        description: string;
+        dossierType: string;
+        needsValidation?: boolean;
+        validationReason?: string;
+        chefDeBaseId?: string;
+    }[]) => {
         try {
+            setLoading(true);
+
+            console.log('Selected equipment data:', equipment);
+
+            // First, add the equipment to the project
             const response = await axios.post(`/projects/${projectId}/equipment`, {
-                equipment,
-                dossierType: 'Dossier Technique'
+                equipment: equipment.map(item => ({
+                    equipment: item.equipment,
+                    description: item.description,
+                    dossierType: item.dossierType
+                })),
+                needsValidation: equipment.some(item => item.needsValidation),
+                validationReason: equipment.find(item => item.needsValidation)?.validationReason,
+                chefDeBaseId: equipment.find(item => item.needsValidation)?.chefDeBaseId
             });
+
+            console.log('Equipment added response:', response.data);
             setSelectedEquipment(response.data.data);
-            toast.success('Equipment added successfully');
+
+            // Show success message
+            toast.success('Équipements ajoutés avec succès');
+            if (equipment.some(item => item.needsValidation)) {
+                toast.success('Demande de validation envoyée avec succès');
+            }
+
+            setIsEquipmentSelectorOpen(false);
         } catch (error) {
-            toast.error('Failed to add equipment');
+            console.error('Error adding equipment:', error);
+            toast.error('Erreur lors de l\'ajout des équipements');
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleRemoveEquipment = async (equipmentId: string) => {
         try {
+            setLoading(true);
             await axios.delete(`/projects/${projectId}/equipment/${equipmentId}/Dossier Technique`);
-            setSelectedEquipment(prev => prev.filter(item => item.equipmentId._id !== equipmentId));
-            toast.success('Equipment removed successfully');
+            setSelectedEquipment(prev => prev.filter(item => item._id !== equipmentId));
+            toast.success('Équipement supprimé avec succès');
         } catch (error) {
-            toast.error('Failed to remove equipment');
+            console.error('Error removing equipment:', error);
+            toast.error('Erreur lors de la suppression de l\'équipement');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -91,7 +129,13 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
                     </h3>
                     <SelectedEquipmentList
                         equipment={selectedEquipment.map(item => ({
-                            equipment: item.equipmentId,
+                            _id: item._id,
+                            equipment: {
+                                _id: typeof item.equipmentId === 'string' ? item.equipmentId : item.equipmentId._id,
+                                nom: typeof item.equipmentId === 'string' ? '' : item.equipmentId.nom,
+                                reference: typeof item.equipmentId === 'string' ? '' : item.equipmentId.reference,
+                                status: typeof item.equipmentId === 'string' ? 'disponible' : item.equipmentId.status
+                            },
                             description: item.description
                         }))}
                         onRemove={handleRemoveEquipment}
@@ -115,6 +159,6 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
     );
 };
 
-export default React.memo(DossierTechnique);
+export default DossierTechnique;
 
 

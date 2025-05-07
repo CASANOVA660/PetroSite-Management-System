@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import axios from '../../utils/axios';
 import { RootState } from '../../store';
+import { toast } from 'react-hot-toast';
 
 interface Project {
     _id: string;
@@ -17,6 +18,12 @@ interface Project {
         nom: string;
         prenom: string;
     };
+    equipment: {
+        equipmentId: string;
+        needsValidation: boolean;
+        validationReason?: string;
+        chefDeBaseId?: string;
+    }[];
 }
 
 interface ProjectState {
@@ -35,6 +42,15 @@ interface CreateProjectData {
     status: 'En cours' | 'Fermé' | 'Annulé';
 }
 
+// Add new interface for validation request
+interface ValidationRequest {
+    projectId: string;
+    equipmentId: string;
+    chefDeBaseId: string;
+    validationReason: string;
+    needsValidation: boolean;
+}
+
 const initialState: ProjectState = {
     projects: [],
     selectedProject: null,
@@ -42,17 +58,9 @@ const initialState: ProjectState = {
     error: null,
 };
 
-// Create axios instance with default config
-const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
-
 // Add request interceptor to add auth token
-api.interceptors.request.use(
-    (config) => {
+axios.interceptors.request.use(
+    (config: any) => {
         const token = localStorage.getItem('token');
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -60,7 +68,7 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
+    (error: any) => {
         return Promise.reject(error);
     }
 );
@@ -70,7 +78,7 @@ export const fetchProjects = createAsyncThunk(
     'projects/fetchProjects',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await api.get('/projects');
+            const response = await axios.get('/projects');
             console.log('Projects API Response:', response.data);
 
             // Handle different response formats
@@ -97,7 +105,7 @@ export const fetchProjectById = createAsyncThunk(
     async (id: string, { rejectWithValue }) => {
         try {
             console.log('Fetching project with ID:', id);
-            const response = await api.get(`/projects/${id}`);
+            const response = await axios.get(`/projects/${id}`);
             console.log('Project API Response:', response.data);
 
             // Handle the standardized response format
@@ -157,7 +165,7 @@ export const createProject = createAsyncThunk(
             console.log('Current user:', currentUser);
             console.log('Token:', localStorage.getItem('token'));
 
-            const response = await api.post('/projects', projectWithUser);
+            const response = await axios.post('/projects', projectWithUser);
             console.log('Create project response:', response.data);
 
             // Handle the standardized response format
@@ -208,7 +216,7 @@ export const updateProject = createAsyncThunk(
             console.log('Update data:', data);
             console.log('Current user:', currentUser);
 
-            const response = await api.put(`/projects/${id}`, data);
+            const response = await axios.put(`/projects/${id}`, data);
             console.log('Update project response:', response.data);
 
             // Handle the standardized response format
@@ -244,6 +252,49 @@ export const updateProject = createAsyncThunk(
             }
 
             return rejectWithValue(error.response?.data?.message || 'Erreur lors de la mise à jour du projet');
+        }
+    }
+);
+
+// Add new async thunk for validation request
+export const sendValidationRequest = createAsyncThunk(
+    'projects/sendValidationRequest',
+    async ({ projectId, equipmentId, chefDeBaseId, validationReason, needsValidation }: ValidationRequest) => {
+        try {
+            console.log('Sending validation request with data:', {
+                projectId,
+                equipmentId,
+                chefDeBaseId,
+                validationReason,
+                needsValidation
+            });
+
+            const url = `/projects/${projectId}/equipment`;
+            console.log('Validation request URL:', url);
+
+            const requestData = {
+                equipment: [{
+                    equipment: { _id: equipmentId },
+                    description: '',
+                    dossierType: 'Dossier Technique'
+                }],
+                needsValidation,
+                validationReason,
+                chefDeBaseId
+            };
+            console.log('Validation request payload:', requestData);
+
+            const response = await axios.post(url, requestData);
+            console.log('Validation request response:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('Validation request error:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                url: error.config?.url
+            });
+            throw error;
         }
     }
 );
@@ -316,6 +367,19 @@ const projectSlice = createSlice({
             .addCase(updateProject.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+            })
+            // Send Validation Request
+            .addCase(sendValidationRequest.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(sendValidationRequest.fulfilled, (state) => {
+                state.loading = false;
+                toast.success('Demande de validation envoyée avec succès');
+            })
+            .addCase(sendValidationRequest.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Une erreur est survenue';
+                toast.error('Erreur lors de l\'envoi de la demande de validation');
             });
     },
 });

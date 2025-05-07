@@ -1,5 +1,9 @@
 const Project = require('../models/Project');
 const { validationResult } = require('express-validator');
+const axios = require('axios');
+const taskService = require('../../tasks/services/task.service');
+const logger = require('../../../utils/logger');
+const Notification = require('../../notifications/models/Notification');
 
 // Get all projects
 exports.getAllProjects = async (req, res) => {
@@ -296,51 +300,114 @@ exports.deleteProject = async (req, res) => {
 exports.addProjectEquipment = async (req, res) => {
     try {
         const { projectId } = req.params;
-        const { equipment, dossierType } = req.body;
+        const { equipment: equipmentList, needsValidation, validationReason, chefDeBaseId } = req.body;
 
         const project = await Project.findById(projectId);
         if (!project) {
             return res.status(404).json({
                 success: false,
-                message: 'Projet non trouvé'
+                error: 'Projet non trouvé'
             });
         }
 
         // Process each equipment item
-        const equipmentPromises = equipment.map(async (item) => {
-            const { equipment: { _id: equipmentId }, description } = item;
-
-            // Check if equipment already exists in the project
+        for (const item of equipmentList) {
             const existingIndex = project.equipment.findIndex(
-                e => e.equipmentId.toString() === equipmentId && e.dossierType === dossierType
+                eq => eq.equipmentId.toString() === item.equipment._id
             );
 
             if (existingIndex !== -1) {
                 // Update existing equipment
-                project.equipment[existingIndex].description = description;
+                project.equipment[existingIndex] = {
+                    equipmentId: item.equipment._id,
+                    description: item.description,
+                    dossierType: item.dossierType
+                };
             } else {
                 // Add new equipment
                 project.equipment.push({
-                    equipmentId,
-                    description,
-                    dossierType
+                    equipmentId: item.equipment._id,
+                    description: item.description,
+                    dossierType: item.dossierType
                 });
             }
-        });
+        }
 
-        await Promise.all(equipmentPromises);
         await project.save();
-        await project.populate('equipment.equipmentId');
 
-        res.json({
+        // If validation is needed, create a task
+        if (needsValidation && chefDeBaseId) {
+            try {
+                const taskData = {
+                    title: `Validation d'équipement pour ${project.nom}`,
+                    description: `Validation demandée pour les équipements suivants:\n${equipmentList.map(e => `- ${e.equipment.nom} (${e.equipment.reference})`).join('\n')}\n\nRaison: ${validationReason}`,
+                    status: 'todo',
+                    priority: 'high',
+                    assignee: chefDeBaseId,
+                    creator: req.user._id,
+                    needsValidation: true,
+                    tags: ['Equipment Validation', 'Project'],
+                    projectId: project._id,
+                    category: 'equipment_validation'
+                };
+
+                const task = await taskService.createTask(taskData);
+
+                // Create notification for Chef de Base
+                const notification = await Notification.create({
+                    type: 'EQUIPMENT_VALIDATION_REQUESTED',
+                    message: `Une demande de validation d'équipement a été créée pour le projet "${project.nom}"`,
+                    userId: chefDeBaseId,
+                    isRead: false,
+                    metadata: {
+                        taskId: task._id,
+                        projectId: project._id,
+                        equipmentCount: equipmentList.length
+                    }
+                });
+
+                // Send real-time notification via socket
+                if (global.io) {
+                    const socketId = global.userSockets?.get(String(chefDeBaseId));
+                    if (socketId) {
+                        global.io.to(socketId).emit('notification', {
+                            type: 'NEW_NOTIFICATION',
+                            payload: {
+                                _id: notification._id,
+                                type: 'EQUIPMENT_VALIDATION_REQUESTED',
+                                message: `Une demande de validation d'équipement a été créée pour le projet "${project.nom}"`,
+                                userId: chefDeBaseId,
+                                metadata: {
+                                    taskId: task._id,
+                                    projectId: project._id,
+                                    equipmentCount: equipmentList.length
+                                },
+                                isRead: false,
+                                createdAt: new Date()
+                            }
+                        });
+                        logger.info(`Socket notification sent to Chef de Base (${chefDeBaseId}) for equipment validation task`);
+                    } else {
+                        logger.warn(`Chef de Base (${chefDeBaseId}) not connected to socket for equipment validation notification`);
+                    }
+                }
+
+                logger.info(`Created equipment validation task and notification for project ${project._id}`);
+            } catch (error) {
+                logger.error('Error creating validation task or notification:', error);
+                // Don't fail the whole request if task creation fails
+            }
+        }
+
+        res.status(200).json({
             success: true,
-            data: project.equipment.filter(e => e.dossierType === dossierType)
+            data: project.equipment
         });
     } catch (error) {
-        console.error('Error adding project equipment:', error);
+        logger.error('Error adding equipment to project:', error);
         res.status(500).json({
             success: false,
-            message: 'Erreur lors de l\'ajout de l\'équipement'
+            error: 'Erreur lors de l\'ajout des équipements au projet'
         });
     }
 };
