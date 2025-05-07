@@ -300,7 +300,7 @@ exports.deleteProject = async (req, res) => {
 exports.addProjectEquipment = async (req, res) => {
     try {
         const { projectId } = req.params;
-        const { equipment: equipmentList, needsValidation, validationReason, chefDeBaseId } = req.body;
+        const { equipment: equipmentList, needsValidation, validationReason, chefDeBaseId, projectName } = req.body;
 
         const project = await Project.findById(projectId);
         if (!project) {
@@ -339,7 +339,7 @@ exports.addProjectEquipment = async (req, res) => {
         if (needsValidation && chefDeBaseId) {
             try {
                 const taskData = {
-                    title: `Validation d'équipement pour ${project.nom}`,
+                    title: `Validation d'équipement pour ${projectName || project.nom}`,
                     description: `Validation demandée pour les équipements suivants:\n${equipmentList.map(e => `- ${e.equipment.nom} (${e.equipment.reference})`).join('\n')}\n\nRaison: ${validationReason}`,
                     status: 'todo',
                     priority: 'high',
@@ -356,7 +356,7 @@ exports.addProjectEquipment = async (req, res) => {
                 // Create notification for Chef de Base
                 const notification = await Notification.create({
                     type: 'EQUIPMENT_VALIDATION_REQUESTED',
-                    message: `Une demande de validation d'équipement a été créée pour le projet "${project.nom}"`,
+                    message: `Une demande de validation d'équipement a été créée pour le projet "${projectName || project.nom}"`,
                     userId: chefDeBaseId,
                     isRead: false,
                     metadata: {
@@ -375,7 +375,7 @@ exports.addProjectEquipment = async (req, res) => {
                             payload: {
                                 _id: notification._id,
                                 type: 'EQUIPMENT_VALIDATION_REQUESTED',
-                                message: `Une demande de validation d'équipement a été créée pour le projet "${project.nom}"`,
+                                message: `Une demande de validation d'équipement a été créée pour le projet "${projectName || project.nom}"`,
                                 userId: chefDeBaseId,
                                 metadata: {
                                     taskId: task._id,

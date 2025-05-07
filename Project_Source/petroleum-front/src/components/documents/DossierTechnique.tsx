@@ -27,10 +27,23 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
     const [selectedEquipment, setSelectedEquipment] = useState<ProjectEquipment[]>([]);
     const [isEquipmentSelectorOpen, setIsEquipmentSelectorOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [projectName, setProjectName] = useState<string>('');
 
     useEffect(() => {
         loadProjectEquipment();
+        loadProjectDetails();
     }, [projectId]);
+
+    const loadProjectDetails = async () => {
+        try {
+            const response = await axios.get(`/projects/${projectId}`);
+            if (response.data?.data?.name) {
+                setProjectName(response.data.data.name);
+            }
+        } catch (error) {
+            console.error('Error loading project details:', error);
+        }
+    };
 
     const loadProjectEquipment = async () => {
         try {
@@ -67,7 +80,8 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
                 })),
                 needsValidation: equipment.some(item => item.needsValidation),
                 validationReason: equipment.find(item => item.needsValidation)?.validationReason,
-                chefDeBaseId: equipment.find(item => item.needsValidation)?.chefDeBaseId
+                chefDeBaseId: equipment.find(item => item.needsValidation)?.chefDeBaseId,
+                projectName: projectName // Add project name to the request
             });
 
             console.log('Equipment added response:', response.data);
