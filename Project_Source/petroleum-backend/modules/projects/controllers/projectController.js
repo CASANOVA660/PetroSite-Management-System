@@ -290,4 +290,120 @@ exports.deleteProject = async (req, res) => {
             message: 'Erreur lors de la suppression du projet'
         });
     }
+};
+
+// Add equipment to project
+exports.addProjectEquipment = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { equipment, dossierType } = req.body;
+
+        const project = await Project.findById(projectId);
+        if (!project) {
+            return res.status(404).json({
+                success: false,
+                message: 'Projet non trouvé'
+            });
+        }
+
+        // Process each equipment item
+        const equipmentPromises = equipment.map(async (item) => {
+            const { equipment: { _id: equipmentId }, description } = item;
+
+            // Check if equipment already exists in the project
+            const existingIndex = project.equipment.findIndex(
+                e => e.equipmentId.toString() === equipmentId && e.dossierType === dossierType
+            );
+
+            if (existingIndex !== -1) {
+                // Update existing equipment
+                project.equipment[existingIndex].description = description;
+            } else {
+                // Add new equipment
+                project.equipment.push({
+                    equipmentId,
+                    description,
+                    dossierType
+                });
+            }
+        });
+
+        await Promise.all(equipmentPromises);
+        await project.save();
+        await project.populate('equipment.equipmentId');
+
+        res.json({
+            success: true,
+            data: project.equipment.filter(e => e.dossierType === dossierType)
+        });
+    } catch (error) {
+        console.error('Error adding project equipment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'ajout de l\'équipement'
+        });
+    }
+};
+
+// Get project equipment
+exports.getProjectEquipment = async (req, res) => {
+    try {
+        const { projectId, dossierType } = req.params;
+
+        const project = await Project.findById(projectId)
+            .populate('equipment.equipmentId');
+
+        if (!project) {
+            return res.status(404).json({
+                success: false,
+                message: 'Projet non trouvé'
+            });
+        }
+
+        const equipment = project.equipment.filter(e => e.dossierType === dossierType);
+
+        res.json({
+            success: true,
+            data: equipment
+        });
+    } catch (error) {
+        console.error('Error fetching project equipment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération de l\'équipement'
+        });
+    }
+};
+
+// Remove equipment from project
+exports.removeProjectEquipment = async (req, res) => {
+    try {
+        const { projectId, equipmentId, dossierType } = req.params;
+
+        const project = await Project.findById(projectId);
+        if (!project) {
+            return res.status(404).json({
+                success: false,
+                message: 'Projet non trouvé'
+            });
+        }
+
+        // Remove equipment from the array
+        project.equipment = project.equipment.filter(
+            e => !(e.equipmentId.toString() === equipmentId && e.dossierType === dossierType)
+        );
+
+        await project.save();
+
+        res.json({
+            success: true,
+            message: 'Équipement supprimé avec succès'
+        });
+    } catch (error) {
+        console.error('Error removing project equipment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression de l\'équipement'
+        });
+    }
 }; 

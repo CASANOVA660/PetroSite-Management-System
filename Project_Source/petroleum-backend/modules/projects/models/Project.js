@@ -44,6 +44,22 @@ const projectSchema = new mongoose.Schema({
             'Dossier HSE'
         ]
     },
+    equipment: [{
+        equipmentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Equipment',
+            required: true
+        },
+        description: {
+            type: String,
+            default: ''
+        },
+        dossierType: {
+            type: String,
+            required: true,
+            enum: ['Dossier Technique', 'Dossier RH', 'Dossier HSE', 'Dossier Administratif']
+        }
+    }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

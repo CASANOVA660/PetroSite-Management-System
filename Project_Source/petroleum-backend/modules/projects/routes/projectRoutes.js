@@ -24,6 +24,9 @@ router.post('/', projectValidation, projectController.createProject);
 router.put('/:id', projectValidation, projectController.updateProject);
 router.delete('/:id', projectController.deleteProject);
 
-// Document routes
+// Equipment routes
+router.post('/:projectId/equipment', projectController.addProjectEquipment);
+router.get('/:projectId/equipment/:dossierType', projectController.getProjectEquipment);
+router.delete('/:projectId/equipment/:equipmentId/:dossierType', projectController.removeProjectEquipment);
 
 module.exports = router; 
