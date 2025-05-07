@@ -45,6 +45,29 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
         console.log('📁 Current folders:', employee?.folders);
     }, [employee]);
 
+    // Sync currentFolder with latest Redux data after employee update
+    useEffect(() => {
+        if (!employee) return;
+        if (!currentFolder) return;
+
+        // Helper to find folder by id recursively
+        const findFolderById = (folders: Folder[], id: string): Folder | null => {
+            for (const folder of folders) {
+                if (folder.id === id) return folder;
+                if (folder.subfolders && folder.subfolders.length) {
+                    const found = findFolderById(folder.subfolders, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        const updated = findFolderById(employee.folders || [], currentFolder.id);
+        if (updated && updated !== currentFolder) {
+            setCurrentFolder(updated);
+        }
+    }, [employee, currentFolder]);
+
     // Helper to get folders/files for current view
     const getCurrentFolders = () => currentFolder ? currentFolder.subfolders : (employee?.folders || []);
     const getCurrentFiles = () => currentFolder ? currentFolder.documents : [];
