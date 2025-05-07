@@ -110,7 +110,6 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                 folderId: currentFolder.id,
                 file
             }) as any);
-
             // Reset input to allow same file re-upload
             e.target.value = '';
         } catch (error) {
@@ -143,14 +142,14 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
 
     // Recursive folder rendering
     const renderFolders = (folders: Folder[]) => folders.map(folder => (
-        <div key={folder.id} className="relative group">
+        <div key={folder.id} className="relative group min-w-[140px] max-w-[180px]">
             <div onClick={() => handleOpenFolder(folder)} className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md flex flex-col items-center">
                 {getFolderIcon()}
-                <div className="mt-2 text-center">
+                <div className="mt-2 text-center w-full">
                     {renamingFolderId === folder.id ? (
                         <input value={renameValue} onChange={e => setRenameValue(e.target.value)} onBlur={() => handleRenameFolder(folder.id)} autoFocus className="text-sm font-medium text-gray-900 dark:text-white bg-transparent border-b border-blue-500" />
                     ) : (
-                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate flex items-center gap-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] mx-auto" title={folder.name}>
                             {folder.name}
                             <button onClick={e => { e.stopPropagation(); setRenamingFolderId(folder.id); setRenameValue(folder.name); }} className="ml-1 text-xs text-blue-500"><PencilIcon className="h-3 w-3" /></button>
                             <button onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="ml-1 text-xs text-red-500"><TrashIcon className="h-3 w-3" /></button>
@@ -164,11 +163,11 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
 
     // File rendering
     const renderFiles = (files: DocumentFile[]) => files.map(file => (
-        <div key={file.url} className="relative group">
+        <div key={file.url} className="relative group min-w-[140px] max-w-[180px]">
             <div className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col items-center">
                 {getFileIcon(file.type || '')}
-                <div className="mt-2 text-center">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{file.name}</div>
+                <div className="mt-2 text-center w-full">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] mx-auto" title={file.name}>{file.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{file.type}</div>
                 </div>
                 <button onClick={() => handleDeleteDocument(file.url)} className="absolute top-1 right-1 text-xs text-red-500"><TrashIcon className="h-4 w-4" /></button>

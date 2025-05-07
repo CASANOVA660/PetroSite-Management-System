@@ -201,92 +201,28 @@ export const deleteDocumentFromFolder = createAsyncThunk<string, { employeeId: s
 
 // Thunks for folder/document operations that also refresh the employee
 export const addFolderAndRefresh = (params: { employeeId: string; name: string; parentId?: string | null }) => async (dispatch: AppDispatch) => {
-    try {
-        await dispatch(addFolder(params));
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const refreshedEmployee = await dispatch(fetchEmployeeById(params.employeeId));
-        const employeeData = refreshedEmployee.payload as Employee;
-        if (!employeeData.folders) {
-            employeeData.folders = [];
-        }
-        return employeeData;
-    } catch (error) {
-        throw error;
-    }
+    await dispatch(addFolder(params));
+    return dispatch(fetchEmployeeById(params.employeeId));
 };
+
 export const renameFolderAndRefresh = (params: { employeeId: string; folderId: string; newName: string }) => async (dispatch: AppDispatch) => {
     await dispatch(renameFolder(params));
-    await dispatch(fetchEmployeeById(params.employeeId));
+    return dispatch(fetchEmployeeById(params.employeeId));
 };
+
 export const deleteFolderAndRefresh = (params: { employeeId: string; folderId: string }) => async (dispatch: AppDispatch) => {
     await dispatch(deleteFolder(params));
-    await dispatch(fetchEmployeeById(params.employeeId));
+    return dispatch(fetchEmployeeById(params.employeeId));
 };
+
 export const addDocumentToFolderAndRefresh = (params: { employeeId: string; folderId: string; file: File }) => async (dispatch: AppDispatch) => {
-    try {
-        const result = await dispatch(addDocumentToFolder(params));
-        if (result.type === 'employees/addDocumentToFolder/rejected') {
-            throw new Error(result.payload as string);
-        }
-
-        // Fetch fresh employee data
-        const refreshedEmployee = await dispatch(fetchEmployeeById(params.employeeId));
-        if (refreshedEmployee.type === 'employees/fetchById/rejected') {
-            throw new Error('Failed to refresh employee data');
-        }
-
-        // Update the state with the new document
-        const employeeData = refreshedEmployee.payload as Employee;
-        const documentData = result.payload as DocumentFile;
-
-        if (employeeData.folders) {
-            const updateFolderWithDocument = (folders: Folder[]): Folder[] => {
-                return folders.map(folder => {
-                    if (folder.id === params.folderId) {
-                        // Check if document already exists
-                        const docExists = folder.documents.some(doc => doc.url === documentData.url);
-                        if (!docExists) {
-                            // Create new folder object with updated documents array
-                            return {
-                                ...folder,
-                                documents: [...(folder.documents || []), {
-                                    url: documentData.url,
-                                    type: documentData.type,
-                                    name: documentData.name,
-                                    publicId: documentData.publicId,
-                                    folderId: folder.id,
-                                    documentId: documentData.documentId
-                                }]
-                            };
-                        }
-                    }
-                    if (folder.subfolders && folder.subfolders.length > 0) {
-                        // Recursively update subfolders
-                        return {
-                            ...folder,
-                            subfolders: updateFolderWithDocument(folder.subfolders)
-                        };
-                    }
-                    return folder;
-                });
-            };
-
-            // Update the entire folders array immutably
-            employeeData.folders = updateFolderWithDocument(employeeData.folders);
-        }
-
-        // Force a state update
-        dispatch({ type: 'employees/forceUpdate' });
-
-        return employeeData;
-    } catch (error) {
-        console.error('Error in addDocumentToFolderAndRefresh:', error);
-        throw error;
-    }
+    await dispatch(addDocumentToFolder(params));
+    return dispatch(fetchEmployeeById(params.employeeId));
 };
+
 export const deleteDocumentFromFolderAndRefresh = (params: { employeeId: string; folderId: string; url: string }) => async (dispatch: AppDispatch) => {
     await dispatch(deleteDocumentFromFolder(params));
-    await dispatch(fetchEmployeeById(params.employeeId));
+    return dispatch(fetchEmployeeById(params.employeeId));
 };
 
 interface EmployeesState {
