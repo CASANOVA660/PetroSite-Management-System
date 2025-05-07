@@ -123,17 +123,30 @@ const EquipmentSelector: React.FC<EquipmentSelectorProps> = ({ isOpen, onClose, 
                                         <div
                                             key={item._id}
                                             onClick={() => handleSelect(item)}
-                                            className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedEquipment.some(selected => selected.equipment._id === item._id)
+                                            className={`p-4 rounded-lg cursor-pointer transition-colors ${selectedEquipment.some(selected => selected.equipment._id === item._id)
                                                     ? 'bg-blue-50 dark:bg-blue-900'
                                                     : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                         >
-                                            <h4 className="font-medium text-gray-900 dark:text-white">
-                                                {item.nom}
-                                            </h4>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                {item.reference}
-                                            </p>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h4 className="font-medium text-gray-900 dark:text-white">
+                                                    {item.nom}
+                                                </h4>
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${equipmentStatusColors[item.status]}`}>
+                                                    {equipmentStatusLabels[item.status]}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    <span className="font-medium">Référence:</span> {item.reference}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    <span className="font-medium">Matricule:</span> {item.matricule}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    <span className="font-medium">Emplacement:</span> {item.location}
+                                                </p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
