@@ -21,7 +21,7 @@ import {
   WarehouseIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { ClipboardIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
+import { ClipboardIcon, ChatBubbleLeftRightIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 
 type NavItem = {
@@ -265,6 +265,11 @@ const AppSidebar: React.FC = () => {
       icon: <WarehouseIcon />,
       name: "Magasin des équipments",
       path: "/equipments"
+    },
+    {
+      icon: <UserGroupIcon className="w-6 h-6" />,
+      name: "Gestion RH",
+      path: "/gestion-rh"
     },
 
     // Add Global Actions for managers

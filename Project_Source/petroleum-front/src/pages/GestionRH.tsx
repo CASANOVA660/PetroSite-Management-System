@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import PageMeta from "../components/common/PageMeta";
 import HRStatCards from "../components/gestion-rh/HRStatCards";
 import HRSearchFilter from "../components/gestion-rh/HRSearchFilter";
@@ -30,12 +30,35 @@ interface SearchParams {
 export default function GestionRH() {
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [showDocuments, setShowDocuments] = useState(false);
+    const tableRef = useRef<HTMLDivElement>(null);
+    const [tableHeight, setTableHeight] = useState(0);
     const [searchParams, setSearchParams] = useState<SearchParams>({
         query: '',
         department: '',
         status: '',
         sortBy: 'recent'
     });
+
+    // Measure table height whenever the content changes
+    useEffect(() => {
+        if (tableRef.current) {
+            const updateHeight = () => {
+                const height = tableRef.current?.getBoundingClientRect().height || 0;
+                setTableHeight(height);
+            };
+
+            // Initial measurement
+            updateHeight();
+
+            // Add resize observer to track height changes
+            const observer = new ResizeObserver(updateHeight);
+            observer.observe(tableRef.current);
+
+            return () => {
+                if (tableRef.current) observer.unobserve(tableRef.current);
+            };
+        }
+    }, [selectedEmployee, searchParams]);
 
     // Handle employee selection
     const handleSelectEmployee = (employee: Employee) => {
@@ -86,9 +109,12 @@ export default function GestionRH() {
                 </div>
 
                 {/* Main Content Section with side panel layout */}
-                <div className="flex flex-1 gap-6">
+                <div className="flex flex-col lg:flex-row flex-1 gap-6 relative">
                     {/* Left: Employee Table */}
-                    <div className={`${selectedEmployee ? 'w-2/3' : 'w-full'} transition-all duration-300`}>
+                    <div
+                        ref={tableRef}
+                        className={`${selectedEmployee ? 'lg:w-2/3' : 'w-full'} transition-all duration-300 ${selectedEmployee && 'mb-6 lg:mb-0'}`}
+                    >
                         <EmployeeTable
                             searchParams={searchParams}
                             onSelectEmployee={handleSelectEmployee}
@@ -97,14 +123,19 @@ export default function GestionRH() {
                         />
                     </div>
 
-                    {/* Right: Employee Profile or Documents */}
+                    {/* Right: Employee Profile or Documents - with height matching table */}
                     {selectedEmployee && (
-                        <div className="w-1/3 bg-white dark:bg-slate-800 rounded-lg shadow-md p-5 border border-gray-200 dark:border-gray-700 overflow-y-auto">
-                            {showDocuments ? (
-                                <DocumentFolderView employee={selectedEmployee} onClose={handleClosePanel} />
-                            ) : (
-                                <EmployeeProfile employee={selectedEmployee} onClose={handleClosePanel} />
-                            )}
+                        <div
+                            className="w-full lg:w-1/3 bg-white dark:bg-slate-800 rounded-lg shadow-md p-5 border border-gray-200 dark:border-gray-700 lg:absolute lg:right-0 flex flex-col overflow-hidden"
+                            style={{ height: tableHeight > 0 ? `${tableHeight}px` : 'auto' }}
+                        >
+                            <div className="flex-1 overflow-y-auto pr-1">
+                                {showDocuments ? (
+                                    <DocumentFolderView employee={selectedEmployee} onClose={handleClosePanel} />
+                                ) : (
+                                    <EmployeeProfile employee={selectedEmployee} onClose={handleClosePanel} />
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
