@@ -4,7 +4,7 @@ import { MagnifyingGlassIcon as SearchIcon, XMarkIcon, UserIcon, UserGroupIcon, 
 import { useSelector } from 'react-redux';
 import { RootState, useAppDispatch } from '../../store';
 import { createChat } from '../../store/slices/chatSlice';
-import { fetchUsers } from '../../store/slices/userSlice';
+import { fetchUsers, getUserById } from '../../store/slices/userSlice';
 import toast from 'react-hot-toast';
 
 interface Chat {
@@ -46,6 +46,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     const { user } = useSelector((state: RootState) => state.auth);
     const { users = [], loading: usersLoading } = useSelector((state: RootState) => state.users || {});
     const { loading } = useSelector((state: RootState) => state.chat);
+    const [userProfile, setUserProfile] = useState<any>(null);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [showNewChatPopup, setShowNewChatPopup] = useState(false);
@@ -57,6 +58,22 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
     const [groupImagePreview, setGroupImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [creatingChat, setCreatingChat] = useState(false);
+
+    // Fetch current user details
+    useEffect(() => {
+        if (user?._id) {
+            console.log("Fetching current user details:", user._id);
+            dispatch(getUserById(user._id))
+                .unwrap()
+                .then(userData => {
+                    console.log("Fetched user data:", userData);
+                    setUserProfile(userData);
+                })
+                .catch(error => {
+                    console.error("Failed to fetch user profile:", error);
+                });
+        }
+    }, [user?._id, dispatch]);
 
     // Fetch users for the popup
     useEffect(() => {
@@ -217,8 +234,16 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             // Return null to indicate we should use a group icon
             return null;
         }
-        // For direct messages, use the other user's avatar or null for user icon
-        return chat.avatar && chat.avatar !== '/avatar-placeholder.jpg' ? chat.avatar : null;
+
+        // For direct messages, check multiple possible avatar sources
+        if (chat.avatar && chat.avatar !== '/avatar-placeholder.jpg' && !chat.avatar.includes('undefined')) {
+            console.log(`Using avatar from chat object for ${chat.name}:`, chat.avatar);
+            return chat.avatar;
+        }
+
+        // Return null to use the fallback user icon
+        console.log(`No avatar found for ${chat.name}, using fallback icon`);
+        return null;
     };
 
     // Ensure we're clearly showing the participant we're chatting with
@@ -243,23 +268,34 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             {/* User Profile Section */}
             <div className="px-6 pt-8 pb-4 flex flex-col items-center border-b border-gray-200">
                 <div className="relative">
-                    {(user as any)?.profilePicture?.url ? (
-                        <img
-                            src={(user as any).profilePicture.url}
-                            alt="Utilisateur"
-                            className="w-16 h-16 rounded-full ring-2 ring-green-200 object-cover"
-                        />
-                    ) : (
-                        <img
-                            src="/avatar-placeholder.jpg"
-                            alt="Utilisateur"
-                            className="w-16 h-16 rounded-full ring-2 ring-green-200"
-                        />
+                    {user && (
+                        <>
+                            {/* Check for profile picture in userProfile or user */}
+                            {userProfile?.profilePicture?.url ? (
+                                <img
+                                    src={userProfile.profilePicture.url}
+                                    alt="Utilisateur"
+                                    className="w-16 h-16 rounded-full ring-2 ring-green-200 object-cover"
+                                />
+                            ) : (user as any)?.profilePicture?.url ? (
+                                <img
+                                    src={(user as any).profilePicture.url}
+                                    alt="Utilisateur"
+                                    className="w-16 h-16 rounded-full ring-2 ring-green-200 object-cover"
+                                />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center ring-2 ring-green-200">
+                                    <UserIcon className="w-8 h-8 text-gray-500" />
+                                </div>
+                            )}
+                            <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+                        </>
                     )}
-                    <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
                 <h2 className="mt-3 font-semibold text-lg text-gray-900">
-                    {(user as any)?.nom || ''} {(user as any)?.prenom || ''}
+                    {userProfile?.nom ? `${userProfile.nom} ${userProfile.prenom || ''}` :
+                        (user as any)?.nom ? `${(user as any).nom} ${(user as any).prenom || ''}` :
+                            (user as any)?.name || (user as any)?.username || 'Utilisateur'}
                 </h2>
                 <span className="mt-2 text-xs font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full cursor-pointer">
                     Disponible

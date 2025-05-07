@@ -157,23 +157,6 @@ export const ChatPage: React.FC = () => {
             }
         }
 
-        // If we don't have the user details, fetch them
-        if (participant._id && !userDetailsMap[participant._id]) {
-            console.log('Fetching user details for:', participant._id);
-            dispatch(getUserById(participant._id))
-                .unwrap()
-                .then(response => {
-                    console.log('User details fetched:', response);
-                    setUserDetailsMap(prev => ({
-                        ...prev,
-                        [participant._id]: response
-                    }));
-                })
-                .catch(error => {
-                    console.error('Failed to fetch user details:', error);
-                });
-        }
-
         // Check direct properties
         if ((participant as any).nom && (participant as any).prenom) {
             return `${(participant as any).nom} ${(participant as any).prenom}`;
@@ -200,6 +183,31 @@ export const ChatPage: React.FC = () => {
         // Get name from _id as last resort
         return `Utilisateur ${participant._id.substring(0, 5)}`;
     };
+
+    // Effect to fetch user details when needed
+    useEffect(() => {
+        if (selectedChat) {
+            // Check if we need to fetch any participants details
+            selectedChat.participants.forEach(participant => {
+                // If we don't have user details for this participant, fetch them
+                if (participant._id && !userDetailsMap[participant._id] && participant._id !== user?._id) {
+                    console.log('Fetching user details for:', participant._id);
+                    dispatch(getUserById(participant._id))
+                        .unwrap()
+                        .then(response => {
+                            console.log('User details fetched:', response);
+                            setUserDetailsMap(prev => ({
+                                ...prev,
+                                [participant._id]: response
+                            }));
+                        })
+                        .catch(error => {
+                            console.error('Failed to fetch user details:', error);
+                        });
+                }
+            });
+        }
+    }, [selectedChat, userDetailsMap, dispatch, user?._id]);
 
     // Get participant avatar
     const getParticipantAvatar = (participant: any): string => {
@@ -320,14 +328,25 @@ export const ChatPage: React.FC = () => {
             if (otherParticipant) {
                 chatName = getParticipantName(otherParticipant);
 
-                // Check if the participant has profile picture in the correct format
+                // Check all possible locations for profile pictures
                 if ((otherParticipant as any).profilePicture?.url) {
+                    console.log(`Found profile picture directly on participant: ${(otherParticipant as any).profilePicture.url}`);
                     chatAvatar = (otherParticipant as any).profilePicture.url;
                 } else if (userDetailsMap[otherParticipant._id]?.profilePicture?.url) {
+                    console.log(`Found profile picture in userDetailsMap: ${userDetailsMap[otherParticipant._id].profilePicture.url}`);
                     chatAvatar = userDetailsMap[otherParticipant._id].profilePicture.url;
+                } else if ((otherParticipant as any).utilisateurAssocie?.profilePicture?.url) {
+                    console.log(`Found profile picture in utilisateurAssocie: ${(otherParticipant as any).utilisateurAssocie.profilePicture.url}`);
+                    chatAvatar = (otherParticipant as any).utilisateurAssocie.profilePicture.url;
+                } else if ((otherParticipant as any).profile?.picture?.url) {
+                    console.log(`Found profile picture in profile.picture: ${(otherParticipant as any).profile.picture.url}`);
+                    chatAvatar = (otherParticipant as any).profile.picture.url;
                 } else {
+                    console.log(`No profile picture found for user ${otherParticipant._id}`);
                     chatAvatar = '/avatar-placeholder.jpg';
                 }
+
+                console.log(`Profile picture for ${chatName}:`, chatAvatar);
             } else {
                 chatName = 'Discussion';
                 chatAvatar = '/avatar-placeholder.jpg';
@@ -346,7 +365,8 @@ export const ChatPage: React.FC = () => {
             avatar: chatAvatar,
             unreadCount: chat.unreadCount,
             isTyping: typing[chat._id]?.length > 0,
-            isGroup: chat.isGroup
+            isGroup: chat.isGroup,
+            groupPicture: (chat as any).groupPicture // Pass the full groupPicture object to the component
         };
     });
 
