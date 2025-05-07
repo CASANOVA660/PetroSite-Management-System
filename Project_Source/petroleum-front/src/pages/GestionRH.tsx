@@ -5,6 +5,8 @@ import HRSearchFilter from "../components/gestion-rh/HRSearchFilter";
 import EmployeeTable from "../components/gestion-rh/EmployeeTable";
 import EmployeeProfile from "../components/gestion-rh/EmployeeProfile";
 import DocumentFolderView from "../components/gestion-rh/DocumentFolderView";
+import AddEmployeePanel from "../components/gestion-rh/AddEmployeePanel";
+import { UserPlusIcon } from '@heroicons/react/24/outline';
 
 // Define types
 interface Employee {
@@ -30,6 +32,7 @@ interface SearchParams {
 export default function GestionRH() {
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [showDocuments, setShowDocuments] = useState(false);
+    const [isAddPanelOpen, setIsAddPanelOpen] = useState(false);
     const tableRef = useRef<HTMLDivElement>(null);
     const [tableHeight, setTableHeight] = useState(0);
     const [searchParams, setSearchParams] = useState<SearchParams>({
@@ -83,6 +86,11 @@ export default function GestionRH() {
         setShowDocuments(false);
     };
 
+    // Toggle add employee panel
+    const toggleAddPanel = () => {
+        setIsAddPanelOpen(!isAddPanelOpen);
+    };
+
     return (
         <>
             <PageMeta
@@ -91,11 +99,22 @@ export default function GestionRH() {
             />
 
             <div className="flex flex-col h-full">
-                <div className="mb-6">
-                    <h1 className="text-3xl font-semibold text-black dark:text-white">Gestion RH</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                        Gérez les employés, les contrats et les documents RH
-                    </p>
+                <div className="mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-semibold text-black dark:text-white">Gestion RH</h1>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Gérez les employés, les contrats et les documents RH
+                        </p>
+                    </div>
+
+                    {/* Add Employee Button */}
+                    <button
+                        onClick={toggleAddPanel}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                    >
+                        <UserPlusIcon className="h-5 w-5" />
+                        <span>Ajouter un Employé</span>
+                    </button>
                 </div>
 
                 {/* Stats Cards Section */}
@@ -140,6 +159,12 @@ export default function GestionRH() {
                     )}
                 </div>
             </div>
+
+            {/* Add Employee Panel */}
+            <AddEmployeePanel
+                isOpen={isAddPanelOpen}
+                onClose={() => setIsAddPanelOpen(false)}
+            />
         </>
     );
 } 
