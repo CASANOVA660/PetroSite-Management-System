@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     XMarkIcon,
     UserCircleIcon,
-    ArrowUpTrayIcon,
+
     BuildingOfficeIcon,
     CalendarIcon,
     PhoneIcon,
@@ -25,6 +25,11 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formProgress, setFormProgress] = useState(0);
     const [files, setFiles] = useState<File[]>([]);
+
+    // Form data state for tracking completeness
+    const [personalInfoComplete, setPersonalInfoComplete] = useState(false);
+    const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
 
     // Handle profile image upload
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,11 +56,42 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
         setFiles(newFiles);
     };
 
+    // Check if the required personal info is filled
+    const checkPersonalInfoComplete = () => {
+        return fullName.trim() !== '' && email.trim() !== '';
+    };
+
     // Calculate form progress based on filled fields
     const updateProgress = () => {
-        // Implementation would track filled required fields
-        // This is a simplified version
+        // Simplistic implementation - just moves the progress bar
+        // In a real application, we would calculate based on required fields completed
         setFormProgress(activeSection * 25);
+
+        // Check if personal info is complete
+        setPersonalInfoComplete(checkPersonalInfoComplete());
+    };
+
+    // Handle fullName change
+    const handleFullNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFullName(e.target.value);
+        setPersonalInfoComplete(e.target.value.trim() !== '' && email.trim() !== '');
+    };
+
+    // Handle email change
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEmail(e.target.value);
+        setPersonalInfoComplete(fullName.trim() !== '' && e.target.value.trim() !== '');
+    };
+
+    // Handle save employee
+    const handleSaveEmployee = () => {
+        // For now, we'll just check if personal info is complete and then close
+        // In a real app, this would save to the database
+        if (personalInfoComplete) {
+            // Here would be the API call to save the employee data
+            console.log('Employee saved with name:', fullName);
+            onClose();
+        }
     };
 
     const panelVariants = {
@@ -110,8 +146,10 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                         {/* Header */}
                         <header className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-slate-800 z-10">
                             <div>
-                                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add New Employee</h2>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Fill in the employee details below</p>
+                                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Ajouter un Employé</h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    {activeSection === 1 ? "* Champs obligatoires" : "Remplissez les détails optionnels ou enregistrez avec les informations de base"}
+                                </p>
                             </div>
                             <button
                                 onClick={onClose}
@@ -136,23 +174,23 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     onClick={() => setActiveSection(1)}
                                     className={`${activeSection >= 1 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
                                 >
-                                    Personal
+                                    Personnel*
                                 </button>
                                 <button
-                                    onClick={() => setActiveSection(2)}
-                                    className={`${activeSection >= 2 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    onClick={() => personalInfoComplete && setActiveSection(2)}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 2 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
                                 >
-                                    Job
+                                    Emploi
                                 </button>
                                 <button
-                                    onClick={() => setActiveSection(3)}
-                                    className={`${activeSection >= 3 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    onClick={() => personalInfoComplete && setActiveSection(3)}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 3 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
                                 >
                                     Documents
                                 </button>
                                 <button
-                                    onClick={() => setActiveSection(4)}
-                                    className={`${activeSection >= 4 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    onClick={() => personalInfoComplete && setActiveSection(4)}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 4 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
                                 >
                                     Notes
                                 </button>
@@ -169,7 +207,16 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     transition={{ duration: 0.3 }}
                                     className="space-y-6"
                                 >
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Personal Information</h3>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                                        Informations Personnelles <span className="text-blue-500 text-sm font-normal">*obligatoire</span>
+                                    </h3>
+
+                                    {/* Information note about required fields */}
+                                    <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg p-3">
+                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                            Veuillez remplir au moins le nom et l'email pour créer l'employé. Les autres champs peuvent être complétés ultérieurement.
+                                        </p>
+                                    </div>
 
                                     {/* Profile Image */}
                                     <div className="flex flex-col items-center mb-6">
@@ -195,7 +242,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             />
                                         </div>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                                            Click to upload profile picture
+                                            Cliquez pour télécharger une photo (optionnel)
                                         </p>
                                     </div>
 
@@ -207,9 +254,15 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             </div>
                                             <input
                                                 type="text"
-                                                placeholder="Full Name"
-                                                className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                placeholder="Nom complet *"
+                                                value={fullName}
+                                                onChange={handleFullNameChange}
+                                                className={`pl-10 w-full rounded-lg py-2 px-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 ${fullName === '' ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 focus:border-blue-500'}`}
+                                                required
                                             />
+                                            {fullName === '' && (
+                                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 pl-1">Obligatoire</p>
+                                            )}
                                         </div>
 
                                         <div className="relative">
@@ -218,9 +271,15 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             </div>
                                             <input
                                                 type="email"
-                                                placeholder="Email Address"
-                                                className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                placeholder="Adresse email *"
+                                                value={email}
+                                                onChange={handleEmailChange}
+                                                className={`pl-10 w-full rounded-lg py-2 px-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 ${email === '' ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 focus:border-blue-500'}`}
+                                                required
                                             />
+                                            {email === '' && (
+                                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 pl-1">Obligatoire</p>
+                                            )}
                                         </div>
 
                                         <div className="relative">
@@ -229,7 +288,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             </div>
                                             <input
                                                 type="tel"
-                                                placeholder="Phone Number"
+                                                placeholder="Numéro de téléphone (optionnel)"
                                                 className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                             />
                                         </div>
@@ -240,7 +299,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             </div>
                                             <input
                                                 type="date"
-                                                placeholder="Date of Birth"
+                                                placeholder="Date de naissance (optionnel)"
                                                 className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                             />
                                         </div>
@@ -256,23 +315,25 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     transition={{ duration: 0.3 }}
                                     className="space-y-6"
                                 >
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Job Details</h3>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                                        Détails du Poste <span className="text-gray-400 text-sm font-normal">(optionnel)</span>
+                                    </h3>
 
                                     <div className="space-y-4">
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Job Title
+                                                Titre du Poste
                                             </label>
                                             <input
                                                 type="text"
-                                                placeholder="e.g. Software Engineer"
+                                                placeholder="ex. Ingénieur Logiciel"
                                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                             />
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Department
+                                                Département
                                             </label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -281,19 +342,19 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 <select
                                                     className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                                 >
-                                                    <option value="">Select Department</option>
-                                                    <option value="engineering">Engineering</option>
+                                                    <option value="">Sélectionner un département</option>
+                                                    <option value="engineering">Ingénierie</option>
                                                     <option value="marketing">Marketing</option>
                                                     <option value="finance">Finance</option>
-                                                    <option value="hr">Human Resources</option>
-                                                    <option value="operations">Operations</option>
+                                                    <option value="hr">Ressources Humaines</option>
+                                                    <option value="operations">Opérations</option>
                                                 </select>
                                             </div>
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Start Date
+                                                Date de Début
                                             </label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -308,32 +369,32 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Work Type
+                                                Type de Contrat
                                             </label>
                                             <div className="flex gap-4">
                                                 <label className="flex items-center">
                                                     <input type="radio" name="workType" value="fulltime" className="mr-2" />
-                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Full-time</span>
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Temps plein</span>
                                                 </label>
                                                 <label className="flex items-center">
                                                     <input type="radio" name="workType" value="parttime" className="mr-2" />
-                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Part-time</span>
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Temps partiel</span>
                                                 </label>
                                                 <label className="flex items-center">
                                                     <input type="radio" name="workType" value="contract" className="mr-2" />
-                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Contract</span>
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">Contractuel</span>
                                                 </label>
                                             </div>
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Manager/Supervisor
+                                                Responsable/Superviseur
                                             </label>
                                             <select
                                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                             >
-                                                <option value="">Select Manager</option>
+                                                <option value="">Sélectionner un responsable</option>
                                                 <option value="1">Thomas Martin</option>
                                                 <option value="2">Sarah Dupont</option>
                                                 <option value="3">Jean Dubois</option>
@@ -351,17 +412,19 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     transition={{ duration: 0.3 }}
                                     className="space-y-6"
                                 >
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Document Setup</h3>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                                        Configuration des Documents <span className="text-gray-400 text-sm font-normal">(optionnel)</span>
+                                    </h3>
 
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Create Initial Folder
+                                                Créer un Dossier Initial
                                             </label>
                                             <div className="flex gap-2">
                                                 <input
                                                     type="text"
-                                                    placeholder="e.g. Employee Documents"
+                                                    placeholder="ex. Documents de l'employé"
                                                     className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                                 />
                                                 <button className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
@@ -372,7 +435,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Upload Initial Documents
+                                                Télécharger des Documents
                                             </label>
                                             <div
                                                 className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
@@ -380,7 +443,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             >
                                                 <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
                                                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                                    Drag and drop files here, or click to browse
+                                                    Glissez et déposez des fichiers ici, ou cliquez pour parcourir
                                                 </p>
                                                 <input
                                                     id="documents"
@@ -396,7 +459,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                         {files.length > 0 && (
                                             <div className="mt-4">
                                                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Selected Files ({files.length})
+                                                    Fichiers Sélectionnés ({files.length})
                                                 </h4>
                                                 <ul className="space-y-2">
                                                     {files.map((file, index) => (
@@ -430,7 +493,9 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     transition={{ duration: 0.3 }}
                                     className="space-y-6"
                                 >
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Tags & Notes</h3>
+                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                                        Tags & Notes <span className="text-gray-400 text-sm font-normal">(optionnel)</span>
+                                    </h3>
 
                                     <div className="space-y-4">
                                         <div>
@@ -443,19 +508,19 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 </div>
                                                 <input
                                                     type="text"
-                                                    placeholder="e.g. Remote, Contractor (comma separated)"
+                                                    placeholder="ex. Télétravail, Sous-traitant (séparés par virgule)"
                                                     className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                                 />
                                             </div>
                                             <div className="flex flex-wrap gap-2 mt-2">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                                                    Onboarding
+                                                    Intégration
                                                     <button className="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
                                                         <XMarkIcon className="h-3 w-3" />
                                                     </button>
                                                 </span>
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                                                    New Hire
+                                                    Nouveau
                                                     <button className="ml-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200">
                                                         <XMarkIcon className="h-3 w-3" />
                                                     </button>
@@ -469,7 +534,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             </label>
                                             <textarea
                                                 rows={4}
-                                                placeholder="Add any additional notes about this employee"
+                                                placeholder="Ajoutez des notes supplémentaires sur cet employé"
                                                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
                                             />
                                         </div>
@@ -477,7 +542,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                         <div className="pt-4">
                                             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                                                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                    <span className="font-medium text-gray-700 dark:text-gray-300">Email notification:</span> A welcome email will be automatically sent to the employee after saving.
+                                                    <span className="font-medium text-gray-700 dark:text-gray-300">Notification email:</span> Un email de bienvenue sera automatiquement envoyé à l'employé après l'enregistrement.
                                                 </p>
                                             </div>
                                         </div>
@@ -495,7 +560,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             onClick={() => setActiveSection(prev => Math.max(prev - 1, 1))}
                                             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white"
                                         >
-                                            Previous
+                                            Précédent
                                         </button>
                                     )}
                                 </div>
@@ -504,24 +569,39 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                         onClick={onClose}
                                         className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                                     >
-                                        Cancel
+                                        Annuler
                                     </button>
 
                                     {activeSection < 4 ? (
-                                        <button
-                                            onClick={() => {
-                                                setActiveSection(prev => Math.min(prev + 1, 4));
-                                                updateProgress();
-                                            }}
-                                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
-                                        >
-                                            Continue
-                                        </button>
+                                        <>
+                                            {personalInfoComplete && (
+                                                <button
+                                                    onClick={handleSaveEmployee}
+                                                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800"
+                                                >
+                                                    Enregistrer
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    if (personalInfoComplete || activeSection === 1) {
+                                                        setActiveSection(prev => Math.min(prev + 1, 4));
+                                                        updateProgress();
+                                                    }
+                                                }}
+                                                disabled={activeSection > 1 && !personalInfoComplete}
+                                                className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 ${activeSection > 1 && !personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                                Continuer
+                                            </button>
+                                        </>
                                     ) : (
                                         <button
-                                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 flex items-center"
+                                            onClick={handleSaveEmployee}
+                                            disabled={!personalInfoComplete}
+                                            className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 flex items-center ${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            <span>Save Employee</span>
+                                            <span>Enregistrer l'employé</span>
                                         </button>
                                     )}
                                 </div>
