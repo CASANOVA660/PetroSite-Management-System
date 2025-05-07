@@ -24,8 +24,8 @@ import { store } from './store';
 import UserManagement from "./pages/UserManagement/UserManagement";
 import ActivationPage from './pages/Activation/ActivationPage';
 import ProjectPreparation from './pages/Projects/ProjectPreparation';
-import AddProject from './pages/Projects/AddProject';
 import ProjectDetails from './pages/Projects/ProjectDetails';
+import AddProject from './pages/Projects/AddProject';
 import EditProject from './pages/Projects/EditProject';
 import Tasks from './pages/Tasks';
 import GlobalActions from './pages/GlobalActions';
@@ -160,7 +160,6 @@ export default function App() {
               <Route path="/projects/:id" element={<ProjectDetails />} />
               <Route path="/projects/:id/edit" element={<EditProject />} />
 
-              {/* Tasks */}
               <Route path="/tasks" element={
                 <Tasks />
               } />

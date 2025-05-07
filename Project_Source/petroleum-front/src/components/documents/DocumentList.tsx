@@ -5,6 +5,7 @@ import { auto } from '@cloudinary/url-gen/actions/resize';
 import { autoGravity } from '@cloudinary/url-gen/qualifiers/gravity';
 import { AdvancedImage } from '@cloudinary/react';
 import { Document } from '../../store/slices/documentSlice';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface DocumentListProps {
     documents: Document[];
@@ -48,7 +49,24 @@ const DocumentList: React.FC<DocumentListProps> = ({ documents, onViewDocument, 
         }
     };
 
-    const getFileIcon = (type: string, name: string) => {
+    const getFileIcon = (type: string | undefined, name: string) => {
+        if (!type) {
+            // If type is undefined, try to determine from name
+            const extension = name.split('.').pop()?.toLowerCase();
+            if (extension === 'pdf') {
+                return <DocumentTextIcon className="h-5 w-5 text-red-500" />;
+            } else if (['doc', 'docx'].includes(extension || '')) {
+                return <DocumentDuplicateIcon className="h-5 w-5 text-blue-500" />;
+            } else if (['xls', 'xlsx'].includes(extension || '')) {
+                return <DocumentDuplicateIcon className="h-5 w-5 text-green-500" />;
+            } else if (['ppt', 'pptx'].includes(extension || '')) {
+                return <DocumentDuplicateIcon className="h-5 w-5 text-orange-500" />;
+            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
+                return <PhotoIcon className="h-5 w-5 text-indigo-500" />;
+            }
+            return <DocumentIcon className="h-5 w-5 text-gray-500" />;
+        }
+
         if (type.startsWith('image/')) {
             return <PhotoIcon className="h-5 w-5 text-indigo-500" />;
         } else if (type === 'application/pdf') {
@@ -253,111 +271,95 @@ const DocumentList: React.FC<DocumentListProps> = ({ documents, onViewDocument, 
     }
 
     return (
-        <div className="flex flex-col md:flex-row min-h-[500px] rounded-lg overflow-hidden border border-gray-200">
-            {/* Category Sidebar */}
-            <div className="w-full md:w-64 bg-white border-r border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                    <h3 className="font-semibold text-gray-700">Catégories</h3>
-                </div>
-                <ul className="py-2">
-                    {sortedCategories.map(([category, docs]) => (
-                        <li key={category} className="mb-1">
-                            <button
-                                className={`flex items-center w-full px-4 py-3 text-left ${activeCategory === category ? categoryDisplay[category]?.bgColor || 'bg-gray-100' : 'hover:bg-gray-50'
-                                    }`}
-                                onClick={() => toggleCategory(category)}
-                            >
-                                {categoryDisplay[category]?.icon || (
-                                    <FolderIcon className={`h-5 w-5 ${categoryDisplay[category]?.color || 'text-gray-500'}`} />
-                                )}
-                                <span className={`ml-2 flex-1 font-medium ${categoryDisplay[category]?.color || 'text-gray-700'}`}>
-                                    {categoryDisplay[category]?.name || category}
-                                </span>
-                                <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
-                                    {docs.length}
-                                </span>
-                                {expandedCategories[category] ? (
-                                    <ChevronDownIcon className="h-4 w-4 ml-2 text-gray-500" />
-                                ) : (
-                                    <ChevronRightIcon className="h-4 w-4 ml-2 text-gray-500" />
-                                )}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Document Content Area */}
-            <div className="flex-1 bg-gray-50 overflow-hidden flex flex-col">
-                {activeCategory ? (
-                    <>
-                        <div className={`p-4 flex justify-between items-center ${categoryDisplay[activeCategory]?.bgColor || 'bg-gray-100'} border-b ${categoryDisplay[activeCategory]?.borderColor || 'border-gray-200'}`}>
-                            <div className="flex items-center">
-                                {categoryDisplay[activeCategory]?.icon}
-                                <h3 className={`ml-2 font-medium ${categoryDisplay[activeCategory]?.color || 'text-gray-700'}`}>
-                                    {categoryDisplay[activeCategory]?.name || activeCategory}
-                                </h3>
-                            </div>
-
+        <div className="space-y-4">
+            {Object.entries(documentsByCategory).map(([category, docs]) => (
+                <motion.div
+                    key={category}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden"
+                >
+                    <button
+                        onClick={() => toggleCategory(category)}
+                        className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${activeCategory === category
+                            ? 'bg-gray-50 dark:bg-gray-700'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                    >
+                        <div className="flex items-center space-x-3">
+                            {categoryDisplay[category]?.icon || <FolderIcon className="h-6 w-6 text-gray-500" />}
+                            <span className="font-medium text-gray-900 dark:text-white">
+                                {categoryDisplay[category]?.name || category}
+                            </span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                ({docs.length})
+                            </span>
                         </div>
-                        <div className="flex-1 overflow-auto p-2">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-2">
-                                {expandedCategories[activeCategory] && documentsByCategory[activeCategory]?.map((document) => (
-                                    <div
-                                        key={document._id}
-                                        className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                                    >
-                                        <div className="p-4 flex items-start">
-                                            <div className="mr-3 p-2 rounded-lg bg-gray-100">
-                                                {getFileIcon(document.type || '', document.name)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-gray-800 truncate mb-1">
-                                                    {document.name}
-                                                </p>
-                                                <p className="text-sm text-gray-500 mb-2">
-                                                    {formatDate(document.createdAt)}
-                                                </p>
-                                                <div className="flex space-x-2">
+                        {expandedCategories[category] ? (
+                            <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                        ) : (
+                            <ChevronRightIcon className="h-5 w-5 text-gray-500" />
+                        )}
+                    </button>
+
+                    <AnimatePresence>
+                        {expandedCategories[category] && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {docs.map((doc, index) => (
+                                        <motion.div
+                                            key={doc._id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: index * 0.05 }}
+                                            className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-3">
+                                                    {getFileIcon(doc.type, doc.name)}
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                            {doc.name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {formatDate(doc.createdAt)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
                                                     <button
-                                                        onClick={() => onViewDocument(document)}
-                                                        className="px-3 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                                        onClick={() => onViewDocument(doc)}
+                                                        className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                                                     >
-                                                        <span className="flex items-center">
-                                                            <EyeIcon className="h-3.5 w-3.5 mr-1" />
-                                                            Voir
-                                                        </span>
+                                                        <EyeIcon className="h-5 w-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDownload(document)}
-                                                        className="px-3 py-1 text-xs font-medium rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100"
-                                                        data-document-id={document._id}
+                                                        onClick={() => handleDownload(doc)}
+                                                        data-document-id={doc._id}
+                                                        className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                                                     >
                                                         <span className="flex items-center">
-                                                            <ArrowDownTrayIcon className="h-3.5 w-3.5 mr-1" />
-                                                            Télécharger
+                                                            <ArrowDownTrayIcon className="h-5 w-5" />
                                                         </span>
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                        <FolderIcon className="h-16 w-16 text-gray-300 mb-4" />
-                        <h3 className="text-xl font-medium text-gray-700 mb-2">Gestionnaire de documents</h3>
-                        <p className="text-gray-500 max-w-md mb-4">
-                            Sélectionnez une catégorie dans le menu de gauche pour afficher les documents correspondants
-                        </p>
-                    </div>
-                )}
-            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
+            ))}
         </div>
     );
 };
 
-export default DocumentList; 
+export default React.memo(DocumentList); 

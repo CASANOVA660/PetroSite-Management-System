@@ -18,6 +18,7 @@ import {
 import DocumentUploader from './DocumentUploader';
 import DocumentList from './DocumentList';
 import DocumentViewer from './DocumentViewer';
+import { motion } from 'framer-motion';
 
 interface BaseDocumentManagerProps {
     projectId: string;
@@ -26,7 +27,6 @@ interface BaseDocumentManagerProps {
     icon: React.ReactNode;
 }
 
-// ... existing code ...
 const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, category, title, icon }) => {
     const dispatch = useDispatch<AppDispatch>();
     const { documentsByCategory, loading, error } = useSelector((state: RootState) => state.documents);
@@ -120,7 +120,7 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F28C38]"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F28C38]"></div>
             </div>
         );
     }
@@ -135,39 +135,53 @@ const BaseDocumentManager: React.FC<BaseDocumentManagerProps> = ({ projectId, ca
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    {icon}
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        {icon}
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+                    </div>
                 </div>
                 <DocumentUploader
                     projectId={projectId}
                     category={category}
                     onUpload={handleUpload}
                 />
-            </div>
+            </motion.div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+            >
                 <DocumentList
                     documents={documents}
                     onViewDocument={handleViewDocument}
                     onAddDocument={() => {
-                        // This will open the document uploader or show a form
                         console.log("Add document clicked for category:", category);
-                        // You can implement the logic to show the document uploader here
                     }}
                 />
-            </div>
+            </motion.div>
 
             {showViewer && selectedDocument && (
-                <DocumentViewer
-                    document={selectedDocument}
-                    onClose={handleCloseViewer}
-                />
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                >
+                    <DocumentViewer
+                        document={selectedDocument}
+                        onClose={handleCloseViewer}
+                    />
+                </motion.div>
             )}
         </div>
     );
 };
-// ... existing code ...
 
 export default React.memo(BaseDocumentManager);
