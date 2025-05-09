@@ -41,6 +41,7 @@ import socketService from './services/socketService';
 import { Toaster } from 'react-hot-toast';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { RootState } from './store';
+import PlanningPage from "./pages/Planning";
 
 // Toast options for consistent styling
 const getToastOptions = () => {
@@ -172,6 +173,9 @@ export default function App() {
               <Route path="/equipments/:id" element={<EquipmentDetailView />} />
               <Route path="/equipments/add" element={<EquipmentAdd />} />
               <Route path="/equipments/:id/edit" element={<EquipmentEdit />} />
+
+              {/* Planning Page */}
+              <Route path="/planning" element={<PlanningPage />} />
 
               {/* HR Management */}
               <Route path="/gestion-rh" element={<GestionRH />} />

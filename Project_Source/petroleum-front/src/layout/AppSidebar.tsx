@@ -267,6 +267,11 @@ const AppSidebar: React.FC = () => {
       path: "/equipments"
     },
     {
+      icon: <CalenderIcon />,
+      name: "Planning",
+      path: "/planning"
+    },
+    {
       icon: <UserGroupIcon className="w-6 h-6" />,
       name: "Gestion RH",
       path: "/gestion-rh"
