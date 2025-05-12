@@ -27,8 +27,6 @@ interface Participant {
     profilePicture?: string | { url: string; publicId: string };
 }
 
-
-
 export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, onClose, onSave }) => {
     const dispatch = useDispatch();
     const { users, loading: usersLoading } = useSelector((state: RootState) => state.users);
@@ -37,8 +35,7 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [date, setDate] = useState('');
-    const [time, setTime] = useState('');
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [meetLink, setMeetLink] = useState('');
     const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
     const [externalParticipants, setExternalParticipants] = useState<ExternalParticipant[]>([]);
@@ -109,8 +106,7 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
     const resetForm = () => {
         setTitle('');
         setDescription('');
-        setDate('');
-        setTime('');
+        setSelectedDate(null);
         setMeetLink('');
         setSelectedParticipants([]);
         setExternalParticipants([]);
@@ -142,8 +138,8 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
     const validateForm = () => {
         const newErrors = {
             title: !title.trim(),
-            date: !date,
-            time: !time,
+            date: !selectedDate,
+            time: !selectedDate,
             externalEmail: false
         };
 
@@ -166,7 +162,7 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
         const newReunion = {
             title,
             description,
-            date: new Date(`${date}T${time}`),
+            date: selectedDate,
             duration: 60, // Default duration in minutes
             participants: selectedParticipants,
             meetLink: meetLink.trim() ? meetLink : undefined,
@@ -328,9 +324,34 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
                                     </label>
                                     <input
                                         type="date"
-                                        className={`w-full px-3 py-2 border ${errors.date ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                                        value={date}
-                                        onChange={(e) => setDate(e.target.value)}
+                                        style={{
+                                            display: 'block',
+                                            width: '100%',
+                                            padding: '0.5rem 0.75rem',
+                                            backgroundColor: 'white',
+                                            borderRadius: '0.375rem',
+                                            borderWidth: '1px',
+                                            borderColor: errors.date ? '#ef4444' : '#d1d5db',
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                            WebkitAppearance: 'menulist-button',
+                                            appearance: 'menulist-button'
+                                        }}
+                                        value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
+                                        onChange={(e) => {
+                                            const newDate = e.target.value;
+                                            if (newDate) {
+                                                const newSelectedDate = selectedDate ? new Date(selectedDate) : new Date();
+                                                const [year, month, day] = newDate.split('-').map(Number);
+                                                newSelectedDate.setFullYear(year);
+                                                newSelectedDate.setMonth(month - 1);
+                                                newSelectedDate.setDate(day);
+                                                setSelectedDate(newSelectedDate);
+                                            } else {
+                                                setSelectedDate(null);
+                                            }
+                                        }}
+                                        min={new Date().toISOString().split('T')[0]}
                                     />
                                     {errors.date && (
                                         <p className="mt-1 text-sm text-red-500">La date est requise</p>
@@ -343,9 +364,32 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
                                     </label>
                                     <input
                                         type="time"
-                                        className={`w-full px-3 py-2 border ${errors.time ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                                        value={time}
-                                        onChange={(e) => setTime(e.target.value)}
+                                        style={{
+                                            display: 'block',
+                                            width: '100%',
+                                            padding: '0.5rem 0.75rem',
+                                            backgroundColor: 'white',
+                                            borderRadius: '0.375rem',
+                                            borderWidth: '1px',
+                                            borderColor: errors.time ? '#ef4444' : '#d1d5db',
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                            WebkitAppearance: 'menulist-button',
+                                            appearance: 'menulist-button'
+                                        }}
+                                        value={selectedDate ?
+                                            `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`
+                                            : ''}
+                                        onChange={(e) => {
+                                            const newTime = e.target.value;
+                                            if (newTime) {
+                                                const newSelectedDate = selectedDate ? new Date(selectedDate) : new Date();
+                                                const [hours, minutes] = newTime.split(':').map(Number);
+                                                newSelectedDate.setHours(hours);
+                                                newSelectedDate.setMinutes(minutes);
+                                                setSelectedDate(newSelectedDate);
+                                            }
+                                        }}
                                     />
                                     {errors.time && (
                                         <p className="mt-1 text-sm text-red-500">L'heure est requise</p>
