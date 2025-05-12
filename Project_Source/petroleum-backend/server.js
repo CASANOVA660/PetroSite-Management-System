@@ -16,6 +16,8 @@ const taskRoutes = require('./modules/tasks/routes/task.routes');
 const equipmentRoutes = require('./modules/equipment/routes/equipment.routes');
 const chatRoutes = require('./modules/chat/routes/chatRoutes');
 const gestionRhRoutes = require('./modules/gestion-rh');
+const meetRoutes = require('./modules/meet/routes/meetRoutes');
+const projectMeetRoutes = require('./modules/meet/routes/projectMeetRoutes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -188,6 +190,11 @@ app.use('/api/global-actions', globalActionRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/gestion-rh/employees', gestionRhRoutes);
+
+// Routes pour les réunions
+app.use('/api/meetings', meetRoutes);
+app.use('/api/projects/:projectId/meetings', projectMeetRoutes);
+app.use('/api/meet', require('./modules/meet/routes/meet.routes')); // New meet module route
 
 // Error handling
 app.use(errorHandler);

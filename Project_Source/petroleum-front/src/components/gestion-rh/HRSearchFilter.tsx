@@ -93,7 +93,7 @@ export default function HRSearchFilter({ searchParams, onSearchChange }: HRSearc
                 >
                     <FunnelIcon className="h-5 w-5" />
                     <span className="hidden md:inline">Filtres</span>
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-600 dark:bg-blue-900 dark:text-blue-200">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#FA812F]/10 text-xs font-medium text-[#FA812F]">
                         {Object.values(localParams).filter(val => val && val !== 'all').length - 1}
                     </span>
                 </button>
@@ -102,7 +102,7 @@ export default function HRSearchFilter({ searchParams, onSearchChange }: HRSearc
                 <button
                     type="button"
                     onClick={applyFilters}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center"
+                    className="px-4 py-2 bg-[#FA812F] hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center justify-center"
                 >
                     Appliquer
                 </button>
@@ -127,7 +127,7 @@ export default function HRSearchFilter({ searchParams, onSearchChange }: HRSearc
                             name="department"
                             value={localParams.department}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 px-3 py-2 focus:ring-2 focus:ring-[#FA812F] focus:border-[#FA812F]"
                         >
                             {departments.map(dept => (
                                 <option key={dept.id} value={dept.id}>
@@ -147,7 +147,7 @@ export default function HRSearchFilter({ searchParams, onSearchChange }: HRSearc
                             name="status"
                             value={localParams.status}
                             onChange={handleInputChange}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 px-3 py-2 focus:ring-2 focus:ring-[#FA812F] focus:border-[#FA812F]"
                         >
                             {statuses.map(status => (
                                 <option key={status.id} value={status.id}>
@@ -168,7 +168,7 @@ export default function HRSearchFilter({ searchParams, onSearchChange }: HRSearc
                                 name="sortBy"
                                 value={localParams.sortBy}
                                 onChange={handleInputChange}
-                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 pl-3 pr-10 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 pl-3 pr-10 py-2 focus:ring-2 focus:ring-[#FA812F] focus:border-[#FA812F] appearance-none"
                             >
                                 {sortOptions.map(option => (
                                     <option key={option.id} value={option.id}>

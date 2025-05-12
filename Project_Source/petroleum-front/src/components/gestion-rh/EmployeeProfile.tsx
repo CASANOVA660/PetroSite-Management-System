@@ -170,7 +170,7 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
 
             {/* Employee profile header */}
             <div className="flex flex-col items-center mb-6">
-                <div className="h-24 w-24 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-teal-500 flex items-center justify-center mb-4">
+                <div className="h-24 w-24 rounded-full overflow-hidden bg-gradient-to-r from-[#FA812F] to-orange-400 flex items-center justify-center mb-4">
                     {employee.profileImage ? (
                         <img
                             src={employee.profileImage}
@@ -198,7 +198,7 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                     <button
                         onClick={() => setActiveTab('personal')}
                         className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center space-x-1 ${activeTab === 'personal'
-                            ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                            ? 'border-[#FA812F] text-[#FA812F]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                             }`}
                     >
@@ -208,7 +208,7 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                     <button
                         onClick={() => setActiveTab('employment')}
                         className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center space-x-1 ${activeTab === 'employment'
-                            ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                            ? 'border-[#FA812F] text-[#FA812F]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                             }`}
                     >
@@ -218,7 +218,7 @@ export default function EmployeeProfile({ employee, onClose }: EmployeeProfilePr
                     <button
                         onClick={() => setActiveTab('performance')}
                         className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center space-x-1 ${activeTab === 'performance'
-                            ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                            ? 'border-[#FA812F] text-[#FA812F]'
                             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                             }`}
                     >

@@ -192,7 +192,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                         <div className="px-6 py-2 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 sticky top-[72px] z-10">
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                                 <motion.div
-                                    className="bg-blue-600 h-1.5 rounded-full"
+                                    className="bg-[#FA812F] h-1.5 rounded-full"
                                     initial={{ width: 0 }}
                                     animate={{ width: `${formProgress}%` }}
                                     transition={{ duration: 0.3 }}
@@ -201,25 +201,25 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                             <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
                                 <button
                                     onClick={() => setActiveSection(1)}
-                                    className={`${activeSection >= 1 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    className={`${activeSection >= 1 ? 'text-[#FA812F] dark:text-[#FA812F] font-medium' : ''}`}
                                 >
                                     Personnel*
                                 </button>
                                 <button
                                     onClick={() => personalInfoComplete && setActiveSection(2)}
-                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 2 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 2 ? 'text-[#FA812F] dark:text-[#FA812F] font-medium' : ''}`}
                                 >
                                     Emploi
                                 </button>
                                 <button
                                     onClick={() => personalInfoComplete && setActiveSection(3)}
-                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 3 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 3 ? 'text-[#FA812F] dark:text-[#FA812F] font-medium' : ''}`}
                                 >
                                     Documents
                                 </button>
                                 <button
                                     onClick={() => personalInfoComplete && setActiveSection(4)}
-                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 4 ? 'text-blue-600 dark:text-blue-400 font-medium' : ''}`}
+                                    className={`${!personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''} ${activeSection >= 4 ? 'text-[#FA812F] dark:text-[#FA812F] font-medium' : ''}`}
                                 >
                                     Notes
                                 </button>
@@ -237,12 +237,12 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     className="space-y-6"
                                 >
                                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                                        Informations Personnelles <span className="text-blue-500 text-sm font-normal">*obligatoire</span>
+                                        Informations Personnelles <span className="text-[#FA812F] text-sm font-normal">*obligatoire</span>
                                     </h3>
 
                                     {/* Information note about required fields */}
-                                    <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg p-3">
-                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                    <div className="bg-[#FA812F]/10 dark:bg-[#FA812F]/20 border border-[#FA812F]/20 dark:border-[#FA812F]/30 rounded-lg p-3">
+                                        <p className="text-sm text-[#FA812F] dark:text-[#FA812F]">
                                             Veuillez remplir au moins le nom et l'email pour créer l'employé. Les autres champs peuvent être complétés ultérieurement.
                                         </p>
                                     </div>
@@ -251,7 +251,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                     <div className="flex flex-col items-center mb-6">
                                         <div
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+                                            className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-[#FA812F] dark:hover:border-[#FA812F] transition-colors"
                                         >
                                             {profileImage ? (
                                                 <img
@@ -286,11 +286,11 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 placeholder="Nom complet *"
                                                 value={fullName}
                                                 onChange={handleFullNameChange}
-                                                className={`pl-10 w-full rounded-lg py-2 px-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 ${fullName === '' ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 focus:border-blue-500'}`}
+                                                className={`pl-10 w-full rounded-lg py-2 px-3 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20 ${fullName === '' ? 'border-[#FA812F]/30 dark:border-[#FA812F]/70 bg-[#FA812F]/5 dark:bg-[#FA812F]/20' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 focus:border-[#FA812F]'}`}
                                                 required
                                             />
                                             {fullName === '' && (
-                                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 pl-1">Obligatoire</p>
+                                                <p className="text-xs text-[#FA812F] dark:text-[#FA812F] mt-1 pl-1">Obligatoire</p>
                                             )}
                                         </div>
 
@@ -356,7 +356,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             <input
                                                 type="text"
                                                 placeholder="ex. Ingénieur Logiciel"
-                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                             />
                                         </div>
 
@@ -369,7 +369,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                     <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
                                                 </div>
                                                 <select
-                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                                 >
                                                     <option value="">Sélectionner un département</option>
                                                     <option value="engineering">Ingénierie</option>
@@ -391,7 +391,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 </div>
                                                 <input
                                                     type="date"
-                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                                 />
                                             </div>
                                         </div>
@@ -421,7 +421,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 Responsable/Superviseur
                                             </label>
                                             <select
-                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                             >
                                                 <option value="">Sélectionner un responsable</option>
                                                 <option value="1">Thomas Martin</option>
@@ -454,7 +454,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 <input
                                                     type="text"
                                                     placeholder="ex. Documents de l'employé"
-                                                    className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                    className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                                 />
                                                 <button className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                                                     <PlusIcon className="w-5 h-5" />
@@ -538,19 +538,19 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 <input
                                                     type="text"
                                                     placeholder="ex. Télétravail, Sous-traitant (séparés par virgule)"
-                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                    className="pl-10 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                                 />
                                             </div>
                                             <div className="flex flex-wrap gap-2 mt-2">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FA812F]/10 text-[#FA812F] dark:bg-[#FA812F]/20 dark:text-[#FA812F]">
                                                     Intégration
-                                                    <button className="ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                                    <button className="ml-1 text-[#FA812F] dark:text-[#FA812F] hover:text-orange-600 dark:hover:text-orange-400">
                                                         <XMarkIcon className="h-3 w-3" />
                                                     </button>
                                                 </span>
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FA812F]/10 text-[#FA812F] dark:bg-[#FA812F]/20 dark:text-[#FA812F]">
                                                     Nouveau
-                                                    <button className="ml-1 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200">
+                                                    <button className="ml-1 text-[#FA812F] dark:text-[#FA812F] hover:text-orange-600 dark:hover:text-orange-400">
                                                         <XMarkIcon className="h-3 w-3" />
                                                     </button>
                                                 </span>
@@ -564,7 +564,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                             <textarea
                                                 rows={4}
                                                 placeholder="Ajoutez des notes supplémentaires sur cet employé"
-                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 py-2 px-3 text-gray-900 dark:text-white focus:border-[#FA812F] focus:ring-2 focus:ring-[#FA812F] focus:ring-opacity-20"
                                             />
                                         </div>
 
@@ -607,7 +607,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                 <button
                                                     onClick={handleSaveEmployee}
                                                     disabled={loading}
-                                                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800"
+                                                    className="px-4 py-2 text-sm font-medium text-white bg-[#FA812F] rounded-lg hover:bg-orange-600 focus:ring-4 focus:ring-[#FA812F]/30 dark:focus:ring-[#FA812F]/50"
                                                 >
                                                     {loading ? 'Enregistrement...' : 'Enregistrer'}
                                                 </button>
@@ -620,7 +620,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                                     }
                                                 }}
                                                 disabled={activeSection > 1 && !personalInfoComplete}
-                                                className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 ${activeSection > 1 && !personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`px-4 py-2 text-sm font-medium text-white bg-[#FA812F] rounded-lg hover:bg-orange-600 focus:ring-4 focus:ring-[#FA812F]/30 dark:focus:ring-[#FA812F]/50 ${activeSection > 1 && !personalInfoComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
                                             >
                                                 Continuer
                                             </button>
@@ -629,7 +629,7 @@ export default function AddEmployeePanel({ isOpen, onClose }: AddEmployeePanelPr
                                         <button
                                             onClick={handleSaveEmployee}
                                             disabled={!personalInfoComplete || loading}
-                                            className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 flex items-center ${!personalInfoComplete || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            className={`px-4 py-2 text-sm font-medium text-white bg-[#FA812F] rounded-lg hover:bg-orange-600 focus:ring-4 focus:ring-[#FA812F]/30 dark:focus:ring-[#FA812F]/50 flex items-center ${!personalInfoComplete || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             {loading ? 'Enregistrement...' : <span>Enregistrer l'employé</span>}
                                         </button>

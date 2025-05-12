@@ -156,7 +156,7 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
         </div>
     );
     const getFolderIcon = () => (
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center text-blue-500 bg-blue-100">
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center text-[#FA812F] bg-[#FA812F]/10">
             <FolderIcon className="h-5 w-5" />
         </div>
     );
@@ -172,8 +172,8 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                     ) : (
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] mx-auto" title={folder.name}>
                             {folder.name}
-                            <button onClick={e => { e.stopPropagation(); setRenamingFolderId(folder.id); setRenameValue(folder.name); }} className="ml-1 text-xs text-blue-500"><PencilIcon className="h-3 w-3" /></button>
-                            <button onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="ml-1 text-xs text-red-500"><TrashIcon className="h-3 w-3" /></button>
+                            <button onClick={e => { e.stopPropagation(); setRenamingFolderId(folder.id); setRenameValue(folder.name); }} className="ml-1 text-xs text-[#FA812F]"><PencilIcon className="h-3 w-3" /></button>
+                            <button onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="ml-1 text-xs text-red-500"><TrashIcon className="h-4 w-4" /></button>
                         </div>
                     )}
                 </div>
@@ -205,7 +205,7 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                 </button>
             </div>
             <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-3 flex flex-wrap gap-3 mb-4">
-                <label className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-blue-700 cursor-pointer">
+                <label className="px-3 py-1.5 bg-[#FA812F] text-white rounded-md text-sm font-medium flex items-center gap-1.5 hover:bg-orange-600 cursor-pointer">
                     <ArrowUpTrayIcon className="h-4 w-4" />
                     <span>Importer</span>
                     <input type="file" className="hidden" onChange={handleUploadDocument} />
@@ -225,11 +225,11 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                 </div>
             </div>
             <div className="mb-4 flex items-center text-sm text-gray-600 dark:text-gray-400 flex-wrap">
-                <button onClick={handleHomeClick} className="hover:text-blue-600 dark:hover:text-blue-400">Racine</button>
+                <button onClick={handleHomeClick} className="hover:text-[#FA812F] dark:hover:text-[#FA812F]">Racine</button>
                 {path.map((folder, index) => (
                     <div key={folder.id} className="flex items-center">
                         <span className="mx-1">/</span>
-                        <button onClick={() => { setCurrentFolder(folder); setPath(path.slice(0, index)); }} className="hover:text-blue-600 dark:hover:text-blue-400">{folder.name}</button>
+                        <button onClick={() => { setCurrentFolder(folder); setPath(path.slice(0, index)); }} className="hover:text-[#FA812F] dark:hover:text-[#FA812F]">{folder.name}</button>
                     </div>
                 ))}
                 {currentFolder && <><span className="mx-1">/</span><span className="font-medium text-gray-900 dark:text-white">{currentFolder.name}</span></>}
@@ -238,7 +238,7 @@ export default function DocumentFolderView({ employeeId, onClose, maxTableHeight
                 <div className="w-full mb-2">
                     <div className="h-2 bg-gray-200 rounded">
                         <div
-                            className="h-2 bg-blue-500 rounded transition-all"
+                            className="h-2 bg-[#FA812F] rounded transition-all"
                             style={{ width: `${uploadProgress}%` }}
                         />
                     </div>

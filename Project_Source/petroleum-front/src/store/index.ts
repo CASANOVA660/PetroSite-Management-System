@@ -11,6 +11,7 @@ import equipmentReducer from './slices/equipmentSlice';
 import taskReducer from './slices/taskSlice';
 import chatReducer from './slices/chatSlice';
 import employeesReducer from './slices/employeesSlice';
+import meetingReducer from './slices/meetingSlice';
 
 export const store = configureStore({
     reducer: {
@@ -24,7 +25,8 @@ export const store = configureStore({
         equipment: equipmentReducer,
         tasks: taskReducer,
         chat: chatReducer,
-        employees: employeesReducer
+        employees: employeesReducer,
+        meetings: meetingReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -39,3 +41,4 @@ export const useAppDispatch = () => useDispatch<AppDispatch>();
 export default store;
 
 export * from './slices/employeesSlice';
+export * from './slices/meetingSlice';

@@ -131,7 +131,7 @@ export default function UserProfiles() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center sm:items-start gap-6"
+            className="bg-gradient-to-r from-[#FA812F] to-orange-400 rounded-2xl p-6 mb-8 flex flex-col sm:flex-row items-center sm:items-start gap-6"
           >
             <div className="relative">
               <motion.div
@@ -171,7 +171,7 @@ export default function UserProfiles() {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={openModal}
-                    className="p-2 bg-indigo-600 text-white rounded-full"
+                    className="p-2 bg-[#FA812F] text-white rounded-full"
                     title={photoUrl ? "Edit Photo" : "Add Photo"}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,7 +278,7 @@ export default function UserProfiles() {
             <Button
               size="sm"
               onClick={triggerFileInput}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-[#FA812F] hover:bg-orange-600"
               disabled={isUploading}
             >
               Choose Photo
@@ -299,7 +299,7 @@ export default function UserProfiles() {
               size="sm"
               type="button"
               onClick={handleSavePhoto}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-[#FA812F] hover:bg-orange-600"
               disabled={!previewUrl || isUploading}
             >
               {isUploading ? 'Uploading...' : 'Save Photo'}

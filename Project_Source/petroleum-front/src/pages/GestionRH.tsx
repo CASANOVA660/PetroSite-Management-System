@@ -105,7 +105,7 @@ export default function GestionRH() {
                     {/* Add Employee Button */}
                     <button
                         onClick={toggleAddPanel}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-[#FA812F] hover:bg-orange-600 text-white rounded-lg transition-colors shadow-sm hover:shadow-md"
                     >
                         <UserPlusIcon className="h-5 w-5" />
                         <span>Ajouter un Employé</span>

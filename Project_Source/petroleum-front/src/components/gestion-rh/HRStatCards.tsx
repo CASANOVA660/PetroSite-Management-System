@@ -46,31 +46,31 @@ export default function HRStatCards() {
             title: 'Total Employés',
             value: totalEmployees,
             percentChange: 12, // TODO: Replace with real delta
-            icon: <UsersIcon className="h-6 w-6" />, color: 'bg-blue-500/10 text-blue-500'
+            icon: <UsersIcon className="h-6 w-6" />, color: 'bg-[#FA812F]/10 text-[#FA812F]'
         },
         {
             title: 'Contrats Actifs',
             value: activeContracts,
             percentChange: 4, // TODO: Replace with real delta
-            icon: <ClipboardDocumentCheckIcon className="h-6 w-6" />, color: 'bg-green-500/10 text-green-500'
+            icon: <ClipboardDocumentCheckIcon className="h-6 w-6" />, color: 'bg-[#FA812F]/10 text-[#FA812F]'
         },
         {
             title: 'Renouvellements en Attente',
             value: pendingRenewals,
             percentChange: -3, // TODO: Replace with real delta
-            icon: <ClockIcon className="h-6 w-6" />, color: 'bg-orange-500/10 text-orange-500'
+            icon: <ClockIcon className="h-6 w-6" />, color: 'bg-[#FA812F]/10 text-[#FA812F]'
         },
         {
             title: 'Alertes Performance',
             value: performanceAlerts,
             percentChange: -25, // TODO: Replace with real delta
-            icon: <BellAlertIcon className="h-6 w-6" />, color: 'bg-red-500/10 text-red-500'
+            icon: <BellAlertIcon className="h-6 w-6" />, color: 'bg-[#FA812F]/10 text-[#FA812F]'
         },
         {
             title: 'Documents Chargés',
             value: documentCount,
             percentChange: 17, // TODO: Replace with real delta
-            icon: <FolderIcon className="h-6 w-6" />, color: 'bg-purple-500/10 text-purple-500'
+            icon: <FolderIcon className="h-6 w-6" />, color: 'bg-[#FA812F]/10 text-[#FA812F]'
         }
     ];
 

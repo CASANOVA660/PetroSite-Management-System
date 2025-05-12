@@ -42,6 +42,7 @@ import { Toaster } from 'react-hot-toast';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { RootState } from './store';
 import PlanningPage from "./pages/Planning";
+import { ReunionPage } from './pages/Reunion/ReunionPage';
 
 // Toast options for consistent styling
 const getToastOptions = () => {
@@ -176,6 +177,9 @@ export default function App() {
 
               {/* Planning Page */}
               <Route path="/planning" element={<PlanningPage />} />
+
+              {/* Reunions Page */}
+              <Route path="/reunions" element={<ReunionPage />} />
 
               {/* HR Management */}
               <Route path="/gestion-rh" element={<GestionRH />} />

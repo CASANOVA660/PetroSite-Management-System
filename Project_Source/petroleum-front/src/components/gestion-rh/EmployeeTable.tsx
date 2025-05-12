@@ -126,6 +126,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                         </span>
                     )}
                 </h2>
+
             </div>
 
             {/* Table content */}
@@ -173,7 +174,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ duration: 0.3 }}
-                                    className={`hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors ${selectedEmployeeId === employee._id ? 'bg-blue-50 dark:bg-slate-700' : ''}`}
+                                    className={`hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors ${selectedEmployeeId === employee._id ? 'bg-[#FA812F]/10 dark:bg-[#FA812F]/20' : ''}`}
                                     onClick={() => onSelectEmployee(employee)}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -186,7 +187,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                                         alt={employee.name}
                                                     />
                                                 ) : (
-                                                    <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-teal-500 flex items-center justify-center text-white text-sm font-medium">
+                                                    <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#FA812F] to-orange-400 flex items-center justify-center text-white text-sm font-medium">
                                                         {employee.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
                                                     </div>
                                                 )}
@@ -235,7 +236,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                                     e.stopPropagation();
                                                     onSelectEmployee(employee);
                                                 }}
-                                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                                className="text-[#FA812F] hover:text-orange-600 dark:text-[#FA812F] dark:hover:text-orange-400"
                                             >
                                                 <EyeIcon className="h-5 w-5" />
                                             </button>
@@ -244,7 +245,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                                     e.stopPropagation();
                                                     onViewDocuments(employee);
                                                 }}
-                                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                                className="text-[#FA812F] hover:text-orange-600 dark:text-[#FA812F] dark:hover:text-orange-400"
                                             >
                                                 <DocumentTextIcon className="h-5 w-5" />
                                             </button>
@@ -303,7 +304,7 @@ export default function EmployeeTable({ searchParams, onSelectEmployee, onViewDo
                                             key={index}
                                             onClick={() => handlePageChange(pageNumber)}
                                             className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNumber
-                                                ? 'z-10 bg-blue-50 dark:bg-blue-900 border-blue-500 dark:border-blue-600 text-blue-600 dark:text-blue-200'
+                                                ? 'z-10 bg-[#FA812F]/10 border-[#FA812F] text-[#FA812F]'
                                                 : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'
                                                 }`}
                                         >

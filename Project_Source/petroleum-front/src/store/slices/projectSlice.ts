@@ -3,7 +3,7 @@ import axios from '../../utils/axios';
 import { RootState } from '../../store';
 import { toast } from 'react-hot-toast';
 
-interface Project {
+export interface Project {
     _id: string;
     projectNumber: string;
     name: string;
@@ -306,6 +306,9 @@ const projectSlice = createSlice({
         clearSelectedProject: (state) => {
             state.selectedProject = null;
         },
+        clearProjectError: (state) => {
+            state.error = null;
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -384,5 +387,5 @@ const projectSlice = createSlice({
     },
 });
 
-export const { clearSelectedProject } = projectSlice.actions;
+export const { clearSelectedProject, clearProjectError } = projectSlice.actions;
 export default projectSlice.reducer;
