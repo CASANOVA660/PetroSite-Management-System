@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Meeting, updateMeeting, deleteMeeting } from '../../store/slices/meetingSlice';
 import { RootState } from '../../store';
 import { formatDate } from '../../utils/dateUtils';
 import { Modal } from '../ui/modal';
+import { fetchUsers } from '../../store/slices/userSlice';
 
 interface ReunionDetailsModalProps {
     isOpen: boolean;
@@ -26,16 +27,128 @@ interface Attachment {
     url: string;
 }
 
+interface Participant {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    nom?: string;
+    prenom?: string;
+    avatar?: string;
+    profilePicture?: string | { url: string; publicId: string };
+    name?: string;
+    email?: string;
+}
+
 type TabType = 'details' | 'notes' | 'attachments';
 
 export const ReunionDetailsModal: React.FC<ReunionDetailsModalProps> = ({ isOpen, onClose, reunion }) => {
     const dispatch = useDispatch();
     const { loading } = useSelector((state: RootState) => state.meetings);
+    const { users, loading: usersLoading } = useSelector((state: RootState) => state.users);
     const [activeTab, setActiveTab] = useState<TabType>('details');
     const [newNote, setNewNote] = useState('');
     const [notes, setNotes] = useState<Note[]>([]);
     const [attachments, setAttachments] = useState<Attachment[]>([]);
     const [isNoteSaving, setIsNoteSaving] = useState(false);
+    const [processedParticipants, setProcessedParticipants] = useState<any[]>([]);
+
+    // Fetch users when modal opens if needed
+    React.useEffect(() => {
+        if (isOpen && (!users || users.length === 0)) {
+            console.log('ReunionDetailsModal opened, fetching users...');
+            dispatch(fetchUsers() as any);
+        }
+    }, [isOpen, users, dispatch]);
+
+    // Process participants from reunion if available
+    React.useEffect(() => {
+        if (reunion.participants && Array.isArray(reunion.participants)) {
+            // Handle either array of objects or array of IDs
+            const participants = reunion.participants.map((participant: any) => {
+                // If it's just an ID string, create a minimal object
+                if (typeof participant === 'string') {
+                    // Look up user in Redux store if available
+                    const userFromStore = users?.find(u => u._id === participant);
+                    if (userFromStore) {
+                        return {
+                            _id: participant,
+                            nom: userFromStore.nom || '',
+                            prenom: userFromStore.prenom || '',
+                            email: userFromStore.email || '',
+                            profilePicture: userFromStore.profilePicture || ''
+                        };
+                    }
+                    return { _id: participant, name: 'Participant' };
+                }
+
+                // Log participant data for debugging
+                console.log('Participant data:', participant);
+
+                // Make sure we have a proper _id
+                const id = participant._id || participant.id || 'unknown';
+
+                // Look up additional user data in Redux store if we only have ID and email
+                let enrichedParticipant = { ...participant };
+                if (participant._id && participant.email && (!participant.nom && !participant.prenom && !participant.firstName && !participant.lastName)) {
+                    const userFromStore = users?.find(u => u._id === participant._id || u.email === participant.email);
+                    if (userFromStore) {
+                        enrichedParticipant = {
+                            ...participant,
+                            nom: userFromStore.nom,
+                            prenom: userFromStore.prenom,
+                            profilePicture: userFromStore.profilePicture
+                        };
+                    }
+                }
+
+                // Get the display name - try all possible combinations
+                let displayName = '';
+                if (enrichedParticipant.nom && enrichedParticipant.prenom) {
+                    displayName = `${enrichedParticipant.nom} ${enrichedParticipant.prenom}`;
+                } else if (enrichedParticipant.firstName && enrichedParticipant.lastName) {
+                    displayName = `${enrichedParticipant.firstName} ${enrichedParticipant.lastName}`;
+                } else if (enrichedParticipant.name) {
+                    displayName = enrichedParticipant.name;
+                } else if (enrichedParticipant.email) {
+                    // Use email username part if nothing else available
+                    displayName = enrichedParticipant.email.split('@')[0];
+                } else {
+                    displayName = 'Participant';
+                }
+
+                // Get initials for avatar fallback
+                const initials = displayName !== 'Participant'
+                    ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                    : 'PA';
+
+                // Process profilePicture if it's an object
+                let avatarUrl = '';
+                if (enrichedParticipant.profilePicture) {
+                    if (typeof enrichedParticipant.profilePicture === 'object' && enrichedParticipant.profilePicture.url) {
+                        avatarUrl = enrichedParticipant.profilePicture.url;
+                    } else if (typeof enrichedParticipant.profilePicture === 'string') {
+                        avatarUrl = enrichedParticipant.profilePicture;
+                    }
+                }
+
+                // Create a normalized participant object with all possible props
+                return {
+                    _id: id,
+                    firstName: enrichedParticipant.firstName || '',
+                    lastName: enrichedParticipant.lastName || '',
+                    nom: enrichedParticipant.nom || enrichedParticipant.firstName || '',
+                    prenom: enrichedParticipant.prenom || enrichedParticipant.lastName || '',
+                    email: enrichedParticipant.email || '',
+                    avatar: enrichedParticipant.avatar || avatarUrl || '',
+                    profilePicture: avatarUrl || enrichedParticipant.avatar || '',
+                    name: displayName,
+                    initials: initials
+                };
+            });
+            setProcessedParticipants(participants);
+            console.log('Processed participants:', participants);
+        }
+    }, [reunion.participants, users]);
 
     // Initialize notes and attachments from reunion if available
     React.useEffect(() => {
@@ -163,6 +276,9 @@ export const ReunionDetailsModal: React.FC<ReunionDetailsModalProps> = ({ isOpen
     };
 
     const getParticipantName = (participant: any) => {
+        if (participant.nom && participant.prenom) {
+            return `${participant.nom} ${participant.prenom}`;
+        }
         if (participant.firstName && participant.lastName) {
             return `${participant.firstName} ${participant.lastName}`;
         }
@@ -170,12 +286,22 @@ export const ReunionDetailsModal: React.FC<ReunionDetailsModalProps> = ({ isOpen
     };
 
     const getParticipantAvatar = (participant: any) => {
+        // Check for avatar first
         if (participant.avatar) {
             return participant.avatar;
         }
+
+        // Then check for profilePicture
         if (participant.profilePicture) {
-            return participant.profilePicture;
+            if (typeof participant.profilePicture === 'object' && participant.profilePicture.url) {
+                return participant.profilePicture.url;
+            }
+            if (typeof participant.profilePicture === 'string') {
+                return participant.profilePicture;
+            }
         }
+
+        // Finally, fall back to a generated avatar
         const name = getParticipantName(participant);
         return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
     };
@@ -307,14 +433,20 @@ export const ReunionDetailsModal: React.FC<ReunionDetailsModalProps> = ({ isOpen
                                         <h3 className="text-lg font-semibold text-gray-800 mb-3">Participants</h3>
                                         <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {reunion.participants && reunion.participants.map((participant, idx) => (
+                                                {processedParticipants.map((participant, idx) => (
                                                     <div key={participant._id || idx} className="flex items-center bg-gray-50 p-3 rounded-lg">
-                                                        <img
-                                                            className="h-10 w-10 rounded-full mr-3 border-2 border-white shadow"
-                                                            src={getParticipantAvatar(participant)}
-                                                            alt={getParticipantName(participant)}
-                                                        />
-                                                        <span className="font-medium text-gray-700">{getParticipantName(participant)}</span>
+                                                        {participant.avatar ? (
+                                                            <img
+                                                                className="h-10 w-10 rounded-full mr-3 border-2 border-white shadow object-cover"
+                                                                src={participant.avatar}
+                                                                alt={participant.name}
+                                                            />
+                                                        ) : (
+                                                            <div className="h-10 w-10 rounded-full mr-3 border-2 border-white shadow bg-blue-500 flex items-center justify-center text-white font-bold">
+                                                                {participant.initials}
+                                                            </div>
+                                                        )}
+                                                        <span className="font-medium text-gray-700">{participant.name}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -326,21 +458,25 @@ export const ReunionDetailsModal: React.FC<ReunionDetailsModalProps> = ({ isOpen
                                             <h3 className="text-lg font-semibold text-gray-800 mb-3">Participants externes</h3>
                                             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                    {reunion.externalParticipants.map((participant, idx) => (
-                                                        <div key={idx} className="flex items-center bg-gray-50 p-3 rounded-lg">
-                                                            <img
-                                                                className="h-10 w-10 rounded-full mr-3 border-2 border-white shadow"
-                                                                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name)}&background=random`}
-                                                                alt={participant.name}
-                                                            />
-                                                            <div>
-                                                                <span className="font-medium text-gray-700 block">{participant.name}</span>
-                                                                {participant.email && (
-                                                                    <span className="text-gray-500 text-sm">{participant.email}</span>
-                                                                )}
+                                                    {reunion.externalParticipants.map((participant, idx) => {
+                                                        const initials = participant.name
+                                                            ? participant.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                                                            : 'EX';
+
+                                                        return (
+                                                            <div key={idx} className="flex items-center bg-gray-50 p-3 rounded-lg">
+                                                                <div className="h-10 w-10 rounded-full mr-3 border-2 border-white shadow bg-green-500 flex items-center justify-center text-white font-bold">
+                                                                    {initials}
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-medium text-gray-700 block">{participant.name}</span>
+                                                                    {participant.email && (
+                                                                        <span className="text-gray-500 text-sm">{participant.email}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>

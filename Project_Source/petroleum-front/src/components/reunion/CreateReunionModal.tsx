@@ -8,7 +8,7 @@ import { fetchProjects } from '../../store/slices/projectSlice';
 interface CreateReunionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (reunion: any) => void;
+    onSave: (reunion: any) => Promise<boolean | void> | boolean | void;
 }
 
 interface ExternalParticipant {
@@ -18,36 +18,22 @@ interface ExternalParticipant {
 
 interface Participant {
     _id: string;
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
+    nom?: string;
+    prenom?: string;
     avatar?: string;
+    email?: string;
+    profilePicture?: string | { url: string; publicId: string };
 }
 
-// Fallback to dummy data if user data is not yet loaded from Redux
-const dummyParticipants: Participant[] = [
-    { _id: 'p1', firstName: 'Marie', lastName: 'Dubois', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
-    { _id: 'p2', firstName: 'Jean', lastName: 'Martin', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
-    { _id: 'p3', firstName: 'Sophie', lastName: 'Lefebvre', avatar: 'https://randomuser.me/api/portraits/women/17.jpg' },
-    { _id: 'p4', firstName: 'Thomas', lastName: 'Bernard', avatar: 'https://randomuser.me/api/portraits/men/22.jpg' },
-    { _id: 'p5', firstName: 'Camille', lastName: 'Petit', avatar: 'https://randomuser.me/api/portraits/women/26.jpg' },
-    { _id: 'p6', firstName: 'Lucas', lastName: 'Moreau', avatar: 'https://randomuser.me/api/portraits/men/59.jpg' },
-    { _id: 'p7', firstName: 'Emma', lastName: 'Roux', avatar: 'https://randomuser.me/api/portraits/women/63.jpg' },
-    { _id: 'p8', firstName: 'Hugo', lastName: 'Fournier', avatar: 'https://randomuser.me/api/portraits/men/91.jpg' },
-];
 
-// Dummy projects for selection - replace with Redux data when available
-const dummyProjects = [
-    { _id: 'proj-1', name: 'Développement SAAS Pétrole' },
-    { _id: 'proj-2', name: 'Optimisation Pipeline Nord' },
-    { _id: 'proj-3', name: 'Exploration Gisement B24' },
-    { _id: 'proj-4', name: 'Maintenance Plateforme Offshore' },
-    { _id: 'proj-5', name: 'Formation HSE 2025' },
-];
 
 export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, onClose, onSave }) => {
     const dispatch = useDispatch();
     const { users, loading: usersLoading } = useSelector((state: RootState) => state.users);
     const { projects, loading: projectsLoading } = useSelector((state: RootState) => state.projects);
+    const [processedUsers, setProcessedUsers] = useState<any[]>([]);
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -77,6 +63,48 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
             dispatch(fetchProjects() as any);
         }
     }, [dispatch, isOpen]);
+
+    // Process users data when it changes
+    useEffect(() => {
+        if (Array.isArray(users) && users.length > 0) {
+            // Log users data for debugging
+            console.log('Original users data:', users);
+
+            // Normalize the users data
+            const normalizedUsers = users.map(user => {
+                // Handle profilePicture object
+                let avatarUrl = '';
+                if (user.profilePicture && typeof user.profilePicture === 'object' && user.profilePicture.url) {
+                    avatarUrl = user.profilePicture.url;
+                } else if (typeof user.profilePicture === 'string') {
+                    avatarUrl = user.profilePicture;
+                }
+
+                return {
+                    _id: user._id,
+                    nom: user.nom || '',
+                    prenom: user.prenom || '',
+                    email: user.email || '',
+                    avatar: avatarUrl || '',
+                    profilePicture: avatarUrl || '',
+                    // Generate name from available fields
+                    name: `${user.nom || ''} ${user.prenom || ''}`.trim() || 'Participant'
+                };
+            });
+
+            console.log('Normalized users:', normalizedUsers);
+            setProcessedUsers(normalizedUsers);
+        } else {
+            // Use fallback data if no users are available
+            const fallbackUsers = [
+                { _id: 'p1', nom: 'Dubois', prenom: 'Marie', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
+                { _id: 'p2', nom: 'Martin', prenom: 'Jean', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
+                { _id: 'p3', nom: 'Lefebvre', prenom: 'Sophie', avatar: 'https://randomuser.me/api/portraits/women/17.jpg' },
+                { _id: 'p4', nom: 'Bernard', prenom: 'Thomas', avatar: 'https://randomuser.me/api/portraits/men/22.jpg' },
+            ];
+            setProcessedUsers(fallbackUsers);
+        }
+    }, [users]);
 
     const resetForm = () => {
         setTitle('');
@@ -123,7 +151,7 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
         return !Object.values(newErrors).some(Boolean);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!validateForm()) return;
@@ -146,13 +174,32 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
             projectId: selectedProject ? selectedProject._id : undefined
         };
 
+        console.log('Creating new meeting with data:', newReunion);
+
+        // Show success message
         setShowSuccess(true);
 
-        // Close after a brief success message
-        setTimeout(() => {
-            onSave(newReunion);
-            resetForm();
-        }, 1500);
+        try {
+            // Call onSave with meeting data
+            console.log('Calling onSave with meeting data');
+            const result = await onSave(newReunion);
+
+            // If the save was successful (result is not explicitly false), close the modal after a delay
+            if (result !== false) {
+                setTimeout(() => {
+                    onClose();
+                }, 1500);
+            } else {
+                // If there was an error (result is explicitly false), reset the state to show the form again
+                setShowSuccess(false);
+                setIsSubmitting(false);
+            }
+        } catch (error) {
+            console.error('Error in handleSubmit:', error);
+            // Show the form again on error
+            setShowSuccess(false);
+            setIsSubmitting(false);
+        }
     };
 
     const addExternalParticipant = () => {
@@ -181,23 +228,37 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
     };
 
     const filterParticipants = (search: string) => {
-        if (!search.trim()) return users;
+        if (!search.trim()) return processedUsers;
 
         const searchLower = search.toLowerCase();
-        return users.filter(user =>
-            `${user.nom} ${user.prenom}`.toLowerCase().includes(searchLower) ||
-            user.email.toLowerCase().includes(searchLower)
-        );
+        return processedUsers.filter(user => {
+            const userName = getParticipantName(user).toLowerCase();
+            const userEmail = user.email ? user.email.toLowerCase() : '';
+            return userName.includes(searchLower) || userEmail.includes(searchLower);
+        });
     };
 
     const filteredParticipants = filterParticipants(searchQuery);
 
     const getParticipantName = (participant: any) => {
-        return `${participant.firstName} ${participant.lastName}`;
+        if (participant.nom && participant.prenom) {
+            return `${participant.nom} ${participant.prenom}`;
+        }
+        if (participant.firstName && participant.lastName) {
+            return `${participant.firstName} ${participant.lastName}`;
+        }
+        return participant.name || 'Participant';
     };
 
     const getParticipantAvatar = (participant: any) => {
-        return participant.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(getParticipantName(participant))}&background=random`;
+        if (participant.avatar) {
+            return participant.avatar;
+        }
+        if (participant.profilePicture) {
+            return participant.profilePicture;
+        }
+        const name = getParticipantName(participant);
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
     };
 
     if (!isOpen) return null;
@@ -212,13 +273,22 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
                     <h2 className="text-xl font-bold text-gray-800 mb-3">Créer une Nouvelle Réunion</h2>
 
                     {showSuccess ? (
-                        <div className="flex flex-col items-center justify-center py-6">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                        <div className="flex flex-col items-center justify-center py-8">
+                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                                 <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
-                            <p className="text-lg font-medium text-gray-700">Réunion créée avec succès!</p>
+                            <p className="text-lg font-medium text-gray-700 mb-3">Réunion créée avec succès!</p>
+                            <p className="text-sm text-gray-500 mb-6">La page sera automatiquement actualisée.</p>
+                            <div className="flex justify-center">
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Fermer
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-3">
@@ -382,7 +452,7 @@ export const CreateReunionModal: React.FC<CreateReunionModalProps> = ({ isOpen, 
                                 {selectedParticipants.length > 0 && (
                                     <div className="mt-2 flex flex-wrap gap-2">
                                         {selectedParticipants.map(id => {
-                                            const participant = users.find(p => p._id === id);
+                                            const participant = processedUsers.find(p => p._id === id);
                                             if (!participant) return null;
 
                                             return (
