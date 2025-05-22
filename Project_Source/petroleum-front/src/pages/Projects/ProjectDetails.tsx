@@ -14,6 +14,7 @@ import DossierTechnique from '../../components/documents/DossierTechnique';
 import DossierRH from '../../components/documents/DossierRH';
 import DossierHSE from '../../components/documents/DossierHSE';
 import Actions from '../../components/actions/Actions';
+import KpiConfiguration from '../../components/documents/configkpi/KpiConfiguration';
 import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -200,6 +201,10 @@ const ProjectDetails: React.FC = () => {
             <div className="max-w-7xl mx-auto space-y-6">
                 {id && (
                     <>
+                        <Section title="Configuration des KPIs" icon={<ChartBarIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
+                            <KpiConfiguration />
+                        </Section>
+
                         <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
                             <DocumentsGlobale projectId={id} />
                             <div className="flex items-center mb-4 mt-8">
