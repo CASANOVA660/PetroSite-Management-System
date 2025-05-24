@@ -160,16 +160,16 @@ const ChartSelector: React.FC<ChartSelectorProps> = ({ onSelect, selectedChart }
                                     key={chart.id}
                                     onClick={() => onSelect(chart.id)}
                                     className={`p-4 rounded-lg border-2 transition-all ${selectedChart === chart.id
-                                            ? 'border-[#F28C38] bg-[#F28C38]/5'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-[#F28C38]/50'
+                                        ? 'border-[#F28C38] bg-[#F28C38]/5'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-[#F28C38]/50'
                                         }`}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
                                     <div className="flex items-start space-x-3">
                                         <div className={`p-2 rounded-lg ${selectedChart === chart.id
-                                                ? 'bg-[#F28C38] text-white'
-                                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                            ? 'bg-[#F28C38] text-white'
+                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                                             }`}>
                                             <chart.icon className="h-5 w-5" />
                                         </div>

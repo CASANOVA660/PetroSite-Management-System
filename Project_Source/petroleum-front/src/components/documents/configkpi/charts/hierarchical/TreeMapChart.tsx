@@ -1,29 +1,11 @@
 import React from 'react';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-} from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { getChartOptions, chartColors } from '../chartTheme';
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-);
-
-interface TreeMapDataPoint {
-    value: number;
+interface TreeItem {
     label: string;
+    value: number;
     group?: string;
-    backgroundColor?: string;
 }
 
 interface TreeMapChartProps {
@@ -31,8 +13,7 @@ interface TreeMapChartProps {
     data: {
         datasets: {
             label: string;
-            tree: TreeMapDataPoint[];
-            backgroundColor?: string[];
+            tree?: TreeItem[];
             borderColor?: string;
             borderWidth?: number;
         }[];
@@ -47,70 +28,63 @@ const TreeMapChart: React.FC<TreeMapChartProps> = ({
     data,
     height = 300,
     showLegend = true,
-    colorScale = ['#ffeda0', '#feb24c', '#f03b20']
+    colorScale
 }) => {
+    // Check if data and tree array exist
+    if (!data || !data.datasets || !data.datasets[0] || !data.datasets[0].tree) {
+        return (
+            <div style={{ height: `${height}px` }} className="flex items-center justify-center text-gray-500">
+                No treemap data available
+            </div>
+        );
+    }
+
+    // Use default color scale if not provided
+    const colors = colorScale || [
+        chartColors.primaryBg,
+        chartColors.secondaryBg,
+        chartColors.warningBg,
+        chartColors.dangerBg,
+        chartColors.infoBg
+    ];
+
     // Sort data by value for better visualization
-    const sortedData = data.datasets[0].tree.sort((a, b) => b.value - a.value);
+    const sortedData = [...data.datasets[0].tree].sort((a, b) => b.value - a.value);
 
     const chartData = {
         labels: sortedData.map(item => item.label),
         datasets: [{
-            label: data.datasets[0].label,
+            label: data.datasets[0].label || 'Data',
             data: sortedData.map(item => item.value),
-            backgroundColor: sortedData.map((_, index) => {
+            backgroundColor: sortedData.map((item, index) => {
+                // Group-based coloring if groups exist
+                if (item.group) {
+                    // Get unique groups and assign colors
+                    const groups = [...new Set(sortedData.map(d => d.group))];
+                    const groupIndex = groups.indexOf(item.group);
+                    return colors[groupIndex % colors.length];
+                }
+
+                // Otherwise use index-based coloring
                 const normalizedValue = index / sortedData.length;
                 const colorIndex = Math.min(
-                    Math.floor(normalizedValue * (colorScale.length - 1)),
-                    colorScale.length - 1
+                    Math.floor(normalizedValue * (colors.length - 1)),
+                    colors.length - 1
                 );
-                return colorScale[colorIndex];
+                return colors[colorIndex];
             }),
             borderColor: data.datasets[0].borderColor || 'white',
             borderWidth: data.datasets[0].borderWidth || 1
         }]
     };
 
+    // Use the theme helper to get consistent options
+    const baseOptions = getChartOptions('bar', title, showLegend, 'top');
+
+    // Add TreeMap specific options
     const options = {
+        ...baseOptions,
         indexAxis: 'y' as const,
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: showLegend,
-                position: 'top' as const,
-                labels: {
-                    padding: 20,
-                    usePointStyle: true,
-                    pointStyle: 'rect'
-                }
-            },
-            title: {
-                display: true,
-                text: title,
-                font: {
-                    size: 16,
-                    weight: 'bold' as const
-                },
-                padding: {
-                    top: 10,
-                    bottom: 20
-                }
-            },
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const value = context.raw;
-                        const label = context.label;
-                        const group = sortedData[context.dataIndex].group;
-                        const labels = [`Value: ${value}`];
-                        if (group) {
-                            labels.push(`Group: ${group}`);
-                        }
-                        return labels;
-                    }
-                }
-            }
-        },
         scales: {
             x: {
                 beginAtZero: true,
@@ -125,6 +99,20 @@ const TreeMapChart: React.FC<TreeMapChartProps> = ({
             }
         }
     };
+
+    // Add custom tooltip formatting
+    if (options.plugins && options.plugins.tooltip && options.plugins.tooltip.callbacks) {
+        options.plugins.tooltip.callbacks.label = (context: any) => {
+            const value = context.raw;
+            const label = context.label;
+            const group = sortedData[context.dataIndex]?.group;
+            const labels = [`Value: ${value}`];
+            if (group) {
+                labels.push(`Group: ${group}`);
+            }
+            return labels;
+        };
+    }
 
     return (
         <div style={{ height: `${height}px` }}>

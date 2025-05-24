@@ -25,6 +25,8 @@ const socketIo = require('socket.io');
 const logger = require('./utils/logger');
 const globalActionRoutes = require('./modules/actions/routes/globalAction.routes');
 const { handleTyping } = require('./modules/chat/controllers/messageController');
+const kpiFieldsRoutes = require('./modules/kpis/fields.routes');
+const kpiRoutes = require('./modules/kpis/kpi.routes');
 
 dotenv.config();
 
@@ -195,6 +197,12 @@ app.use('/api/gestion-rh/employees', gestionRhRoutes);
 app.use('/api/meetings', meetRoutes);
 app.use('/api/projects/:projectId/meetings', projectMeetRoutes);
 app.use('/api/meet', require('./modules/meet/routes/meet.routes')); // New meet module route
+
+// New KPI fields route
+app.use('/api/kpis', kpiFieldsRoutes);
+
+// New KPI CRUD API route
+app.use('/api/kpis', kpiRoutes);
 
 // Error handling
 app.use(errorHandler);

@@ -1,25 +1,7 @@
 import React from 'react';
-import {
-    Chart as ChartJS,
-    RadialLinearScale,
-    PointElement,
-    LineElement,
-    Filler,
-    Tooltip,
-    Legend,
-    Title
-} from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-
-ChartJS.register(
-    RadialLinearScale,
-    PointElement,
-    LineElement,
-    Filler,
-    Tooltip,
-    Legend,
-    Title
-);
+import { getChartOptions, chartColors, formatNumber } from '../chartTheme';
+import '../ChartRegistry'; // Import the registry to ensure all components are registered
 
 interface RadarChartProps {
     title: string;
@@ -28,10 +10,12 @@ interface RadarChartProps {
         datasets: {
             label: string;
             data: number[];
-            backgroundColor?: string;
-            borderColor?: string;
-            borderWidth?: number;
-            fill?: boolean;
+            backgroundColor: string;
+            borderColor: string;
+            pointBackgroundColor?: string;
+            pointBorderColor?: string;
+            pointHoverBackgroundColor?: string;
+            pointHoverBorderColor?: string;
         }[];
     };
     height?: number;
@@ -46,41 +30,12 @@ const RadarChart: React.FC<RadarChartProps> = ({
     showLegend = true,
     maxValue = 100
 }) => {
+    // Use the theme helper to get consistent options
+    const baseOptions = getChartOptions('radar', title, showLegend, 'top');
+
+    // Add radar-specific options
     const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: showLegend,
-                position: 'top' as const,
-                labels: {
-                    padding: 20,
-                    usePointStyle: true,
-                    pointStyle: 'circle'
-                }
-            },
-            title: {
-                display: true,
-                text: title,
-                font: {
-                    size: 16,
-                    weight: 'bold' as const
-                },
-                padding: {
-                    top: 10,
-                    bottom: 20
-                }
-            },
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const label = context.dataset.label || '';
-                        const value = context.raw || 0;
-                        return `${label}: ${value}`;
-                    }
-                }
-            }
-        },
+        ...baseOptions,
         scales: {
             r: {
                 angleLines: {
@@ -102,22 +57,35 @@ const RadarChart: React.FC<RadarChartProps> = ({
                     color: 'rgba(0, 0, 0, 0.1)'
                 }
             }
-        },
-        elements: {
-            line: {
-                borderWidth: 2
-            },
-            point: {
-                radius: 3,
-                hitRadius: 10,
-                hoverRadius: 5
-            }
         }
     };
 
+    // Add custom tooltip formatting
+    if (options.plugins && options.plugins.tooltip && options.plugins.tooltip.callbacks) {
+        options.plugins.tooltip.callbacks.label = (context: any) => {
+            const label = context.dataset.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${formatNumber(value)}`;
+        };
+    }
+
+    // Enhance data with consistent styling if needed
+    const enhancedData = {
+        ...data,
+        datasets: data.datasets.map((dataset, index) => ({
+            ...dataset,
+            backgroundColor: dataset.backgroundColor || chartColors.primaryBg,
+            borderColor: dataset.borderColor || chartColors.primary,
+            pointBackgroundColor: dataset.pointBackgroundColor || chartColors.primary,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 5
+        }))
+    };
+
     return (
-        <div style={{ height: `${height}px` }}>
-            <Radar data={data} options={options} />
+        <div style={{ height: `${height}px` }} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <Radar data={enhancedData} options={options} />
         </div>
     );
 };

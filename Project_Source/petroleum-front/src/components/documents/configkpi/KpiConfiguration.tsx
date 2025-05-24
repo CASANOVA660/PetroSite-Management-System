@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChartBarIcon,
@@ -23,6 +23,16 @@ import {
 } from '@heroicons/react/24/outline';
 import ChartSelector from './ChartSelector';
 import { ChartData } from 'chart.js';
+import DataSourcePicker from './DataSourcePicker';
+import FormulaBuilder from './FormulaBuilder';
+import AggregationSelector from './AggregationSelector';
+import ChartCustomizer from './ChartCustomizer';
+import ChartPreview from './ChartPreview';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchKpis, fetchKpiFields, createKpi, updateKpi, deleteKpi } from '../../../store/slices/kpisSlice';
+import { useAppDispatch } from '../../../store';
+import { getPreviewData } from './getPreviewData';
+import { ChartType, PreviewData } from './types';
 
 // Import all chart components
 import {
@@ -42,376 +52,107 @@ import {
     BubbleChart,
 } from './charts';
 
-interface BoxPlotData {
-    min: number;
-    q1: number;
-    median: number;
-    q3: number;
-    max: number;
-}
-
-interface TimelineData {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        borderColor: string;
-        backgroundColor: string;
-        tension?: number;
-    }[];
-}
-
-interface BoxPlotChartData {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: BoxPlotData[];
-        backgroundColor: string[];
-    }[];
-}
-
-interface HistogramData {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        backgroundColor: string;
-        borderColor?: string;
-        borderWidth?: number;
-    }[];
-}
-
-type LineChartData = {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        borderColor: string;
-        backgroundColor: string;
-        tension?: number;
-    }[];
-};
-
-type BarChartData = {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        backgroundColor: string[];
-        borderColor?: string[];
-        borderWidth?: number;
-    }[];
-};
-
-type PieChartData = {
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        backgroundColor: string[];
-        borderColor?: string[];
-        borderWidth?: number;
-    }[];
-};
-
-type PreviewData = {
-    line: LineChartData;
-    bar: BarChartData;
-    pie: PieChartData;
-    timeline: TimelineData;
-    boxplot: BoxPlotChartData;
-    histogram: HistogramData;
-    treemap: {
-        datasets: {
-            label: string;
-            tree: Array<{
-                value: number;
-                label: string;
-                group?: string;
-            }>;
-        }[];
-    };
-    radar: {
-        labels: string[];
-        datasets: {
-            label: string;
-            data: number[];
-            backgroundColor: string;
-            borderColor: string;
-            pointBackgroundColor: string;
-        }[];
-    };
-    bubble: {
-        datasets: {
-            label: string;
-            data: Array<{ x: number; y: number; r: number }>;
-            backgroundColor: string;
-            borderColor?: string;
-            borderWidth?: number;
-        }[];
-    };
-    live: LineChartData;
-};
-
-type ChartDataType = {
-    line: ChartData<'line', number[], string>;
-    bar: ChartData<'bar', number[], string>;
-    pie: ChartData<'pie', number[], string>;
-    timeline: TimelineData;
-    boxplot: BoxPlotChartData;
-    histogram: HistogramData;
-    treemap: {
-        datasets: {
-            label: string;
-            tree: Array<{
-                value: number;
-                label: string;
-                group?: string;
-            }>;
-        }[];
-    };
-    radar: ChartData<'radar', number[], string>;
-    bubble: ChartData<'bubble', Array<{ x: number; y: number; r: number }>, string>;
-    live: ChartData<'line', number[], string>;
-};
-
-type ChartType =
-    | 'line'
-    | 'bar'
-    | 'pie'
-    | 'timeline'
-    | 'boxplot'
-    | 'histogram'
-    | 'treemap'
-    | 'radar'
-    | 'bubble'
-    | 'live';
-
-interface KpiData {
-    id: string;
-    title: string;
-    description: string;
-    chartType: ChartType;
-    data: ChartDataType[ChartType];
-    calculationMethod: 'percentage' | 'ratio' | 'sum' | 'average';
-    dataSources: string[];
-    formula: string;
-    category: 'basic' | 'trend' | 'distribution' | 'comparison' | 'hierarchical' | 'advanced' | 'realtime';
-}
+const KPI_STEPS = [
+    'chartType',
+    'dataSource',
+    'formula',
+    'aggregation',
+    'customize',
+];
 
 const KpiConfiguration: React.FC = () => {
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedChart, setSelectedChart] = useState<ChartType | null>(null);
-    const [kpiForm, setKpiForm] = useState({
-        title: '',
-        description: '',
-        dataSources: [] as string[],
-        formula: ''
-    });
-    const [kpis, setKpis] = useState<KpiData[]>([
-        {
-            id: '1',
-            title: 'Efficacité des Documents',
-            description: 'Suivi de la complétion des documents',
-            chartType: 'line',
-            category: 'basic',
-            data: {
-                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-                datasets: [{
-                    label: 'Documents Complétés',
-                    data: [65, 78, 90, 85, 95, 100],
-                    borderColor: '#F28C38',
-                    backgroundColor: 'rgba(242, 140, 56, 0.1)',
-                    tension: 0.4
-                }]
-            },
-            calculationMethod: 'percentage',
-            dataSources: ['Documents'],
-            formula: '(Documents complétés / Total documents) * 100'
-        },
-        {
-            id: '2',
-            title: 'Répartition des Actions',
-            description: 'Distribution des actions par catégorie',
-            chartType: 'pie',
-            category: 'basic',
-            data: {
-                labels: ['En cours', 'Terminées', 'En attente'],
-                datasets: [{
-                    label: 'Actions',
-                    data: [30, 50, 20],
-                    backgroundColor: ['#F28C38', '#10B981', '#6B7280'],
-                }]
-            },
-            calculationMethod: 'ratio',
-            dataSources: ['Actions'],
-            formula: 'Actions par catégorie / Total actions'
-        },
-        {
-            id: '3',
-            title: 'Timeline des Événements',
-            description: 'Suivi des événements clés du projet',
-            chartType: 'timeline',
-            category: 'trend',
-            data: {
-                labels: ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06'],
-                datasets: [{
-                    label: 'Progression',
-                    data: [20, 45, 60, 75, 85, 95],
-                    borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4
-                }]
-            },
-            calculationMethod: 'percentage',
-            dataSources: ['Planning'],
-            formula: 'Progression / Objectif total * 100'
-        },
-        {
-            id: '4',
-            title: 'Distribution des Performances',
-            description: 'Analyse de la distribution des performances',
-            chartType: 'boxplot',
-            category: 'distribution',
-            data: {
-                labels: ['Équipe A', 'Équipe B', 'Équipe C'],
-                datasets: [{
-                    label: 'Performance',
-                    data: [
-                        { min: 65, q1: 75, median: 85, q3: 95, max: 100 },
-                        { min: 70, q1: 80, median: 90, q3: 95, max: 98 },
-                        { min: 60, q1: 70, median: 85, q3: 90, max: 95 }
-                    ],
-                    backgroundColor: ['#F28C38', '#10B981', '#3B82F6'],
-                }]
-            },
-            calculationMethod: 'average',
-            dataSources: ['Actions', 'Documents'],
-            formula: 'Moyenne des performances par équipe'
-        }
-    ]);
+    const dispatch = useAppDispatch();
+    const { kpis, fields, loading, error } = useSelector((state: any) => state.kpis);
 
-    const getPreviewData = (chartType: ChartType): PreviewData[keyof PreviewData] | null => {
-        switch (chartType) {
-            case 'line':
-                return {
-                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-                    datasets: [{
-                        label: 'Données Exemple',
-                        data: [30, 45, 60, 75, 85, 95],
-                        borderColor: '#F28C38',
-                        backgroundColor: 'rgba(242, 140, 56, 0.1)',
-                        tension: 0.4
-                    }]
-                } as LineChartData;
-            case 'bar':
-                return {
-                    labels: ['Catégorie A', 'Catégorie B', 'Catégorie C', 'Catégorie D'],
-                    datasets: [{
-                        label: 'Données Exemple',
-                        data: [65, 45, 80, 55],
-                        backgroundColor: ['#F28C38', '#10B981', '#3B82F6', '#6B7280'],
-                    }]
-                } as BarChartData;
-            case 'pie':
-                return {
-                    labels: ['Partie 1', 'Partie 2', 'Partie 3', 'Partie 4'],
-                    datasets: [{
-                        label: 'Données Exemple',
-                        data: [30, 25, 20, 25],
-                        backgroundColor: ['#F28C38', '#10B981', '#3B82F6', '#6B7280'],
-                    }]
-                } as PieChartData;
-            case 'timeline':
-                return {
-                    labels: ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06'],
-                    datasets: [{
-                        label: 'Progression',
-                        data: [20, 45, 60, 75, 85, 95],
-                        borderColor: '#3B82F6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4
-                    }]
-                } as TimelineData;
-            case 'boxplot':
-                return {
-                    labels: ['Groupe A', 'Groupe B', 'Groupe C'],
-                    datasets: [{
-                        label: 'Distribution',
-                        data: [
-                            { min: 65, q1: 75, median: 85, q3: 95, max: 100 },
-                            { min: 70, q1: 80, median: 90, q3: 95, max: 98 },
-                            { min: 60, q1: 70, median: 85, q3: 90, max: 95 }
-                        ],
-                        backgroundColor: ['#F28C38', '#10B981', '#3B82F6'],
-                    }]
-                } as BoxPlotChartData;
-            case 'histogram':
-                return {
-                    labels: ['0-20', '21-40', '41-60', '61-80', '81-100'],
-                    datasets: [{
-                        label: 'Distribution',
-                        data: [10, 25, 45, 30, 15],
-                        backgroundColor: '#F28C38',
-                    }]
-                } as HistogramData;
-            case 'treemap':
-                return {
-                    datasets: [{
-                        label: 'Données Exemple',
-                        tree: [
-                            { value: 100, label: 'Catégorie A', group: 'Groupe 1' },
-                            { value: 80, label: 'Catégorie B', group: 'Groupe 1' },
-                            { value: 60, label: 'Catégorie C', group: 'Groupe 2' },
-                            { value: 40, label: 'Catégorie D', group: 'Groupe 2' }
-                        ]
-                    }]
-                } as any;
-            case 'radar':
-                return {
-                    labels: ['Métrique 1', 'Métrique 2', 'Métrique 3', 'Métrique 4', 'Métrique 5'],
-                    datasets: [{
-                        label: 'Données Exemple',
-                        data: [65, 75, 90, 81, 56],
-                        backgroundColor: 'rgba(242, 140, 56, 0.2)',
-                        borderColor: '#F28C38',
-                        pointBackgroundColor: '#F28C38'
-                    }]
-                };
-            case 'bubble':
-                return {
-                    datasets: [{
-                        label: 'Données Exemple',
-                        data: [
-                            { x: 20, y: 30, r: 15 },
-                            { x: 40, y: 10, r: 10 },
-                            { x: 15, y: 50, r: 20 },
-                            { x: 60, y: 40, r: 25 }
-                        ],
-                        backgroundColor: 'rgba(242, 140, 56, 0.6)',
-                        borderColor: '#F28C38',
-                        borderWidth: 1
-                    }]
-                };
-            case 'live':
-                return {
-                    labels: ['T-5', 'T-4', 'T-3', 'T-2', 'T-1', 'T'],
-                    datasets: [{
-                        label: 'Données en Temps Réel',
-                        data: [65, 59, 80, 81, 56, 55],
-                        borderColor: '#F28C38',
-                        backgroundColor: 'rgba(242, 140, 56, 0.1)',
-                        tension: 0.4
-                    }]
-                };
-            default:
-                return null;
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [wizardStep, setWizardStep] = useState(0);
+    const [selectedChart, setSelectedChart] = useState('line');
+    const [dataSources, setDataSources] = useState<string[]>([]);
+    const [formula, setFormula] = useState('');
+    const [aggregation, setAggregation] = useState('sum');
+    const [groupBy, setGroupBy] = useState('');
+    const [xAxis, setXAxis] = useState('');
+    const [yAxis, setYAxis] = useState('');
+    const [legend, setLegend] = useState<string[]>(['Série 1']);
+    const [colorMap, setColorMap] = useState<Record<string, string>>({ 'Série 1': '#F28C38' });
+
+    useEffect(() => {
+        dispatch(fetchKpiFields());
+        dispatch(fetchKpis());
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (!showAddModal) {
+            dispatch(fetchKpis());
         }
+    }, [showAddModal, dispatch]);
+
+    // Sample data for preview (should be replaced with real data logic)
+    const sampleData = fields.reduce((acc: any, field: any) => {
+        acc[field.id] = field.sampleValue || 1;
+        return acc;
+    }, {});
+
+    // Build chart data for preview (simplified, should be dynamic)
+    const previewChartData = {
+        labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+        datasets: [
+            {
+                label: legend[0],
+                data: [65, 78, 90, 85, 95, 100],
+                backgroundColor: colorMap[legend[0]] || '#F28C38',
+                borderColor: colorMap[legend[0]] || '#F28C38',
+            },
+        ],
+    };
+
+    // Handle KPI creation
+    const handleSaveKpi = async () => {
+        // Reset modal state first for better responsiveness
+        setShowAddModal(false);
+        setWizardStep(0);
+        setDataSources([]);
+        setFormula('');
+        setAggregation('sum');
+        setGroupBy('');
+        setSelectedChart('line');
+        setXAxis('');
+        setYAxis('');
+        setLegend(['Série 1']);
+        setColorMap({ 'Série 1': '#F28C38' });
+
+        // Dispatch create KPI and await completion
+        const resultAction = await dispatch(createKpi({
+            name: 'KPI personnalisé', // Consider adding a name input in the wizard
+            formula,
+            modules: dataSources,
+            chartType: selectedChart,
+            config: {
+                aggregation,
+                groupBy,
+                xAxis,
+                yAxis,
+                legend,
+                colorMap,
+                sumField: xAxis // Use xAxis as the sumField for aggregation
+            },
+            // Ensure category is included
+            category: selectedChart === 'line' || selectedChart === 'bar' || selectedChart === 'pie' ? 'basic' :
+                selectedChart === 'timeline' ? 'trend' :
+                    selectedChart === 'boxplot' || selectedChart === 'histogram' ? 'distribution' :
+                        selectedChart === 'treemap' ? 'hierarchical' :
+                            selectedChart === 'radar' || selectedChart === 'bubble' ? 'advanced' :
+                                selectedChart === 'live' ? 'realtime' :
+                                    'basic', // Fallback to basic if category is not explicitly determined
+        }) as any);
+
+        // Explicitly fetch KPIs after creation
+        dispatch(fetchKpis());
     };
 
     const renderPreviewChart = () => {
         if (!selectedChart) return null;
-        const previewData = getPreviewData(selectedChart);
+        const previewData = getPreviewData(selectedChart as ChartType);
         if (!previewData) return null;
 
         const chartProps = {
@@ -421,63 +162,74 @@ const KpiConfiguration: React.FC = () => {
 
         switch (selectedChart) {
             case 'line':
-                return <LineChart {...chartProps} data={previewData as PreviewData['line']} />;
+                return <LineChart {...chartProps} />;
             case 'bar':
-                return <BarChart {...chartProps} data={previewData as PreviewData['bar']} />;
+                return <BarChart {...chartProps} />;
             case 'pie':
-                return <PieChart {...chartProps} data={previewData as PreviewData['pie']} />;
+                return <PieChart {...chartProps} />;
             case 'timeline':
-                return <TimelineChart {...chartProps} data={previewData as PreviewData['timeline']} />;
+                return <TimelineChart {...chartProps} />;
             case 'boxplot':
-                return <BoxPlotChart {...chartProps} data={previewData as PreviewData['boxplot']} />;
+                return <BoxPlotChart {...chartProps} />;
             case 'histogram':
-                return <HistogramChart {...chartProps} data={previewData as PreviewData['histogram']} />;
+                return <HistogramChart {...chartProps} />;
             case 'treemap':
-                return <TreeMapChart {...chartProps} data={previewData as PreviewData['treemap']} />;
+                return <TreeMapChart {...chartProps} />;
             case 'radar':
-                return <RadarChart {...chartProps} data={previewData as PreviewData['radar']} />;
+                return <RadarChart {...chartProps} />;
             case 'bubble':
-                return <BubbleChart {...chartProps} data={previewData as PreviewData['bubble']} />;
+                return <BubbleChart {...chartProps} />;
             case 'live':
-                return <LineChart {...chartProps} data={previewData as PreviewData['live']} />;
+                return <LineChart {...chartProps} />;
             default:
                 return null;
         }
     };
 
-    const renderChart = (kpi: KpiData) => {
+    const renderChart = (kpi: any) => {
+        // Add check for valid data before rendering the chart
+        if (!kpi || !kpi.data || typeof kpi.data !== 'object' || !Array.isArray(kpi.data.datasets) || (kpi.chartType !== 'treemap' && kpi.chartType !== 'bubble' && !Array.isArray(kpi.data.labels))) {
+            // Render a fallback if data is missing or invalid
+            return (
+                <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
+                    Données du graphique non disponibles ou invalides pour ce KPI.
+                </div>
+            );
+        }
+
         const chartProps = {
-            title: kpi.title,
-            data: kpi.data
+            title: kpi.title || kpi.name || 'KPI Data',
+            data: kpi.data,
+            height: 300
         };
 
         switch (kpi.chartType) {
             case 'line':
-                return <LineChart {...chartProps} data={kpi.data as PreviewData['line']} />;
+                return <LineChart {...chartProps} />;
             case 'bar':
-                return <BarChart {...chartProps} data={kpi.data as PreviewData['bar']} />;
+                return <BarChart {...chartProps} />;
             case 'pie':
-                return <PieChart {...chartProps} data={kpi.data as PreviewData['pie']} />;
+                return <PieChart {...chartProps} />;
             case 'timeline':
-                return <TimelineChart {...chartProps} data={kpi.data as PreviewData['timeline']} />;
+                return <TimelineChart {...chartProps} />;
             case 'boxplot':
-                return <BoxPlotChart {...chartProps} data={kpi.data as PreviewData['boxplot']} />;
+                return <BoxPlotChart {...chartProps} />;
             case 'histogram':
-                return <HistogramChart {...chartProps} data={kpi.data as PreviewData['histogram']} />;
+                return <HistogramChart {...chartProps} />;
             case 'treemap':
-                return <TreeMapChart {...chartProps} data={kpi.data as PreviewData['treemap']} />;
+                return <TreeMapChart {...chartProps} />;
             case 'radar':
-                return <RadarChart {...chartProps} data={kpi.data as PreviewData['radar']} />;
+                return <RadarChart {...chartProps} />;
             case 'bubble':
-                return <BubbleChart {...chartProps} data={kpi.data as PreviewData['bubble']} />;
+                return <BubbleChart {...chartProps} />;
             case 'live':
-                return <LineChart {...chartProps} data={kpi.data as PreviewData['live']} />;
+                return <LineChart {...chartProps} />;
             default:
                 return null;
         }
     };
 
-    const getCategoryIcon = (category: KpiData['category']) => {
+    const getCategoryIcon = (category: any) => {
         switch (category) {
             case 'basic':
                 return <ChartBarIcon className="h-5 w-5" />;
@@ -498,7 +250,7 @@ const KpiConfiguration: React.FC = () => {
         }
     };
 
-    const getCategoryTitle = (category: KpiData['category']) => {
+    const getCategoryTitle = (category: any) => {
         switch (category) {
             case 'basic':
                 return 'Graphiques de Base';
@@ -519,35 +271,7 @@ const KpiConfiguration: React.FC = () => {
         }
     };
 
-    const categories: KpiData['category'][] = ['basic', 'trend', 'distribution', 'comparison', 'hierarchical', 'advanced', 'realtime'];
-
-    const handleAddKpi = () => {
-        if (selectedChart && kpiForm.title && kpiForm.description) {
-            const previewData = getPreviewData(selectedChart);
-            if (!previewData) return;
-
-            const newKpi: KpiData = {
-                id: Date.now().toString(),
-                title: kpiForm.title,
-                description: kpiForm.description,
-                chartType: selectedChart,
-                data: previewData,
-                calculationMethod: 'percentage',
-                dataSources: kpiForm.dataSources,
-                formula: kpiForm.formula,
-                category: 'basic'
-            };
-            setKpis(prev => [...prev, newKpi]);
-            setShowAddModal(false);
-            setSelectedChart(null);
-            setKpiForm({
-                title: '',
-                description: '',
-                dataSources: [],
-                formula: ''
-            });
-        }
-    };
+    const categories: any[] = ['basic', 'trend', 'distribution', 'comparison', 'hierarchical', 'advanced', 'realtime'];
 
     return (
         <div className="space-y-8">
@@ -572,8 +296,8 @@ const KpiConfiguration: React.FC = () => {
             </div>
 
             {/* KPI Categories */}
-            {categories.map((category) => {
-                const categoryKpis = kpis.filter(kpi => kpi.category === category);
+            {Array.isArray(kpis) && categories.map((category) => {
+                const categoryKpis = (kpis as any[]).filter((kpi: any) => (kpi.category || 'basic') === category);
                 if (categoryKpis.length === 0) return null;
 
                 return (
@@ -588,9 +312,9 @@ const KpiConfiguration: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <AnimatePresence>
-                                {categoryKpis.map((kpi) => (
+                                {categoryKpis.map((kpi: any) => (
                                     <motion.div
-                                        key={kpi.id}
+                                        key={kpi._id}
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -20 }}
@@ -604,14 +328,14 @@ const KpiConfiguration: React.FC = () => {
                                                 </div>
                                                 <div className="flex space-x-2">
                                                     <button
-                                                        onClick={() => { }}
+                                                        onClick={() => { /* TODO: Add Edit Logic */ }}
                                                         className="p-2 text-gray-500 hover:text-[#F28C38] transition-colors"
-                                                        title="Modifier la formule"
+                                                        title="Modifier"
                                                     >
                                                         <CalculatorIcon className="h-5 w-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => setKpis(kpis.filter(k => k.id !== kpi.id))}
+                                                        onClick={() => dispatch(deleteKpi(kpi._id) as any)}
                                                         className="p-2 text-gray-500 hover:text-red-500 transition-colors"
                                                         title="Supprimer le KPI"
                                                     >
@@ -623,7 +347,7 @@ const KpiConfiguration: React.FC = () => {
                                                 {renderChart(kpi)}
                                             </div>
                                             <div className="mt-4 flex flex-wrap gap-2">
-                                                {kpi.dataSources.map((source, index) => (
+                                                {(kpi.dataSources || []).map((source: string, index: number) => (
                                                     <span
                                                         key={index}
                                                         className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
@@ -665,139 +389,60 @@ const KpiConfiguration: React.FC = () => {
                                     <button
                                         onClick={() => {
                                             setShowAddModal(false);
-                                            setSelectedChart(null);
-                                            setKpiForm({
-                                                title: '',
-                                                description: '',
-                                                dataSources: [],
-                                                formula: ''
-                                            });
+                                            // State reset is now in handleSaveKpi and modal close handler
                                         }}
                                         className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                                     >
                                         <XMarkIcon className="h-6 w-6" />
                                     </button>
                                 </div>
-
                                 <div className="space-y-6">
-                                    <ChartSelector
-                                        onSelect={(type) => setSelectedChart(type as ChartType)}
-                                        selectedChart={selectedChart}
-                                    />
-
-                                    {selectedChart && (
-                                        <div className="space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                        Titre du KPI
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={kpiForm.title}
-                                                        onChange={(e) => setKpiForm(prev => ({ ...prev, title: e.target.value }))}
-                                                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-[#F28C38] focus:border-[#F28C38]"
-                                                        placeholder="Ex: Efficacité des Documents"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                        Description
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={kpiForm.description}
-                                                        onChange={(e) => setKpiForm(prev => ({ ...prev, description: e.target.value }))}
-                                                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-[#F28C38] focus:border-[#F28C38]"
-                                                        placeholder="Ex: Suivi de la complétion des documents"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Sources de Données
-                                                </label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {['Documents', 'Actions', 'Planning'].map((source) => (
-                                                        <label
-                                                            key={source}
-                                                            className="inline-flex items-center px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={kpiForm.dataSources.includes(source)}
-                                                                onChange={(e) => {
-                                                                    setKpiForm(prev => ({
-                                                                        ...prev,
-                                                                        dataSources: e.target.checked
-                                                                            ? [...prev.dataSources, source]
-                                                                            : prev.dataSources.filter(s => s !== source)
-                                                                    }));
-                                                                }}
-                                                                className="form-checkbox h-4 w-4 text-[#F28C38] rounded border-gray-300 focus:ring-[#F28C38]"
-                                                            />
-                                                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                                                {source}
-                                                            </span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Formule de Calcul
-                                                </label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={kpiForm.formula}
-                                                        onChange={(e) => setKpiForm(prev => ({ ...prev, formula: e.target.value }))}
-                                                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-[#F28C38] focus:border-[#F28C38]"
-                                                        placeholder="Entrez votre formule (ex: (A + B) / C * 100)"
-                                                    />
-                                                    <button className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-[#F28C38]">
-                                                        <InformationCircleIcon className="h-5 w-5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-                                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                                                    Aperçu
-                                                </h4>
-                                                <div className="h-[300px]">
-                                                    {renderPreviewChart()}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex justify-end space-x-4">
-                                                <button
-                                                    onClick={() => {
-                                                        setShowAddModal(false);
-                                                        setSelectedChart(null);
-                                                        setKpiForm({
-                                                            title: '',
-                                                            description: '',
-                                                            dataSources: [],
-                                                            formula: ''
-                                                        });
-                                                    }}
-                                                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                                >
-                                                    Annuler
-                                                </button>
-                                                <button
-                                                    onClick={handleAddKpi}
-                                                    disabled={!selectedChart || !kpiForm.title || !kpiForm.description}
-                                                    className="px-4 py-2 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    Ajouter le KPI
-                                                </button>
-                                            </div>
-                                        </div>
+                                    {wizardStep === 0 && (
+                                        <ChartSelector onSelect={(type: string) => setSelectedChart(type as ChartType)} selectedChart={selectedChart as ChartType} />
                                     )}
+                                    {wizardStep === 1 && (
+                                        <DataSourcePicker options={fields as any[]} selected={dataSources} onChange={setDataSources} />
+                                    )}
+                                    {wizardStep === 2 && (
+                                        <FormulaBuilder
+                                            fields={fields as any[]}
+                                            formula={formula}
+                                            onChange={setFormula}
+                                            sampleData={sampleData}
+                                        />
+                                    )}
+                                    {wizardStep === 3 && (
+                                        <AggregationSelector aggregation={aggregation} onChange={setAggregation} groupBy={groupBy} onGroupByChange={setGroupBy} groupByOptions={(fields as any[]).map((f: any, _i: number) => ({ id: f.id, label: f.label }))} />
+                                    )}
+                                    {wizardStep === 4 && (
+                                        <ChartCustomizer chartType={selectedChart as ChartType} onChartTypeChange={(type: string) => setSelectedChart(type as ChartType)} chartTypeOptions={[]} xAxis={xAxis} yAxis={yAxis} onXAxisChange={setXAxis} onYAxisChange={setYAxis} axisOptions={(fields as any[]).map((f: any, _i: number) => ({ id: f.id, label: f.label }))} legend={legend} onLegendChange={setLegend} colorMap={colorMap} onColorChange={(key: string, color: string) => setColorMap({ ...colorMap, [key]: color })}>
+                                            <ChartPreview chartType={selectedChart as ChartType} data={previewChartData} />
+                                        </ChartCustomizer>
+                                    )}
+                                    <div className="flex justify-between mt-8">
+                                        <button
+                                            className="px-4 py-2 rounded border"
+                                            onClick={() => setWizardStep(Math.max(0, wizardStep - 1))}
+                                            disabled={wizardStep === 0}
+                                        >
+                                            Précédent
+                                        </button>
+                                        {wizardStep < 4 ? (
+                                            <button
+                                                className="px-4 py-2 rounded bg-[#F28C38] text-white"
+                                                onClick={() => setWizardStep(wizardStep + 1)}
+                                            >
+                                                Suivant
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="px-4 py-2 rounded bg-[#F28C38] text-white"
+                                                onClick={handleSaveKpi}
+                                            >
+                                                Enregistrer le KPI
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </motion.div>
