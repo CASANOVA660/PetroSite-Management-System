@@ -4,7 +4,7 @@ import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { activateAccount } from '../../store/slices/userSlice';
 import Button from '../../components/ui/button/Button';
 import Alert from '../../components/ui/alert/Alert';
-import axios from 'axios';
+import axiosInstance from '../../utils/axios';
 
 export default function ActivationPage() {
     const [searchParams] = useSearchParams();
@@ -26,8 +26,7 @@ export default function ActivationPage() {
 
             setLoading(true);
             try {
-
-                const response = await axios.get(`http://localhost:5000/api/users/activate/${token}`);
+                const response = await axiosInstance.get(`/users/activate/${token}`);
                 setUserInfo(response.data);
             } catch (err: any) {
                 console.error('Token validation error:', err);

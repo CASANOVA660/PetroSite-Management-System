@@ -2,6 +2,10 @@ import { io, Socket } from 'socket.io-client';
 import { store } from '../store';
 import { receiveMessage, addTypingUser, removeTypingUser } from '../store/slices/chatSlice';
 import { addNotification } from '../store/slices/notificationSlice';
+import { API_URL } from '../config';
+
+// Create the base URL (remove '/api' if it exists)
+const SOCKET_URL = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
 
 class SocketService {
     private socket: Socket | null = null;
@@ -16,7 +20,7 @@ class SocketService {
         }
 
         // Connect to server
-        this.socket = io('http://localhost:5000', {
+        this.socket = io(SOCKET_URL, {
             transports: ['websocket', 'polling'],
             withCredentials: true
         });

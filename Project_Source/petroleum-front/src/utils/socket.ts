@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
-import { API_URL } from '../config';
+
+const API_URL = 'https://petrosite-management-system.onrender.com/api'
 
 // Create the base URL (remove '/api' if it exists)
 const SOCKET_URL = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;

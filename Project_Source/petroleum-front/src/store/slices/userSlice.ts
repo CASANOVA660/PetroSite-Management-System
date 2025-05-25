@@ -47,7 +47,7 @@ export const createUser = createAsyncThunk(
     async (userData: Partial<User>, { rejectWithValue }) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.post('http://localhost:5000/api/users', userData, {
+            const response = await axios.post('/users', userData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -63,7 +63,7 @@ export const fetchUsers = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:5000/api/users', {
+            const response = await axios.get('/users', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -79,7 +79,7 @@ export const deleteUser = createAsyncThunk(
     async (userId: string, { rejectWithValue }) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5000/api/users/${userId}`, {
+            await axios.delete(`/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return userId;
@@ -95,7 +95,7 @@ export const updateUser = createAsyncThunk(
     async ({ userId, userData }: { userId: string; userData: Partial<User> }, { rejectWithValue }) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.put(`http://localhost:5000/api/users/${userId}`, userData, {
+            const response = await axios.put(`/users/${userId}`, userData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -109,7 +109,7 @@ export const updateUser = createAsyncThunk(
 export const activateAccount = createAsyncThunk(
     'user/activateAccount',
     async ({ token, newPassword }: { token: string; newPassword: string }) => {
-        const response = await axios.post('http://localhost:5000/api/users/activate', { token, newPassword });
+        const response = await axios.post('/users/activate', { token, newPassword });
         return response.data;
     }
 );
@@ -124,7 +124,7 @@ export const getUserById = createAsyncThunk(
 
             console.log('Making request for user:', formattedId);
 
-            const response = await axios.get(`http://localhost:5000/api/users/${formattedId}`, {
+            const response = await axios.get(`/users/${formattedId}`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
@@ -150,7 +150,7 @@ export const updateProfile = createAsyncThunk(
             const token = localStorage.getItem('token');
             console.log('Updating profile with data:', { userId, userData });
 
-            const response = await axios.put(`http://localhost:5000/api/users/${userId}/profile`, userData, {
+            const response = await axios.put(`/users/${userId}/profile`, userData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json'

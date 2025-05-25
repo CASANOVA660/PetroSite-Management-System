@@ -47,7 +47,7 @@ export const loginUser = createAsyncThunk(
     'auth/login',
     async (credentials: { email: string; motDePasse: string }, { rejectWithValue }) => {
         try {
-            const response = await axios.post('http://localhost:5000/api/auth/login', credentials);
+            const response = await axios.post('/auth/login', credentials);
 
             const normalizedUser = normalizeUser(response.data.user);
 
