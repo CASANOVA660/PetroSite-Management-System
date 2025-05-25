@@ -1,15 +1,5 @@
 import React, { useEffect } from 'react';
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  BoxIconLine,
-  GroupIcon,
-  CheckCircleIcon,
-  TimeIcon,
-} from "../../icons";
-import Badge from "../ui/badge/Badge";
-import { useSelector } from "react-redux";
-import { RootState } from "../../store";
+
 
 interface EcommerceMetricsProps {
   data: {

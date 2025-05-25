@@ -39,7 +39,7 @@ const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ fields, formula, onChan
                     evalFormula = evalFormula.replace(regex, value.toString());
                 });
                 // eslint-disable-next-line no-eval
-                setPreview(eval(evalFormula));
+
                 setError(null);
             } else {
                 setPreview(null);

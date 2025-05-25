@@ -6,15 +6,9 @@ import { fetchEquipment } from '../../store/slices/equipmentSlice';
 import { Equipment, equipmentStatusLabels, equipmentStatusColors } from '../../types/equipment';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHeader,
-    TableRow,
-} from '../../components/ui/table';
-import { EyeIcon, PlusIcon, RefreshIcon, ChevronDownIcon, ChevronUpIcon, ChevronLeftIcon, ChevronRightIcon } from '../../icons';
+import { EyeIcon, PlusIcon, RefreshIcon, ChevronLeftIcon, ChevronRightIcon } from '../../icons';
 import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const EquipmentList: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -26,15 +20,11 @@ const EquipmentList: React.FC = () => {
         location: ''
     });
     const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
-    const [isStatsOpen, setIsStatsOpen] = useState(false);
-
-    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [paginatedEquipment, setPaginatedEquipment] = useState<Equipment[]>([]);
     const [totalPages, setTotalPages] = useState(1);
 
-    // Load equipment data on mount
     useEffect(() => {
         loadEquipment();
     }, [dispatch]);
@@ -50,11 +40,8 @@ const EquipmentList: React.FC = () => {
             });
     };
 
-    // Update filtered equipment whenever equipment or filters change
     useEffect(() => {
         let result = [...equipment];
-
-        // Apply search filter
         if (filters.search) {
             const searchLower = filters.search.toLowerCase();
             result = result.filter(
@@ -64,51 +51,38 @@ const EquipmentList: React.FC = () => {
                     e.matricule.toLowerCase().includes(searchLower)
             );
         }
-
-        // Apply status filter
         if (filters.status) {
             result = result.filter(e => e.status === filters.status);
         }
-
-        // Apply location filter
         if (filters.location) {
             result = result.filter(e => e.location.toLowerCase().includes(filters.location.toLowerCase()));
         }
-
         setFilteredEquipment(result);
-        // Reset to first page when filters change
         setCurrentPage(1);
     }, [equipment, filters]);
 
-    // Apply pagination to filtered equipment
     useEffect(() => {
         const totalPages = Math.ceil(filteredEquipment.length / itemsPerPage);
-        setTotalPages(totalPages || 1); // Ensure at least 1 page even when empty
-
+        setTotalPages(totalPages || 1);
         const start = (currentPage - 1) * itemsPerPage;
         const end = start + itemsPerPage;
         setPaginatedEquipment(filteredEquipment.slice(start, end));
     }, [filteredEquipment, currentPage, itemsPerPage]);
 
-    // Calculate equipment statistics
     const equipmentStats = React.useMemo(() => {
         const stats = {
             total: equipment.length,
             byStatus: {} as Record<string, number>
         };
-
-        // Count equipment by status
         equipment.forEach(item => {
             if (!stats.byStatus[item.status]) {
                 stats.byStatus[item.status] = 0;
             }
             stats.byStatus[item.status]++;
         });
-
         return stats;
     }, [equipment]);
 
-    // Format date for display
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('fr-FR', {
             year: 'numeric',
@@ -119,7 +93,6 @@ const EquipmentList: React.FC = () => {
         }).format(date);
     };
 
-    // Get unique locations for the filter dropdown
     const uniqueLocations = React.useMemo(() => {
         const locations = equipment.map((e: Equipment) => e.location);
         return [...new Set(locations)] as string[];
@@ -146,10 +119,6 @@ const EquipmentList: React.FC = () => {
         toast.info("Actualisation des données...");
     };
 
-    const toggleStats = () => {
-        setIsStatsOpen(!isStatsOpen);
-    };
-
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage);
@@ -158,13 +127,13 @@ const EquipmentList: React.FC = () => {
 
     const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setItemsPerPage(Number(e.target.value));
-        setCurrentPage(1); // Reset to first page when changing items per page
+        setCurrentPage(1);
     };
 
     if (loading && equipment.length === 0) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F28C38]"></div>
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
             </div>
         );
     }
@@ -172,12 +141,9 @@ const EquipmentList: React.FC = () => {
     return (
         <>
             <PageMeta
-                title="Magasin des équipments"
+                title="Magasin des équipements"
                 description="Gestion et suivi des équipements"
             />
-            <PageBreadcrumb pageTitle="Magasin des équipments" />
-
-            {/* Toast container with proper positioning */}
             <ToastContainer
                 position="bottom-right"
                 autoClose={5000}
@@ -188,109 +154,78 @@ const EquipmentList: React.FC = () => {
                 pauseOnFocusLoss
                 draggable
                 pauseOnHover
-                style={{ zIndex: 9999 }}
+                className="z-[9999]"
             />
-
-            <div className="container mx-auto px-4 py-6">
-                {/* Header with title and add button */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                    <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4 md:mb-0">
-
-                    </h1>
-                    <Link
-                        to="/equipments/add"
-                        className="inline-flex items-center px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F28C38]"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Ajouter un équipement
-                    </Link>
-                </div>
-
-                {/* Statistics Cards - Collapsible */}
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
-                    <div
-                        className="p-4 flex justify-between items-center cursor-pointer"
-                        onClick={toggleStats}
-                    >
-                        <div className="flex items-center">
-                            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                                Statistiques des équipements
-                            </h2>
-                            <div className="flex items-center ml-4">
-                                <span className="text-sm text-gray-500">
-                                    {equipmentStats.total} équipements au total
-                                </span>
-                                <span className="text-sm text-gray-500 ml-4">
-                                    Dernière actualisation: {formatDate(lastRefreshTime)}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="flex items-center">
+            <div className="container mx-auto px-6 py-8 bg-gray-50 min-h-screen">
+                <div className="mb-6">
+                    <PageBreadcrumb pageTitle="Magasin des équipements" />
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h1 className="text-2xl font-bold text-gray-800">Équipements</h1>
+                        <div className="flex items-center gap-3">
                             <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRefresh();
-                                }}
-                                className="p-2 mr-2 text-gray-500 hover:text-[#F28C38] focus:outline-none rounded-full hover:bg-gray-100"
-                                title="Actualiser les données"
+                                onClick={handleRefresh}
+                                className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-200"
+                                title="Actualiser"
                             >
-                                <RefreshIcon className="w-5 h-5" />
+                                <RefreshIcon className="w-5 h-5 text-gray-600" />
                             </button>
-                            {isStatsOpen ? (
-                                <ChevronUpIcon className="w-5 h-5 text-gray-500" />
-                            ) : (
-                                <ChevronDownIcon className="w-5 h-5 text-gray-500" />
-                            )}
+                            <Link
+                                to="/equipments/add"
+                                className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors duration-200 font-medium"
+                            >
+                                <PlusIcon className="w-5 h-5 mr-2" />
+                                Ajouter
+                            </Link>
                         </div>
                     </div>
-
-                    {isStatsOpen && (
-                        <div className="p-4 pt-0 border-t border-gray-200 dark:border-gray-700">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-4">
-                                {/* Total count card */}
-                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex flex-col">
-                                    <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total</span>
-                                    <span className="text-3xl font-bold text-blue-800 dark:text-blue-300">{equipmentStats.total}</span>
-                                    <span className="text-sm text-blue-600 dark:text-blue-400 mt-2">Équipements</span>
-                                </div>
-
-                                {/* Status count cards */}
-                                {Object.entries(equipmentStatusLabels).map(([status, label]) => {
-                                    const count = equipmentStats.byStatus[status] || 0;
-                                    const colorClass = status === 'disponible_bon_etat' ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
-                                        status === 'on_repair' ? 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300' :
-                                            status === 'disponible_needs_repair' ? 'bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300' :
-                                                status === 'working_non_disponible' ? 'bg-purple-50 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300' :
-                                                    'bg-blue-50 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-
-                                    return (
-                                        <div key={status} className={`rounded-lg p-4 flex flex-col ${colorClass}`}>
-                                            <span className="text-sm font-medium">{label}</span>
-                                            <span className="text-3xl font-bold">{count}</span>
-                                            <button
-                                                onClick={() => {
-                                                    setFilters(prev => ({ ...prev, status }));
-                                                    setIsStatsOpen(false);
-                                                }}
-                                                className="text-sm mt-2 hover:underline"
-                                            >
-                                                Voir détails
-                                            </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {/* Filters */}
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 shadow-md relative">
+                        <h3 className="text-sm font-medium">Total Équipements</h3>
+                        <p className="text-2xl font-bold mt-1">{equipmentStats.total}</p>
+                        <p className="text-xs mt-1">Across all projects</p>
+                        <svg className="absolute top-4 right-4 w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7h18M3 12h18M3 17h18" />
+                        </svg>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4 shadow-md relative">
+                        <h3 className="text-sm font-medium">Disponible Bon État</h3>
+                        <p className="text-2xl font-bold mt-1">{equipmentStats.byStatus['disponible_bon_etat'] || 0}</p>
+                        <p className="text-xs mt-1">Available</p>
+                        <svg className="absolute top-4 right-4 w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-lg p-4 shadow-md relative">
+                        <h3 className="text-sm font-medium">En Réparation</h3>
+                        <p className="text-2xl font-bold mt-1">{equipmentStats.byStatus['on_repair'] || 0}</p>
+                        <p className="text-xs mt-1">In progress</p>
+                        <svg className="absolute top-4 right-4 w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Filter Section */}
+                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+                        <h2 className="text-lg font-medium text-gray-700 mb-4 sm:mb-0">Filtres</h2>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleRefresh}
+                                className="px-4 py-2 bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors duration-200 text-sm"
+                            >
+                                Actualiser
+                            </button>
+                            <span className="text-sm text-gray-500">Dernière mise à jour: {formatDate(lastRefreshTime)}</span>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mb-4">
                         <div>
-                            <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Recherche
-                            </label>
+                            <label htmlFor="search" className="block text-sm font-medium text-gray-600 mb-1">Recherche</label>
                             <input
                                 type="text"
                                 id="search"
@@ -298,19 +233,17 @@ const EquipmentList: React.FC = () => {
                                 value={filters.search}
                                 onChange={handleFilterChange}
                                 placeholder="Nom, référence, matricule..."
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38] sm:text-sm"
+                                className="w-full rounded-full border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             />
                         </div>
                         <div>
-                            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Statut
-                            </label>
+                            <label htmlFor="status" className="block text-sm font-medium text-gray-600 mb-1">Statut</label>
                             <select
                                 id="status"
                                 name="status"
                                 value={filters.status}
                                 onChange={handleFilterChange}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38] sm:text-sm"
+                                className="w-full rounded-full border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             >
                                 <option value="">Tous les statuts</option>
                                 {Object.entries(equipmentStatusLabels).map(([value, label]) => (
@@ -321,15 +254,13 @@ const EquipmentList: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Emplacement
-                            </label>
+                            <label htmlFor="location" className="block text-sm font-medium text-gray-600 mb-1">Emplacement</label>
                             <select
                                 id="location"
                                 name="location"
                                 value={filters.location}
                                 onChange={handleFilterChange}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38] sm:text-sm"
+                                className="w-full rounded-full border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             >
                                 <option value="">Tous les emplacements</option>
                                 {uniqueLocations.map((location: string) => (
@@ -340,10 +271,13 @@ const EquipmentList: React.FC = () => {
                             </select>
                         </div>
                     </div>
+                    <div className="text-sm text-gray-600">
+                        {filteredEquipment.length} équipement(s) trouvé(s)
+                    </div>
                     <div className="mt-4 flex justify-end">
                         <button
                             onClick={clearFilters}
-                            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors duration-200 text-sm"
                         >
                             Effacer les filtres
                         </button>
@@ -351,204 +285,111 @@ const EquipmentList: React.FC = () => {
                 </div>
 
                 {/* Equipment Table */}
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                    <Table>
-                        <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                            <TableRow>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nom
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Référence
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Matricule
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Dimensions
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Emplacement
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Statut
-                                </TableCell>
-                                <TableCell className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </TableCell>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="py-3 px-4 text-left text-gray-600 font-medium">Nom & Détails</th>
+                                <th className="py-3 px-4 text-left text-gray-600 font-medium">Emplacement</th>
+                                <th className="py-3 px-4 text-left text-gray-600 font-medium">Statut</th>
+                                <th className="py-3 px-4 text-left text-gray-600 font-medium">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             {paginatedEquipment.length > 0 ? (
                                 paginatedEquipment.map((item) => {
-                                    // Type assertion for status
                                     const status = item.status as keyof typeof equipmentStatusColors;
-
                                     return (
-                                        <TableRow key={item._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                            <TableCell className="px-5 py-4 text-sm text-gray-900 dark:text-white">
-                                                {item.nom}
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                {item.reference}
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                {item.matricule}
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                <div>H: {item.dimensions.height} cm</div>
-                                                <div>L: {item.dimensions.length} cm</div>
-                                                <div>l: {item.dimensions.width} cm</div>
-                                                <div>P: {item.dimensions.weight} kg</div>
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                {item.location}
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${equipmentStatusColors[status]}`}>
+                                        <tr key={item._id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                                            <td className="py-4 px-4">
+                                                <div className="font-medium text-gray-800">{item.nom}</div>
+                                                <div className="text-gray-600">
+                                                    Réf: {item.reference} | Mat: {item.matricule} | Dim: H:{item.dimensions.height}cm L:{item.dimensions.length}cm l:{item.dimensions.width}cm P:{item.dimensions.weight}kg
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-4 text-gray-600">{item.location}</td>
+                                            <td className="py-4 px-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${equipmentStatusColors[status]}`}>
                                                     {equipmentStatusLabels[status]}
                                                 </span>
-                                            </TableCell>
-                                            <TableCell className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            </td>
+                                            <td className="py-4 px-4">
                                                 <Link
                                                     to={`/equipments/${item._id}`}
-                                                    className="text-[#F28C38] hover:text-[#E67E2E] inline-flex items-center"
+                                                    className="inline-flex items-center text-orange-500 hover:text-orange-600 transition-colors duration-200"
                                                 >
                                                     <EyeIcon className="w-5 h-5 mr-1" />
                                                     Voir
                                                 </Link>
-                                            </TableCell>
-                                        </TableRow>
+                                            </td>
+                                        </tr>
                                     );
                                 })
                             ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <td colSpan={4} className="py-4 text-center text-gray-600">
                                         {loading ? (
                                             <div className="flex justify-center">
-                                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#F28C38]"></div>
+                                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-orange-500"></div>
                                             </div>
                                         ) : error ? (
                                             <div className="text-red-500">Une erreur est survenue lors du chargement des équipements.</div>
                                         ) : (
                                             "Aucun équipement trouvé avec les filtres actuels."
                                         )}
-                                    </TableCell>
-                                </TableRow>
+                                    </td>
+                                </tr>
                             )}
-                        </TableBody>
-                    </Table>
-
-                    {/* Pagination */}
-                    {filteredEquipment.length > 0 && (
-                        <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col sm:flex-row items-center justify-between">
-                            <div className="flex items-center mb-4 sm:mb-0">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                    Affichage de{' '}
-                                    <span className="font-medium">
-                                        {Math.min((currentPage - 1) * itemsPerPage + 1, filteredEquipment.length)}
-                                    </span>{' '}
-                                    à{' '}
-                                    <span className="font-medium">
-                                        {Math.min(currentPage * itemsPerPage, filteredEquipment.length)}
-                                    </span>{' '}
-                                    sur <span className="font-medium">{filteredEquipment.length}</span> équipements
-                                </span>
-                                <div className="ml-4">
-                                    <label htmlFor="itemsPerPage" className="sr-only">Éléments par page</label>
-                                    <select
-                                        id="itemsPerPage"
-                                        value={itemsPerPage}
-                                        onChange={handleItemsPerPageChange}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38] sm:text-sm"
-                                    >
-                                        <option value="5">5 par page</option>
-                                        <option value="10">10 par page</option>
-                                        <option value="25">25 par page</option>
-                                        <option value="50">50 par page</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => handlePageChange(1)}
-                                    disabled={currentPage === 1}
-                                    className={`px-3 py-1 rounded-md ${currentPage === 1
-                                        ? 'text-gray-400 cursor-not-allowed'
-                                        : 'text-[#F28C38] hover:bg-orange-50'
-                                        }`}
-                                >
-                                    Premier
-                                </button>
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 1}
-                                    className={`p-1 rounded-md ${currentPage === 1
-                                        ? 'text-gray-400 cursor-not-allowed'
-                                        : 'text-[#F28C38] hover:bg-orange-50'
-                                        }`}
-                                >
-                                    <ChevronLeftIcon className="w-5 h-5" />
-                                </button>
-                                <div className="flex items-center space-x-1">
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        // Create a window of 5 pages centered around current page
-                                        let pageNum;
-                                        if (totalPages <= 5) {
-                                            // Less than 5 pages, show all
-                                            pageNum = i + 1;
-                                        } else if (currentPage <= 3) {
-                                            // Near start, show first 5 pages
-                                            pageNum = i + 1;
-                                        } else if (currentPage >= totalPages - 2) {
-                                            // Near end, show last 5 pages
-                                            pageNum = totalPages - 4 + i;
-                                        } else {
-                                            // Middle, show current and 2 on each side
-                                            pageNum = currentPage - 2 + i;
-                                        }
-
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                onClick={() => handlePageChange(pageNum)}
-                                                className={`px-3 py-1 rounded-md ${currentPage === pageNum
-                                                    ? 'bg-[#F28C38] text-white'
-                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-orange-50 dark:hover:bg-gray-700'
-                                                    }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage === totalPages}
-                                    className={`p-1 rounded-md ${currentPage === totalPages
-                                        ? 'text-gray-400 cursor-not-allowed'
-                                        : 'text-[#F28C38] hover:bg-orange-50'
-                                        }`}
-                                >
-                                    <ChevronRightIcon className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={() => handlePageChange(totalPages)}
-                                    disabled={currentPage === totalPages}
-                                    className={`px-3 py-1 rounded-md ${currentPage === totalPages
-                                        ? 'text-gray-400 cursor-not-allowed'
-                                        : 'text-[#F28C38] hover:bg-orange-50'
-                                        }`}
-                                >
-                                    Dernier
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                        </tbody>
+                    </table>
                 </div>
+
+                {/* Pagination */}
+                {filteredEquipment.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-center">
+                        <div className="text-sm text-gray-600 mb-4 sm:mb-0">
+                            Affichage de{' '}
+                            <span className="font-medium">
+                                {Math.min((currentPage - 1) * itemsPerPage + 1, filteredEquipment.length)}
+                            </span>{' '}
+                            à{' '}
+                            <span className="font-medium">
+                                {Math.min(currentPage * itemsPerPage, filteredEquipment.length)}
+                            </span>{' '}
+                            sur <span className="font-medium">{filteredEquipment.length}</span> équipements
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 transition-colors duration-200"
+                            >
+                                <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <span className="text-sm text-gray-600">Page {currentPage} sur {totalPages}</span>
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 transition-colors duration-200"
+                            >
+                                <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <select
+                                value={itemsPerPage}
+                                onChange={handleItemsPerPageChange}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            >
+                                <option value="5">5 par page</option>
+                                <option value="10">10 par page</option>
+                                <option value="25">25 par page</option>
+                                <option value="50">50 par page</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );
 };
 
-export default EquipmentList; 
+export default EquipmentList;
