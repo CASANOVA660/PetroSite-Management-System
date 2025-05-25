@@ -23,16 +23,20 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Create uploads directory
+# Create necessary directories
 RUN mkdir -p /app/uploads
+RUN mkdir -p /app/logs
 
 # Copy built files from builder
 COPY --from=builder /app ./
 
 # Create non-root user
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
-# Give ownership of the uploads directory to the nodejs user
+
+# Give ownership of the directories to the nodejs user
 RUN chown -R nodejs:nodejs /app/uploads
+RUN chown -R nodejs:nodejs /app/logs
+
 USER nodejs
 
 # Environment variables

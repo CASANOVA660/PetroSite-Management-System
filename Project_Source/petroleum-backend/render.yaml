@@ -2,22 +2,23 @@ services:
   - type: web
     name: petroleum-backend
     env: docker
-    repo: https://github.com/yourusername/petroleum-project.git # Replace with your actual repository
-    branch: main # Or your deployment branch
+    rootDir: Project_Source/petroleum-backend
+    repo: https://github.com/CASANOVA660/PetroSite-Management-System.git
+    branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
-    plan: free # Starts with free tier
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
       - key: MONGODB_URI
-        sync: false # This will be manually set in the Render dashboard for security
+        sync: false
       - key: REDIS_URL
-        sync: false # This will be manually set in the Render dashboard for security
+        sync: false
       - key: JWT_SECRET
-        sync: false # This will be manually set in the Render dashboard for security
+        sync: false
       - key: SENDER_EMAIL
         sync: false
       - key: SENDER_NAME
@@ -27,7 +28,7 @@ services:
       - key: EMAIL_APP_PASSWORD
         sync: false
       - key: FRONTEND_URL
-        value: https://petroleum-project.netlify.app # Update this with your actual Netlify URL
+        value: https://petroleum-project.netlify.app
       - key: ENCRYPTION_KEY
         sync: false
       - key: ENCRYPTION_IV
@@ -40,9 +41,5 @@ services:
         sync: false
       - key: LOG_LEVEL
         value: info
-      - key: LOG_MAX_SIZE
-        value: 20m
-      - key: LOG_MAX_FILES
-        value: 14
-      - key: LOG_DIRECTORY
-        value: ./logs 
+      - key: LOG_FILE_ENABLED
+        value: "false" 
