@@ -1,11 +1,16 @@
 import axios from 'axios';
+import { API_URL } from '../config';
+
 const instance = axios.create({
-    baseURL: 'https://petrosite-management-system.onrender.com/api',
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json'
     },
-    withCredentials: true
+    withCredentials: true // This is important for CORS with credentials
 });
+
+// Log configuration for debugging
+console.log('API URL:', API_URL);
 
 // Add request interceptor to add auth token
 instance.interceptors.request.use(

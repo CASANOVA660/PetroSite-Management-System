@@ -54,7 +54,9 @@ const io = socketIo(server, {
     cors: {
         origin: [
             "http://localhost:5173",
-            "https://petroleum-project.netlify.app",  // Add your Netlify domain
+            "https://petrosite-management-system.onrender.com",
+            "https://petroleum-project.netlify.app",
+            "https://6833a98c99a3a825df04287b--petroleum-project.netlify.app",
             /\.netlify\.app$/,  // Allow all Netlify subdomains
             /\.netlify\.live$/  // Allow Netlify Live domains for previews
         ],
@@ -175,7 +177,9 @@ io.engine.on('connection_error', (err) => {
 app.use(cors({
     origin: [
         "http://localhost:5173",
-        "https://petroleum-project.netlify.app",  // Add your Netlify domain
+        "https://petrosite-management-system.onrender.com",
+        "https://petroleum-project.netlify.app",
+        "https://6833a98c99a3a825df04287b--petroleum-project.netlify.app",
         /\.netlify\.app$/,  // Allow all Netlify subdomains
         /\.netlify\.live$/  // Allow Netlify Live domains for previews
     ],
