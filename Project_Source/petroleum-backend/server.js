@@ -1,5 +1,9 @@
 const express = require('express');
 const dotenv = require('dotenv');
+
+// Load environment variables first, before requiring other modules
+dotenv.config();
+
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -28,8 +32,6 @@ const { handleTyping } = require('./modules/chat/controllers/messageController')
 const kpiFieldsRoutes = require('./modules/kpis/fields.routes');
 const kpiRoutes = require('./modules/kpis/kpi.routes');
 
-dotenv.config();
-
 // Initialize core services
 connectDB(); // MongoDB
 initializeFirebase(); // Firebase
@@ -50,7 +52,12 @@ const server = http.createServer(app);
 // Socket.io configuration
 const io = socketIo(server, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: [
+            "http://localhost:5173",
+            "https://petroleum-project.netlify.app",  // Add your Netlify domain
+            /\.netlify\.app$/,  // Allow all Netlify subdomains
+            /\.netlify\.live$/  // Allow Netlify Live domains for previews
+        ],
         methods: ["GET", "POST", "PUT"],
         credentials: true,
         transports: ['websocket', 'polling']
@@ -166,7 +173,12 @@ io.engine.on('connection_error', (err) => {
 
 // Middleware
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: [
+        "http://localhost:5173",
+        "https://petroleum-project.netlify.app",  // Add your Netlify domain
+        /\.netlify\.app$/,  // Allow all Netlify subdomains
+        /\.netlify\.live$/  // Allow Netlify Live domains for previews
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -179,6 +191,11 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// Health check endpoint for Docker and Render
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -1,22 +1,20 @@
 const Redis = require('ioredis');
-const logger = require('./../utils/logger'); // Assuming you have a logger setup
+const logger = require('./../utils/logger');
+const dotenv = require('dotenv');
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT) || 6379,
-  password: process.env.REDIS_PASSWORD,
+// Log the Redis URL being used (without exposing credentials)
+const redisUrl = process.env.REDIS_URL || '';
+logger.info(`Connecting to Redis at: ${redisUrl.split('@')[1] || 'localhost:6379'}`);
+
+const redis = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: 5,
   connectTimeout: 10000,
-  tls: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
   retryStrategy: (times) => {
     const delay = Math.min(times * 50, 2000);
-    return times > 20 ? null : delay; // Limit maximum retry attempts
+    return times > 20 ? null : delay;
   }
-};
-
-const redis = new Redis(redisConfig);
-
-// Event listeners
+});
+// Event listener
 redis.on('connect', () => {
   logger.info('Redis: Connection established');
 });
@@ -37,7 +35,7 @@ redis.on('reconnecting', (ms) => {
   logger.info(`Redis: Reconnecting in ${ms}ms`);
 });
 
-// Graceful shutdown handling
+// Graceful shutdown
 process.on('SIGINT', async () => {
   await redis.quit();
   process.exit(0);
