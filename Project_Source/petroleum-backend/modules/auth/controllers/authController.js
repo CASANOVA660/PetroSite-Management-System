@@ -4,7 +4,10 @@ const { comparePassword } = require('../../../utils/bcrypt');
 
 const login = async (req, res) => {
     try {
-        const { email, motDePasse } = req.body;
+        // Get email and password from request body (support both password and motDePasse fields)
+        const { email, password, motDePasse } = req.body;
+        const userPassword = password || motDePasse; // Use whichever is provided
+
         console.log('Login attempt for:', email);
 
         // Find account and populate user details
@@ -19,7 +22,7 @@ const login = async (req, res) => {
 
         try {
             // Compare passwords
-            const isValidPassword = await comparePassword(motDePasse, account.motDePasse);
+            const isValidPassword = await comparePassword(userPassword, account.motDePasse);
             if (!isValidPassword) {
                 return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
             }
