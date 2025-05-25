@@ -2,11 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 interface Plan {
-    id: string | number;
+    _id: string;
     title: string;
-    type: string;
+    type: 'placement' | 'maintenance';
     responsible: string;
-    equipment: string;
+    equipment: string | { nom: string };
     startDate: string;
     endDate: string;
     status: string;
@@ -14,9 +14,17 @@ interface Plan {
 
 interface PlanningTableProps {
     plans: Plan[];
-    onView: (id: string | number) => void;
-    onEdit: (id: string | number) => void;
-    onDelete: (id: string | number) => void;
+    onView: (id: string) => void;
+    onEdit: (id: string) => void;
+    onDelete: (id: string) => void;
+}
+
+function formatDate(dateStr: string) {
+    const d = new Date(dateStr);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
 }
 
 export default function PlanningTable({ plans, onView, onEdit, onDelete }: PlanningTableProps) {
@@ -41,19 +49,19 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
                 </thead>
                 <tbody>
                     {plans.map((plan, idx) => (
-                        <tr key={plan.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-blue-50 transition'}>
+                        <tr key={plan._id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-blue-50 transition'}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{plan.title}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{plan.type}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{plan.responsible}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{plan.equipment}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{plan.startDate} - {plan.endDate}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{typeof plan.equipment === 'object' ? plan.equipment.nom : plan.equipment}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(plan.startDate)} - {formatDate(plan.endDate)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${plan.status === 'Done' ? 'bg-green-100 text-green-700' : plan.status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : plan.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{plan.status}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm flex gap-2 justify-center">
-                                <button onClick={() => onView(plan.id)} className="hover:text-blue-600" title="View">👁</button>
-                                <button onClick={() => onEdit(plan.id)} className="hover:text-yellow-600" title="Edit">✏️</button>
-                                <button onClick={() => onDelete(plan.id)} className="hover:text-red-600" title="Delete">🗑️</button>
+                                <button onClick={() => onView(plan._id)} className="hover:text-blue-600" title="View">👁</button>
+                                <button onClick={() => onEdit(plan._id)} className="hover:text-yellow-600" title="Edit">✏️</button>
+                                <button onClick={() => onDelete(plan._id)} className="hover:text-red-600" title="Delete">🗑️</button>
                             </td>
                         </tr>
                     ))}

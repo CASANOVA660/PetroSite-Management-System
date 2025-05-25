@@ -13,6 +13,7 @@ import chatReducer from './slices/chatSlice';
 import employeesReducer from './slices/employeesSlice';
 import meetingReducer from './slices/meetingSlice';
 import kpisReducer from './slices/kpisSlice';
+import planningReducer from './slices/planningSlice';
 
 export const store = configureStore({
     reducer: {
@@ -28,7 +29,8 @@ export const store = configureStore({
         chat: chatReducer,
         employees: employeesReducer,
         meetings: meetingReducer,
-        kpis: kpisReducer
+        kpis: kpisReducer,
+        planning: planningReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

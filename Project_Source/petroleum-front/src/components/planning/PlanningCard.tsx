@@ -2,11 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 interface Plan {
-    id: string | number;
+    _id: string;
     title: string;
-    type: string;
+    type: 'placement' | 'maintenance';
     responsible: string;
-    equipment: string;
+    equipment: string | { name: string };
     startDate: string;
     endDate: string;
     status: string;
@@ -14,9 +14,9 @@ interface Plan {
 
 interface PlanningCardProps {
     plan: Plan;
-    onView: (id: string | number) => void;
-    onEdit: (id: string | number) => void;
-    onDelete: (id: string | number) => void;
+    onView: (id: string) => void;
+    onEdit: (id: string) => void;
+    onDelete: (id: string) => void;
 }
 
 export default function PlanningCard({ plan, onView, onEdit, onDelete }: PlanningCardProps) {
@@ -33,12 +33,12 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
             </div>
             <div className="text-sm text-gray-500">Type: <span className="text-gray-700">{plan.type}</span></div>
             <div className="text-sm text-gray-500">Responsible: <span className="text-gray-700">{plan.responsible}</span></div>
-            <div className="text-sm text-gray-500">Equipment: <span className="text-gray-700">{plan.equipment}</span></div>
+            <div className="text-sm text-gray-500">Equipment: <span className="text-gray-700">{typeof plan.equipment === 'object' ? plan.equipment.name : plan.equipment}</span></div>
             <div className="text-sm text-gray-500">Dates: <span className="text-gray-700">{plan.startDate} - {plan.endDate}</span></div>
             <div className="flex gap-4 mt-3 justify-end">
-                <button onClick={() => onView(plan.id)} className="hover:text-blue-600" title="View">👁</button>
-                <button onClick={() => onEdit(plan.id)} className="hover:text-yellow-600" title="Edit">✏️</button>
-                <button onClick={() => onDelete(plan.id)} className="hover:text-red-600" title="Delete">🗑️</button>
+                <button onClick={() => onView(plan._id)} className="hover:text-blue-600" title="View">👁</button>
+                <button onClick={() => onEdit(plan._id)} className="hover:text-yellow-600" title="Edit">✏️</button>
+                <button onClick={() => onDelete(plan._id)} className="hover:text-red-600" title="Delete">🗑️</button>
             </div>
         </motion.div>
     );

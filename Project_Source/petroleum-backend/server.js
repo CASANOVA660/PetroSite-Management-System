@@ -204,6 +204,9 @@ app.use('/api/kpis', kpiFieldsRoutes);
 // New KPI CRUD API route
 app.use('/api/kpis', kpiRoutes);
 
+// Planning module
+app.use('/api/plans', require('./modules/planning/routes/plan.routes'));
+
 // Error handling
 app.use(errorHandler);
 

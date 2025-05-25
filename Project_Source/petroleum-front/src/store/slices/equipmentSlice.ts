@@ -213,10 +213,8 @@ const equipmentSlice = createSlice({
             })
             .addCase(fetchEquipmentHistory.fulfilled, (state, action) => {
                 state.loading = false;
-
-                // Group history entries by type
-                const history = action.payload.history as EquipmentHistoryEntry[];
-
+                // Support both API and mock payloads
+                const history = ('data' in action.payload ? action.payload.data : action.payload.history) as EquipmentHistoryEntry[];
                 state.equipmentHistory = {
                     placement: history.filter(entry => entry.type === 'placement'),
                     operation: history.filter(entry => entry.type === 'operation'),

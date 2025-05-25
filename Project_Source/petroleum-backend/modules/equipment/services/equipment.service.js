@@ -1,11 +1,11 @@
 const Equipment = require('../models/equipment.model');
 const EquipmentHistory = require('../models/history.model');
-const redis = require('../../../config/redis');
+// const redis = require('../../../config/redis'); // REMOVE CACHE
 const logger = require('../../../utils/logger');
 
 class EquipmentService {
     // Redis cache TTL in seconds
-    static CACHE_TTL = 300; // 5 minutes
+    // static CACHE_TTL = 300; // 5 minutes
 
     // Create a new equipment
     async createEquipment(equipmentData, userId) {
@@ -24,7 +24,7 @@ class EquipmentService {
             logger.info('Equipment created successfully', { id: equipment._id });
 
             // Invalidate equipment list cache
-            await this._invalidateListCache();
+            // await this._invalidateListCache(); // REMOVE CACHE
 
             return equipment;
         } catch (error) {
@@ -41,16 +41,6 @@ class EquipmentService {
         try {
             const { status, location, search } = filters;
             const { page = 1, limit = 50, sort = '-createdAt' } = options;
-
-            // Create a unique cache key based on the query parameters
-            const cacheKey = `equipment:list:${status || 'all'}:${location || 'all'}:${search || 'none'}:${page}:${limit}:${sort}`;
-
-            // Try to get from cache first
-            const cachedResult = await redis.get(cacheKey);
-            if (cachedResult) {
-                logger.info('Equipment list retrieved from cache', { cacheKey });
-                return JSON.parse(cachedResult);
-            }
 
             // Build query
             const query = {};
@@ -95,10 +85,6 @@ class EquipmentService {
                 }
             };
 
-            // Cache the result
-            await redis.set(cacheKey, JSON.stringify(result), 'EX', EquipmentService.CACHE_TTL);
-            logger.info('Equipment list cached', { cacheKey, ttl: EquipmentService.CACHE_TTL });
-
             return result;
         } catch (error) {
             logger.error('Error fetching equipment list', {
@@ -112,15 +98,6 @@ class EquipmentService {
     // Get equipment by ID with its history
     async getEquipmentById(equipmentId) {
         try {
-            const cacheKey = `equipment:${equipmentId}`;
-
-            // Try to get from cache first
-            const cachedEquipment = await redis.get(cacheKey);
-            if (cachedEquipment) {
-                logger.info('Equipment retrieved from cache', { id: equipmentId });
-                return JSON.parse(cachedEquipment);
-            }
-
             // Fetch equipment with creator info
             const equipment = await Equipment.findById(equipmentId)
                 .populate('createdBy', 'nom prenom')
@@ -130,10 +107,6 @@ class EquipmentService {
                 logger.warn('Equipment not found', { id: equipmentId });
                 return null;
             }
-
-            // Cache the result
-            await redis.set(cacheKey, JSON.stringify(equipment), 'EX', EquipmentService.CACHE_TTL);
-            logger.info('Equipment cached', { id: equipmentId, ttl: EquipmentService.CACHE_TTL });
 
             return equipment;
         } catch (error) {
@@ -162,9 +135,6 @@ class EquipmentService {
                 return null;
             }
 
-            // Invalidate caches
-            await this._invalidateCache(equipmentId);
-
             logger.info('Equipment updated successfully', { id: equipmentId });
             return equipment;
         } catch (error) {
@@ -191,9 +161,6 @@ class EquipmentService {
 
             // Delete all history entries for this equipment
             await EquipmentHistory.deleteMany({ equipmentId });
-
-            // Invalidate caches
-            await this._invalidateCache(equipmentId);
 
             logger.info('Equipment and history deleted successfully', { id: equipmentId });
             return equipment;
@@ -228,13 +195,7 @@ class EquipmentService {
                     historyData.equipmentId,
                     { location: historyData.location }
                 );
-
-                // Invalidate equipment cache
-                await this._invalidateCache(historyData.equipmentId);
             }
-
-            // Invalidate history cache
-            await this._invalidateHistoryCache(historyData.equipmentId);
 
             logger.info('History entry added successfully', { id: historyEntry._id });
             return historyEntry;
@@ -251,18 +212,6 @@ class EquipmentService {
     // Get equipment history
     async getEquipmentHistory(equipmentId, type = null) {
         try {
-            const cacheKey = `equipment:${equipmentId}:history${type ? `:${type}` : ''}`;
-
-            // Try to get from cache first
-            const cachedHistory = await redis.get(cacheKey);
-            if (cachedHistory) {
-                logger.info('Equipment history retrieved from cache', {
-                    equipmentId,
-                    type: type || 'all'
-                });
-                return JSON.parse(cachedHistory);
-            }
-
             // Build query
             const query = { equipmentId };
             if (type) {
@@ -275,14 +224,6 @@ class EquipmentService {
                 .populate('createdBy', 'nom prenom')
                 .lean();
 
-            // Cache the result
-            await redis.set(cacheKey, JSON.stringify(history), 'EX', EquipmentService.CACHE_TTL);
-            logger.info('Equipment history cached', {
-                equipmentId,
-                type: type || 'all',
-                ttl: EquipmentService.CACHE_TTL
-            });
-
             return history;
         } catch (error) {
             logger.error('Error fetching equipment history', {
@@ -292,70 +233,6 @@ class EquipmentService {
                 stack: error.stack
             });
             throw error;
-        }
-    }
-
-    // Helper to invalidate equipment cache
-    async _invalidateCache(equipmentId) {
-        try {
-            // Delete equipment detail cache
-            await redis.del(`equipment:${equipmentId}`);
-
-            // Delete equipment history cache (all types)
-            await redis.del(`equipment:${equipmentId}:history`);
-
-            // Delete specific history type caches
-            await redis.del(`equipment:${equipmentId}:history:placement`);
-            await redis.del(`equipment:${equipmentId}:history:operation`);
-            await redis.del(`equipment:${equipmentId}:history:maintenance`);
-
-            // Invalidate list cache (pattern match)
-            await this._invalidateListCache();
-
-            logger.info('Equipment cache invalidated', { id: equipmentId });
-        } catch (error) {
-            logger.error('Error invalidating equipment cache', {
-                id: equipmentId,
-                error: error.message
-            });
-        }
-    }
-
-    // Helper to invalidate only history cache
-    async _invalidateHistoryCache(equipmentId) {
-        try {
-            // Delete equipment history cache (all types)
-            await redis.del(`equipment:${equipmentId}:history`);
-
-            // Delete specific history type caches
-            await redis.del(`equipment:${equipmentId}:history:placement`);
-            await redis.del(`equipment:${equipmentId}:history:operation`);
-            await redis.del(`equipment:${equipmentId}:history:maintenance`);
-
-            logger.info('Equipment history cache invalidated', { id: equipmentId });
-        } catch (error) {
-            logger.error('Error invalidating equipment history cache', {
-                id: equipmentId,
-                error: error.message
-            });
-        }
-    }
-
-    // Helper to invalidate list cache using pattern
-    async _invalidateListCache() {
-        try {
-            // Get all keys matching the pattern
-            const keys = await redis.keys('equipment:list:*');
-
-            if (keys.length > 0) {
-                // Delete all matching keys
-                await redis.del(...keys);
-                logger.info('Equipment list cache invalidated', { count: keys.length });
-            }
-        } catch (error) {
-            logger.error('Error invalidating equipment list cache', {
-                error: error.message
-            });
         }
     }
 }

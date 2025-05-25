@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { useAppDispatch } from '../../store';
+import { fetchEquipment } from '../../store/slices/equipmentSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Plan {
-    id?: string | number;
+    _id?: string;
     title: string;
     description: string;
-    type: string;
-    equipment: string[];
+    type: 'placement' | 'maintenance';
+    equipment: string; // equipment id
     responsible: string;
     route: string[];
     startDate: string;
@@ -22,18 +25,22 @@ interface PlanModalProps {
 }
 
 const typeOptions = [
-    { label: 'Mobilization', value: 'Mobilization' },
-    { label: 'Maintenance', value: 'Maintenance' },
+    { label: 'Mobilization', value: 'placement' },
+    { label: 'Maintenance', value: 'maintenance' },
 ];
 
 export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProps) {
+    const dispatch = useAppDispatch();
+    const equipmentList = useSelector((state: any) => state.equipment.equipment);
+    const equipmentLoading = useSelector((state: any) => state.equipment.loading);
+    const userId = useSelector((state: any) => state.auth.user?._id);
     const [step, setStep] = useState(0);
     const [form, setForm] = useState<Plan>(
         plan || {
             title: '',
             description: '',
-            type: 'Mobilization',
-            equipment: [],
+            type: 'placement',
+            equipment: '',
             responsible: '',
             route: [''],
             startDate: '',
@@ -41,6 +48,27 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
             notes: '',
         }
     );
+
+    useEffect(() => {
+        if (open && equipmentList.length === 0 && !equipmentLoading) {
+            dispatch(fetchEquipment());
+        }
+    }, [open, equipmentList.length, equipmentLoading, dispatch]);
+
+    useEffect(() => {
+        if (plan) setForm(plan);
+        else setForm({
+            title: '',
+            description: '',
+            type: 'placement',
+            equipment: '',
+            responsible: '',
+            route: [''],
+            startDate: '',
+            endDate: '',
+            notes: '',
+        });
+    }, [plan, open]);
 
     const handleChange = (field: keyof Plan, value: any) => {
         setForm(f => ({ ...f, [field]: value }));
@@ -55,6 +83,20 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
     const addRouteStop = () => setForm(f => ({ ...f, route: [...f.route, ''] }));
 
     const removeRouteStop = (idx: number) => setForm(f => ({ ...f, route: f.route.filter((_, i) => i !== idx) }));
+
+    const handleFinalSave = () => {
+        if (!form.title || !form.type || !form.equipment || !form.responsible || !form.startDate || !form.endDate) {
+            alert('Please fill all required fields.');
+            return;
+        }
+        const planToSave = {
+            ...form,
+            startDate: new Date(form.startDate).toISOString(),
+            endDate: new Date(form.endDate).toISOString(),
+            createdBy: userId,
+        };
+        onSave(planToSave);
+    };
 
     const steps = [
         // Step 1
@@ -81,12 +123,16 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
         </div>,
         // Step 2
         <div key="step2" className="flex flex-col gap-4">
-            <input
+            <select
                 className="input"
-                placeholder="Equipment (comma separated)"
-                value={form.equipment.join(', ')}
-                onChange={e => handleChange('equipment', e.target.value.split(',').map((s: string) => s.trim()))}
-            />
+                value={form.equipment}
+                onChange={e => handleChange('equipment', e.target.value)}
+            >
+                <option value="">{equipmentLoading ? 'Loading equipment...' : 'Select Equipment'}</option>
+                {equipmentList.map((eq: any) => (
+                    <option key={eq._id} value={eq._id}>{eq.nom}</option>
+                ))}
+            </select>
             <input
                 className="input"
                 placeholder="Responsible"
@@ -172,7 +218,7 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
                             ) : (
                                 <button
                                     className="px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700"
-                                    onClick={() => onSave(form)}
+                                    onClick={handleFinalSave}
                                 >
                                     Save
                                 </button>

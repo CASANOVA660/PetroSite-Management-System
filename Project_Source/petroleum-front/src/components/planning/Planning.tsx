@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { useAppDispatch } from '../../store';
+import { fetchPlans, createPlan, updatePlan, deletePlan } from '../../store/slices/planningSlice';
 import PlanningHeader from './PlanningHeader';
 import PlanningTabs from './PlanningTabs';
 import SummaryCards from './SummaryCards';
@@ -18,20 +21,6 @@ const tabs = [
     { label: 'Calendar View', icon: '📆' },
 ];
 
-const mockPlans = [
-    { id: 1, title: 'Maplewood Estate Visit', type: 'Mobilization', responsible: 'John Doe', equipment: 'Truck, Crane', startDate: '2025-01-14', endDate: '2025-01-14', status: 'Upcoming' },
-    { id: 2, title: 'Finance Budget Review', type: 'Maintenance', responsible: 'Jane Smith', equipment: 'Laptop', startDate: '2025-01-15', endDate: '2025-01-15', status: 'Done' },
-    { id: 3, title: 'Marketing Brainstorming', type: 'Mobilization', responsible: 'Emily Clark', equipment: 'Whiteboard', startDate: '2025-01-16', endDate: '2025-01-16', status: 'In Progress' },
-    { id: 4, title: 'Contract with Emily', type: 'Maintenance', responsible: 'Emily Clark', equipment: 'Documents', startDate: '2025-01-17', endDate: '2025-01-17', status: 'Upcoming' },
-];
-
-const mockCards = [
-    { icon: '🛠️', label: 'Total Mobilizations', value: 12, color: 'text-orange-500' },
-    { icon: '🧰', label: 'Upcoming Maintenance', value: 5, color: 'text-green-500' },
-    { icon: '⏳', label: 'Pending Approvals', value: 2, color: 'text-yellow-500' },
-    { icon: '🚚', label: 'Equipment in Use', value: 7, color: 'text-blue-500' },
-];
-
 type Filters = {
     status?: string;
     responsible?: string;
@@ -39,19 +28,36 @@ type Filters = {
 };
 
 export default function Planning() {
+    const dispatch = useAppDispatch();
+    const { plans, loading } = useSelector((state: any) => state.planning);
     const [activeTab, setActiveTab] = useState(0);
     const [filters, setFilters] = useState<Filters>({});
     const [modalOpen, setModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
 
-    // Filtered plans (mock logic)
-    const filteredPlans = mockPlans.filter(p => {
+    useEffect(() => {
+        dispatch(fetchPlans());
+    }, [dispatch]);
+
+    // Filtered plans from Redux
+    const filteredPlans = plans.filter((p: any) => {
         if (filters.status && p.status !== filters.status) return false;
-        if (filters.responsible && !p.responsible.toLowerCase().includes(filters.responsible.toLowerCase())) return false;
+        if (filters.responsible && !p.responsible?.toLowerCase().includes(filters.responsible.toLowerCase())) return false;
         if (filters.date && p.startDate !== filters.date) return false;
         return true;
     });
+
+    // Compute summary cards from real plans
+    const mobilizations = plans.filter((p: any) => p.type === 'Mobilization').length;
+    const maintenances = plans.filter((p: any) => p.type === 'Maintenance').length;
+    const pending = plans.filter((p: any) => p.status === 'Upcoming').length;
+    const inUse = plans.filter((p: any) => p.status === 'In Progress').length;
+    const summaryCards = [
+        { icon: '🛠️', label: 'Total Mobilizations', value: mobilizations, color: 'text-orange-500' },
+        { icon: '🧰', label: 'Upcoming Maintenance', value: maintenances, color: 'text-green-500' },
+        { icon: '⏳', label: 'Pending Approvals', value: pending, color: 'text-yellow-500' },
+        { icon: '🚚', label: 'Equipment in Use', value: inUse, color: 'text-blue-500' },
+    ];
 
     // Handlers
     const handleNewPlan = () => {
@@ -59,26 +65,31 @@ export default function Planning() {
         setModalOpen(true);
     };
     const handleEdit = (id: any) => {
-        setEditingPlan(mockPlans.find(p => p.id === id));
+        const plan = plans.find((p: any) => p._id === id);
+        setEditingPlan(plan);
         setModalOpen(true);
     };
     const handleSave = (plan: any) => {
+        if (editingPlan) {
+            dispatch(updatePlan({ id: editingPlan._id, data: plan }));
+        } else {
+            dispatch(createPlan(plan));
+        }
         setModalOpen(false);
         setEditingPlan(null);
-        // Save logic here
     };
     const handleView = (id: any) => {
-        // View logic here
+        // Optionally implement view logic
     };
     const handleDelete = (id: any) => {
-        // Delete logic here
+        dispatch(deletePlan(id));
     };
 
     return (
         <div className="font-outfit min-h-screen bg-gray-50 p-6">
             <PlanningHeader onNewPlan={handleNewPlan} onSearch={() => { }} />
             <PlanningTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-            {activeTab !== 3 && <SummaryCards cards={mockCards} onCardClick={() => { }} />}
+            {activeTab !== 3 && <SummaryCards cards={summaryCards} onCardClick={() => { }} />}
             {activeTab !== 3 && <FilterBar filters={filters} onChange={setFilters} />}
             {loading ? (
                 <LoadingSkeleton type={activeTab === 3 ? 'card' : 'table'} />
@@ -87,12 +98,12 @@ export default function Planning() {
                     {isMobile => (
                         <>
                             {activeTab === 3 ? (
-                                <CalendarView onPlanClick={handleEdit} />
+                                <CalendarView plans={filteredPlans} onPlanClick={handleEdit} />
                             ) : isMobile ? (
                                 <div>
-                                    {filteredPlans.map(plan => (
+                                    {filteredPlans.map((plan: any) => (
                                         <PlanningCard
-                                            key={plan.id}
+                                            key={plan._id}
                                             plan={plan}
                                             onView={handleView}
                                             onEdit={handleEdit}
