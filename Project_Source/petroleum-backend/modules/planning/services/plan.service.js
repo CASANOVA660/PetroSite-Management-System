@@ -36,7 +36,34 @@ async function getPlanById(id) {
 }
 
 async function updatePlan(id, update) {
-    return Plan.findByIdAndUpdate(id, update, { new: true }).populate('equipment');
+    // Find the original plan before update
+    const originalPlan = await Plan.findById(id);
+
+    // Update the plan
+    const updatedPlan = await Plan.findByIdAndUpdate(id, update, { new: true }).populate('equipment');
+
+    if (originalPlan && updatedPlan) {
+        // Update the corresponding EquipmentHistory entry using the original plan's data
+        await EquipmentHistory.updateOne(
+            {
+                equipmentId: originalPlan.equipment,
+                type: originalPlan.type.toLowerCase(),
+                fromDate: originalPlan.startDate,
+                toDate: originalPlan.endDate
+            },
+            {
+                $set: {
+                    description: updatedPlan.description || updatedPlan.title,
+                    responsiblePerson: { name: updatedPlan.responsible },
+                    fromDate: updatedPlan.startDate,
+                    toDate: updatedPlan.endDate,
+                    // Add other fields as needed
+                }
+            }
+        );
+    }
+
+    return updatedPlan;
 }
 
 async function deletePlan(id) {

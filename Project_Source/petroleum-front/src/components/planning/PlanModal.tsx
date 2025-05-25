@@ -115,10 +115,10 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
     const steps = [
         // Step 1
         <div key="step1" className="flex flex-col gap-4">
-            <label className={labelClass}>Title</label>
+            <label className={labelClass}>Titre</label>
             <input
                 className={inputClass}
-                placeholder="Enter plan title"
+                placeholder="Entrer le titre de la planification"
                 value={form.title}
                 onChange={e => handleChange('title', e.target.value)}
             />
@@ -151,14 +151,14 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
                     <option key={eq._id} value={eq._id}>{eq.nom}</option>
                 ))}
             </select>
-            <label className={labelClass}>Responsible</label>
+            <label className={labelClass}>Responsable</label>
             <input
                 className={inputClass}
-                placeholder="Responsible person"
+                placeholder="Responsable"
                 value={form.responsible}
                 onChange={e => handleChange('responsible', e.target.value)}
             />
-            <label className={labelClass}>Mobilization Route</label>
+            <label className={labelClass}>Route de mobilisation</label>
             <div className="flex flex-col gap-2">
                 {form.route.map((stop, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
@@ -175,28 +175,28 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
                         )}
                     </div>
                 ))}
-                <button type="button" className="text-blue-600 text-xs mt-1 hover:underline" onClick={addRouteStop}>+ Add Stop</button>
+                <button type="button" className="text-blue-600 text-xs mt-1 hover:underline" onClick={addRouteStop}>+ Ajouter un point</button>
             </div>
         </div>,
         // Step 3
         <div key="step3" className="flex flex-col gap-4">
-            <label className={labelClass}>Start Date</label>
+            <label className={labelClass}>Date de départ</label>
             <input
                 className={inputClass}
                 type="date"
-                placeholder="Start Date"
+                placeholder="Date de départ"
                 value={form.startDate}
                 onChange={e => handleChange('startDate', e.target.value)}
             />
-            <label className={labelClass}>End Date</label>
+            <label className={labelClass}>Date de fin</label>
             <input
                 className={inputClass}
                 type="date"
-                placeholder="End Date"
+                placeholder="Date de fin"
                 value={form.endDate}
                 onChange={e => handleChange('endDate', e.target.value)}
             />
-            <label className={labelClass}>Additional Notes</label>
+            <label className={labelClass}>Remarques</label>
             <textarea
                 className={inputClass + ' resize-none min-h-[60px]'}
                 placeholder="Any additional notes (optional)"
@@ -245,14 +245,14 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
                                     className="px-5 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all shadow-md"
                                     onClick={() => setStep(step + 1)}
                                 >
-                                    Next
+                                    Suivant
                                 </button>
                             ) : (
                                 <button
                                     className="px-5 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-all shadow-md"
                                     onClick={handleFinalSave}
                                 >
-                                    Save
+                                    Enregistrer
                                 </button>
                             )}
                         </div>

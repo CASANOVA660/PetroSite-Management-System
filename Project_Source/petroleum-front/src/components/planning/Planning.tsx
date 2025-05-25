@@ -54,10 +54,10 @@ export default function Planning() {
     const pending = plans.filter((p: any) => p.status === 'Upcoming').length;
     const inUse = plans.filter((p: any) => p.status === 'In Progress').length;
     const summaryCards = [
-        { icon: '🛠️', label: 'Total Placements', value: placements, color: 'text-orange-500' },
-        { icon: '🧰', label: 'Total Maintenance', value: maintenances, color: 'text-green-500' },
-        { icon: '⏳', label: 'Pending Approvals', value: pending, color: 'text-yellow-500' },
-        { icon: '🚚', label: 'Equipment in Use', value: inUse, color: 'text-blue-500' },
+        { icon: '🛠️', label: 'Totale Placement', value: placements, color: 'text-orange-500' },
+        { icon: '🧰', label: 'Totale Maintenance', value: maintenances, color: 'text-green-500' },
+        { icon: '⏳', label: 'En attente', value: pending, color: 'text-yellow-500' },
+        { icon: '🚚', label: 'Equipement en service', value: inUse, color: 'text-blue-500' },
     ];
 
     // Handlers

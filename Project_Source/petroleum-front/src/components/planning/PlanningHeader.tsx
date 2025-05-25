@@ -14,11 +14,11 @@ export default function PlanningHeader({ onNewPlan, onSearch }: PlanningHeaderPr
             transition={{ duration: 0.4 }}
             className="flex items-center justify-between mb-8"
         >
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Planning Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Plannification Tableau de bord</h1>
             <div className="flex items-center gap-4">
                 <input
                     type="text"
-                    placeholder="Search planning..."
+                    placeholder="Rechercher une planification..."
                     onChange={e => onSearch(e.target.value)}
                     className="px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-200 outline-none bg-white text-gray-700 text-base shadow-sm transition"
                 />
@@ -26,7 +26,7 @@ export default function PlanningHeader({ onNewPlan, onSearch }: PlanningHeaderPr
                     onClick={onNewPlan}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg shadow transition"
                 >
-                    + New Plan
+                    + Nouvelle planification
                 </button>
                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-xl text-gray-500 cursor-pointer">👤</div>
             </div>

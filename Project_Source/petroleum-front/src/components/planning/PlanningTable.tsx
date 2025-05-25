@@ -38,12 +38,12 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
             <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsible</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipment</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start - End Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsable</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Équipement</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date début - fin</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -56,12 +56,14 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{typeof plan.equipment === 'object' ? plan.equipment.nom : plan.equipment}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(plan.startDate)} - {formatDate(plan.endDate)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${plan.status === 'Done' ? 'bg-green-100 text-green-700' : plan.status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : plan.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{plan.status}</span>
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${plan.status === 'Done' ? 'bg-green-100 text-green-700' : plan.status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : plan.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                    {plan.status === 'Done' ? 'Terminé' : plan.status === 'Upcoming' ? 'À venir' : plan.status === 'In Progress' ? 'En cours' : plan.status}
+                                </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center text-sm flex gap-2 justify-center">
-                                <button onClick={() => onView(plan._id)} className="hover:text-blue-600" title="View">👁</button>
-                                <button onClick={() => onEdit(plan._id)} className="hover:text-yellow-600" title="Edit">✏️</button>
-                                <button onClick={() => onDelete(plan._id)} className="hover:text-red-600" title="Delete">🗑️</button>
+                                <button onClick={() => onView(plan._id)} className="hover:text-blue-600" title="Voir">👁</button>
+                                <button onClick={() => onEdit(plan._id)} className="hover:text-yellow-600" title="Modifier">✏️</button>
+                                <button onClick={() => onDelete(plan._id)} className="hover:text-red-600" title="Supprimer">🗑️</button>
                             </td>
                         </tr>
                     ))}
@@ -69,4 +71,4 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
             </table>
         </motion.div>
     );
-} 
+}
