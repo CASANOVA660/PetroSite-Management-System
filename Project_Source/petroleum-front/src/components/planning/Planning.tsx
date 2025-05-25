@@ -13,11 +13,10 @@ import FilterBar from './FilterBar';
 import FloatingButton from './FloatingButton';
 import ResponsiveWrapper from './ResponsiveWrapper';
 import LoadingSkeleton from './LoadingSkeleton';
+import ViewPlanModal from './ViewPlanModal';
 
 const tabs = [
     { label: 'Overview', icon: '🗂️' },
-    { label: 'Mobilization', icon: '🛠️' },
-    { label: 'Maintenance', icon: '🧰' },
     { label: 'Calendar View', icon: '📆' },
 ];
 
@@ -34,6 +33,8 @@ export default function Planning() {
     const [filters, setFilters] = useState<Filters>({});
     const [modalOpen, setModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<any>(null);
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+    const [viewPlan, setViewPlan] = useState<any>(null);
 
     useEffect(() => {
         dispatch(fetchPlans());
@@ -48,13 +49,13 @@ export default function Planning() {
     });
 
     // Compute summary cards from real plans
-    const mobilizations = plans.filter((p: any) => p.type === 'Mobilization').length;
-    const maintenances = plans.filter((p: any) => p.type === 'Maintenance').length;
+    const placements = plans.filter((p: any) => p.type === 'placement').length;
+    const maintenances = plans.filter((p: any) => p.type === 'maintenance').length;
     const pending = plans.filter((p: any) => p.status === 'Upcoming').length;
     const inUse = plans.filter((p: any) => p.status === 'In Progress').length;
     const summaryCards = [
-        { icon: '🛠️', label: 'Total Mobilizations', value: mobilizations, color: 'text-orange-500' },
-        { icon: '🧰', label: 'Upcoming Maintenance', value: maintenances, color: 'text-green-500' },
+        { icon: '🛠️', label: 'Total Placements', value: placements, color: 'text-orange-500' },
+        { icon: '🧰', label: 'Total Maintenance', value: maintenances, color: 'text-green-500' },
         { icon: '⏳', label: 'Pending Approvals', value: pending, color: 'text-yellow-500' },
         { icon: '🚚', label: 'Equipment in Use', value: inUse, color: 'text-blue-500' },
     ];
@@ -79,7 +80,9 @@ export default function Planning() {
         setEditingPlan(null);
     };
     const handleView = (id: any) => {
-        // Optionally implement view logic
+        const plan = plans.find((p: any) => p._id === id);
+        setViewPlan(plan);
+        setViewModalOpen(true);
     };
     const handleDelete = (id: any) => {
         dispatch(deletePlan(id));
@@ -124,6 +127,7 @@ export default function Planning() {
                 </ResponsiveWrapper>
             )}
             <PlanModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} plan={editingPlan} />
+            <ViewPlanModal open={viewModalOpen} onClose={() => setViewModalOpen(false)} plan={viewPlan} />
             <FloatingButton onClick={handleNewPlan} />
         </div>
     );
