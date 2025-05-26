@@ -22,6 +22,7 @@ const chatRoutes = require('./modules/chat/routes/chatRoutes');
 const gestionRhRoutes = require('./modules/gestion-rh');
 const meetRoutes = require('./modules/meet/routes/meetRoutes');
 const projectMeetRoutes = require('./modules/meet/routes/projectMeetRoutes');
+const budgetRoutes = require('./modules/budget/routes/budgetRoutes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -213,6 +214,7 @@ app.use('/api/global-actions', globalActionRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/gestion-rh/employees', gestionRhRoutes);
+app.use('/api/budgets', budgetRoutes);
 
 // Routes pour les réunions
 app.use('/api/meetings', meetRoutes);

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import axios from 'axios';
+import axios from '../../utils/axios';
 
 // Define the Budget item type
 export interface BudgetItem {
@@ -12,11 +12,29 @@ export interface BudgetItem {
     currency: string;
     createdAt?: string;
     updatedAt?: string;
+    createdBy?: string;
+    updatedBy?: string;
+    isDeleted?: boolean;
+}
+
+// Define budget totals interface
+export interface BudgetTotal {
+    currency: string;
+    total: number;
+}
+
+// Define budget stats interface
+export interface BudgetStats {
+    totalCount: number;
+    byType: Record<string, number>;
+    totalByCurrency: Record<string, number>;
 }
 
 // Define the state structure
 interface BudgetState {
     items: BudgetItem[];
+    totals: BudgetTotal[];
+    stats: BudgetStats | null;
     loading: boolean;
     error: string | null;
 }
@@ -24,6 +42,8 @@ interface BudgetState {
 // Initial state
 const initialState: BudgetState = {
     items: [],
+    totals: [],
+    stats: null,
     loading: false,
     error: null
 };
@@ -41,9 +61,33 @@ export const fetchProjectBudgets = createAsyncThunk(
     }
 );
 
+export const fetchProjectBudgetTotals = createAsyncThunk(
+    'budget/fetchProjectBudgetTotals',
+    async (projectId: string, { rejectWithValue }) => {
+        try {
+            const response = await axios.get(`/budgets/project/${projectId}/totals`);
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch budget totals');
+        }
+    }
+);
+
+export const fetchProjectBudgetStats = createAsyncThunk(
+    'budget/fetchProjectBudgetStats',
+    async (projectId: string, { rejectWithValue }) => {
+        try {
+            const response = await axios.get(`/budgets/project/${projectId}/stats`);
+            return response.data.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch budget statistics');
+        }
+    }
+);
+
 export const addBudgetItem = createAsyncThunk(
     'budget/addBudgetItem',
-    async (budgetData: Omit<BudgetItem, '_id' | 'id' | 'createdAt' | 'updatedAt'>, { rejectWithValue }) => {
+    async (budgetData: Omit<BudgetItem, '_id' | 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>, { rejectWithValue }) => {
         try {
             const response = await axios.post('/budgets', budgetData);
             return response.data.data;
@@ -84,6 +128,9 @@ const budgetSlice = createSlice({
     reducers: {
         clearBudgetItems: (state) => {
             state.items = [];
+            state.totals = [];
+            state.stats = null;
+            state.error = null;
         }
     },
     extraReducers: (builder) => {
@@ -99,6 +146,36 @@ const budgetSlice = createSlice({
                 state.error = null;
             })
             .addCase(fetchProjectBudgets.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // Fetch project budget totals
+            .addCase(fetchProjectBudgetTotals.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchProjectBudgetTotals.fulfilled, (state, action: PayloadAction<BudgetTotal[]>) => {
+                state.loading = false;
+                state.totals = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchProjectBudgetTotals.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            // Fetch project budget stats
+            .addCase(fetchProjectBudgetStats.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchProjectBudgetStats.fulfilled, (state, action: PayloadAction<BudgetStats>) => {
+                state.loading = false;
+                state.stats = action.payload;
+                state.error = null;
+            })
+            .addCase(fetchProjectBudgetStats.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             })
@@ -156,4 +233,4 @@ const budgetSlice = createSlice({
 });
 
 export const { clearBudgetItems } = budgetSlice.actions;
-export default budgetSlice.reducer; 
+export default budgetSlice.reducer;

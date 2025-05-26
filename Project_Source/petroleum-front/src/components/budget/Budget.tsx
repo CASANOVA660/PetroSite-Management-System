@@ -7,6 +7,8 @@ import { PlusIcon, TrashIcon, PencilIcon, BanknotesIcon, ArrowPathIcon, XMarkIco
 import {
     BudgetItem,
     fetchProjectBudgets,
+    fetchProjectBudgetTotals,
+    fetchProjectBudgetStats,
     addBudgetItem,
     updateBudgetItem,
     deleteBudgetItem
@@ -19,7 +21,13 @@ interface BudgetProps {
 const Budget: React.FC<BudgetProps> = ({ projectId }) => {
     // Redux state
     const dispatch = useDispatch<AppDispatch>();
-    const { items: budgetItems = [], loading, error } = useSelector((state: RootState) => state.budget);
+    const {
+        items: budgetItems = [],
+        totals = [],
+        stats,
+        loading,
+        error
+    } = useSelector((state: RootState) => state.budget);
 
     // Form state
     const [budgetType, setBudgetType] = useState('');
@@ -29,10 +37,12 @@ const Budget: React.FC<BudgetProps> = ({ projectId }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
 
-    // Fetch budget items when component mounts
+    // Fetch budget data when component mounts
     useEffect(() => {
         if (projectId) {
             dispatch(fetchProjectBudgets(projectId));
+            dispatch(fetchProjectBudgetTotals(projectId));
+            dispatch(fetchProjectBudgetStats(projectId));
         }
     }, [dispatch, projectId]);
 
@@ -109,10 +119,12 @@ const Budget: React.FC<BudgetProps> = ({ projectId }) => {
         }
     };
 
-    // Function to refresh budget items
+    // Refresh budget data
     const handleRefresh = () => {
         if (projectId) {
             dispatch(fetchProjectBudgets(projectId));
+            dispatch(fetchProjectBudgetTotals(projectId));
+            dispatch(fetchProjectBudgetStats(projectId));
         }
     };
 
@@ -126,23 +138,11 @@ const Budget: React.FC<BudgetProps> = ({ projectId }) => {
         setIsFormVisible(false);
     };
 
-    // Calculate total budget by currency
-    const calculateTotalByCurrency = () => {
-        const totals: { [key: string]: number } = {};
-
-        if (!budgetItems) return totals;
-
-        budgetItems.forEach(item => {
-            if (!totals[item.currency]) {
-                totals[item.currency] = 0;
-            }
-            totals[item.currency] += item.amount;
-        });
-
-        return totals;
-    };
-
-    const budgetTotals = calculateTotalByCurrency();
+    // Calculate budget totals based on Redux store data
+    const budgetTotals = totals.reduce((acc, { currency, total }) => {
+        acc[currency] = total;
+        return acc;
+    }, {} as Record<string, number>);
 
     // Show error if any
     useEffect(() => {
@@ -201,7 +201,7 @@ const Budget: React.FC<BudgetProps> = ({ projectId }) => {
             </div>
 
             {/* Budget Totals */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {Object.entries(budgetTotals).map(([currency, total]) => (
                     <motion.div
                         key={currency}
@@ -216,6 +216,35 @@ const Budget: React.FC<BudgetProps> = ({ projectId }) => {
                         </p>
                     </motion.div>
                 ))}
+
+                {/* Add Budget Stats Card if available */}
+                {stats && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
+                        className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-5 rounded-xl shadow-sm border border-blue-100 dark:border-blue-800/30 col-span-full"
+                    >
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-3">Statistiques</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Nombre total</p>
+                                <p className="text-lg font-semibold text-gray-900 dark:text-white">{stats.totalCount} budgets</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Par type</p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {Object.entries(stats.byType).map(([type, count]) => (
+                                        <span key={type} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                            {type}: {count}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
                 {Object.keys(budgetTotals).length === 0 && !loading && (
                     <div className="col-span-full bg-gray-50 dark:bg-gray-700/50 p-5 rounded-xl text-center">
                         <p className="text-gray-500 dark:text-gray-400">Aucun budget disponible</p>
