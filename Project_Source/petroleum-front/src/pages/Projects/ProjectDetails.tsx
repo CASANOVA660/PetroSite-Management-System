@@ -16,7 +16,8 @@ import DossierHSE from '../../components/documents/DossierHSE';
 import Actions from '../../components/actions/Actions';
 import KpiConfiguration from '../../components/documents/configkpi/KpiConfiguration';
 import Budget from '../../components/budget/Budget';
-import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import ProjectRequirements from '../../components/requirements/ProjectRequirements';
+import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -254,6 +255,10 @@ const ProjectDetails: React.FC = () => {
                         <Section title="Budget" icon={<CurrencyDollarIcon className="h-6 w-6 text-white" />} color="bg-emerald-500">
                             <Budget projectId={id} />
                         </Section>
+
+                        <Section title="Exigences" icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
+                            <ProjectRequirements projectId={id} />
+                        </Section>
                     </>
                 )}
 
@@ -270,42 +275,6 @@ const ProjectDetails: React.FC = () => {
                                 <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
                                     Mettre à jour
                                 </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-end">
-                            <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                Ouvrir une Action
-                            </button>
-                        </div>
-                    </div>
-                </Section>
-
-                <Section title="Exigences" icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Exigences réglementaires
-                                </label>
-                                <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Exigences PIP
-                                </label>
-                                <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Exigences client indirectes
-                                </label>
-                                <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Normes techniques applicables
-                                </label>
-                                <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
                             </div>
                         </div>
                         <div className="flex justify-end">

@@ -24,6 +24,35 @@ export interface Project {
         validationReason?: string;
         chefDeBaseId?: string;
     }[];
+    requirements?: ProjectRequirement[];
+}
+
+// New interface for requirement
+export interface Requirement {
+    id: string;
+    content: string;
+    type: RequirementType;
+    projectId: string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
+}
+
+// Enum for requirement types
+export enum RequirementType {
+    REGULATORY = 'REGULATORY',
+    TECHNICAL = 'TECHNICAL',
+    BUSINESS = 'BUSINESS',
+    ENVIRONMENTAL = 'ENVIRONMENTAL',
+    SAFETY = 'SAFETY',
+    OTHER = 'OTHER'
+}
+
+// Interface for project requirements
+export interface ProjectRequirement {
+    id: string;
+    type: RequirementType;
+    content: string;
 }
 
 interface ProjectState {
@@ -31,6 +60,8 @@ interface ProjectState {
     selectedProject: Project | null;
     loading: boolean;
     error: string | null;
+    requirementsLoading: boolean;
+    requirementsError: string | null;
 }
 
 interface CreateProjectData {
@@ -40,6 +71,12 @@ interface CreateProjectData {
     startDate: string;
     endDate: string;
     status: 'En cours' | 'Fermé' | 'Annulé';
+}
+
+// Interface for creating/updating a requirement
+interface RequirementData {
+    content: string;
+    type: RequirementType;
 }
 
 // Add new interface for validation request
@@ -56,6 +93,8 @@ const initialState: ProjectState = {
     selectedProject: null,
     loading: false,
     error: null,
+    requirementsLoading: false,
+    requirementsError: null,
 };
 
 // Add request interceptor to add auth token
@@ -137,6 +176,105 @@ export const fetchProjectById = createAsyncThunk(
                 return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
             }
             return rejectWithValue(error.response?.data?.message || 'Erreur lors de la récupération du projet');
+        }
+    }
+);
+
+// New async thunks for requirements
+export const fetchProjectRequirements = createAsyncThunk(
+    'projects/fetchProjectRequirements',
+    async (projectId: string, { rejectWithValue }) => {
+        try {
+            console.log('Fetching requirements for project:', projectId);
+            const response = await axios.get(`/requirements/project/${projectId}`);
+            console.log('Requirements API Response:', response.data);
+
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            } else if (Array.isArray(response.data)) {
+                return response.data;
+            } else {
+                console.error('Unexpected API response structure:', response.data);
+                return [];
+            }
+        } catch (error: any) {
+            console.error('Error fetching requirements:', error);
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la récupération des exigences');
+        }
+    }
+);
+
+export const addProjectRequirement = createAsyncThunk(
+    'projects/addProjectRequirement',
+    async ({ projectId, requirement }: { projectId: string, requirement: RequirementData }, { rejectWithValue }) => {
+        try {
+            console.log('Adding requirement to project:', projectId, requirement);
+            const response = await axios.post(`/requirements/project/${projectId}`, requirement);
+            console.log('Add requirement response:', response.data);
+
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            } else if (response.data) {
+                return response.data;
+            } else {
+                console.error('Invalid response format:', response.data);
+                return rejectWithValue('Format de réponse invalide');
+            }
+        } catch (error: any) {
+            console.error('Error adding requirement:', error);
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de l\'ajout de l\'exigence');
+        }
+    }
+);
+
+export const updateProjectRequirement = createAsyncThunk(
+    'projects/updateProjectRequirement',
+    async ({ projectId, requirementId, requirement }: { projectId: string, requirementId: string, requirement: RequirementData }, { rejectWithValue }) => {
+        try {
+            console.log('Updating requirement:', requirementId, requirement);
+            const response = await axios.put(`/requirements/${requirementId}/project/${projectId}`, requirement);
+            console.log('Update requirement response:', response.data);
+
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            } else if (response.data) {
+                return response.data;
+            } else {
+                console.error('Invalid response format:', response.data);
+                return rejectWithValue('Format de réponse invalide');
+            }
+        } catch (error: any) {
+            console.error('Error updating requirement:', error);
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la mise à jour de l\'exigence');
+        }
+    }
+);
+
+export const deleteProjectRequirement = createAsyncThunk(
+    'projects/deleteProjectRequirement',
+    async ({ projectId, requirementId }: { projectId: string, requirementId: string }, { rejectWithValue }) => {
+        try {
+            console.log('Deleting requirement:', requirementId);
+            const response = await axios.delete(`/requirements/${requirementId}/project/${projectId}`);
+            console.log('Delete requirement response:', response.data);
+
+            // Return the deleted requirement ID for state updates
+            return { requirementId, projectId };
+        } catch (error: any) {
+            console.error('Error deleting requirement:', error);
+            if (error.response?.status === 401) {
+                return rejectWithValue('Session expirée. Veuillez vous reconnecter.');
+            }
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la suppression de l\'exigence');
         }
     }
 );
@@ -383,6 +521,90 @@ const projectSlice = createSlice({
                 state.loading = false;
                 state.error = action.error.message || 'Une erreur est survenue';
                 toast.error('Erreur lors de l\'envoi de la demande de validation');
+            })
+
+            // Fetch Project Requirements
+            .addCase(fetchProjectRequirements.pending, (state) => {
+                state.requirementsLoading = true;
+                state.requirementsError = null;
+            })
+            .addCase(fetchProjectRequirements.fulfilled, (state, action) => {
+                state.requirementsLoading = false;
+                if (state.selectedProject) {
+                    state.selectedProject.requirements = action.payload;
+                }
+            })
+            .addCase(fetchProjectRequirements.rejected, (state, action) => {
+                state.requirementsLoading = false;
+                state.requirementsError = action.payload as string;
+                toast.error('Erreur lors de la récupération des exigences');
+            })
+
+            // Add Project Requirement
+            .addCase(addProjectRequirement.pending, (state) => {
+                state.requirementsLoading = true;
+                state.requirementsError = null;
+            })
+            .addCase(addProjectRequirement.fulfilled, (state, action) => {
+                state.requirementsLoading = false;
+                if (state.selectedProject) {
+                    if (!state.selectedProject.requirements) {
+                        state.selectedProject.requirements = [];
+                    }
+                    state.selectedProject.requirements.push(action.payload);
+                    toast.success('Exigence ajoutée avec succès');
+                }
+            })
+            .addCase(addProjectRequirement.rejected, (state, action) => {
+                state.requirementsLoading = false;
+                state.requirementsError = action.payload as string;
+                toast.error('Erreur lors de l\'ajout de l\'exigence');
+            })
+
+            // Update Project Requirement
+            .addCase(updateProjectRequirement.pending, (state) => {
+                state.requirementsLoading = true;
+                state.requirementsError = null;
+            })
+            .addCase(updateProjectRequirement.fulfilled, (state, action) => {
+                state.requirementsLoading = false;
+                if (state.selectedProject && state.selectedProject.requirements) {
+                    const index = state.selectedProject.requirements.findIndex(
+                        req => req.id === action.payload.id
+                    );
+                    if (index !== -1) {
+                        state.selectedProject.requirements[index] = action.payload;
+                        toast.success('Exigence mise à jour avec succès');
+                    }
+                }
+            })
+            .addCase(updateProjectRequirement.rejected, (state, action) => {
+                state.requirementsLoading = false;
+                state.requirementsError = action.payload as string;
+                toast.error('Erreur lors de la mise à jour de l\'exigence');
+            })
+
+            // Delete Project Requirement
+            .addCase(deleteProjectRequirement.pending, (state) => {
+                state.requirementsLoading = true;
+                state.requirementsError = null;
+            })
+            .addCase(deleteProjectRequirement.fulfilled, (state, action) => {
+                state.requirementsLoading = false;
+                const { requirementId, projectId } = action.payload;
+                if (state.selectedProject &&
+                    state.selectedProject._id === projectId &&
+                    state.selectedProject.requirements) {
+                    state.selectedProject.requirements = state.selectedProject.requirements.filter(
+                        req => req.id !== requirementId
+                    );
+                    toast.success('Exigence supprimée avec succès');
+                }
+            })
+            .addCase(deleteProjectRequirement.rejected, (state, action) => {
+                state.requirementsLoading = false;
+                state.requirementsError = action.payload as string;
+                toast.error('Erreur lors de la suppression de l\'exigence');
             });
     },
 });
