@@ -14,6 +14,7 @@ import employeesReducer from './slices/employeesSlice';
 import meetingReducer from './slices/meetingSlice';
 import kpisReducer from './slices/kpisSlice';
 import planningReducer from './slices/planningSlice';
+import budgetReducer from './slices/budgetSlice';
 
 export const store = configureStore({
     reducer: {
@@ -30,7 +31,8 @@ export const store = configureStore({
         employees: employeesReducer,
         meetings: meetingReducer,
         kpis: kpisReducer,
-        planning: planningReducer
+        planning: planningReducer,
+        budget: budgetReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

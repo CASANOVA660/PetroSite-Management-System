@@ -15,7 +15,8 @@ import DossierRH from '../../components/documents/DossierRH';
 import DossierHSE from '../../components/documents/DossierHSE';
 import Actions from '../../components/actions/Actions';
 import KpiConfiguration from '../../components/documents/configkpi/KpiConfiguration';
-import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import Budget from '../../components/budget/Budget';
+import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -249,6 +250,10 @@ const ProjectDetails: React.FC = () => {
                             </div>
                             <Actions projectId={id} category="Dossier HSE" users={users} />
                         </Section>
+
+                        <Section title="Budget" icon={<CurrencyDollarIcon className="h-6 w-6 text-white" />} color="bg-emerald-500">
+                            <Budget projectId={id} />
+                        </Section>
                     </>
                 )}
 
@@ -302,48 +307,6 @@ const ProjectDetails: React.FC = () => {
                                 </label>
                                 <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
                             </div>
-                        </div>
-                        <div className="flex justify-end">
-                            <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                Ouvrir une Action
-                            </button>
-                        </div>
-                    </div>
-                </Section>
-
-                <Section title="Traçabilité" icon={<ClockIcon className="h-6 w-6 text-white" />} color="bg-teal-500">
-                    <div className="space-y-4">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-50 dark:bg-gray-800">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Description
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                            Faisabilité
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                    <tr>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                            Ajout d'un document
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                            03/10/2025
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                Oui
-                                            </span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
                         </div>
                         <div className="flex justify-end">
                             <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
