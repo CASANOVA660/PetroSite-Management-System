@@ -15,7 +15,8 @@ interface Plan {
     title: string;
     description?: string;
     type: PlanType;
-    equipmentId: EquipmentData;
+    customTypeName?: string;
+    equipmentId?: EquipmentData;
     responsiblePerson?: {
         name: string;
         email?: string;
@@ -78,7 +79,7 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
     };
 
     // Get type display label
-    const getTypeLabel = (type: PlanType) => {
+    const getTypeLabel = (type: PlanType, customTypeName?: string) => {
         switch (type) {
             case PlanType.PLACEMENT:
                 return 'Placement';
@@ -86,6 +87,8 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
                 return 'Maintenance';
             case PlanType.REPAIR:
                 return 'Réparation';
+            case PlanType.CUSTOM:
+                return customTypeName || 'Personnalisé';
             default:
                 return type;
         }
@@ -115,7 +118,7 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
                         {plans.map((plan, idx) => (
                             <tr key={plan._id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-blue-50 transition'}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{plan.title}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{getTypeLabel(plan.type)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{getTypeLabel(plan.type, plan.customTypeName)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                     {plan.responsiblePerson ?
                                         (typeof plan.responsiblePerson === 'object' ?
@@ -126,8 +129,14 @@ export default function PlanningTable({ plans, onView, onEdit, onDelete }: Plann
                                     }
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                    {plan.equipmentId.nom}
-                                    <span className="text-xs text-gray-500 ml-1">({plan.equipmentId.reference})</span>
+                                    {plan.equipmentId ? (
+                                        <>
+                                            {plan.equipmentId.nom}
+                                            <span className="text-xs text-gray-500 ml-1">({plan.equipmentId.reference})</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-gray-500">N/A</span>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(plan.startDate)} - {formatDate(plan.endDate)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">

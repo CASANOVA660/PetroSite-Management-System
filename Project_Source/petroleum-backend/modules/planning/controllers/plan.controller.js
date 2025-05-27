@@ -8,7 +8,11 @@ const { validationResult } = require('express-validator');
  */
 exports.getPlans = async (req, res) => {
     try {
-        const plans = await PlanService.getPlans();
+        // Pass query parameters as filters
+        const filters = req.query;
+        console.log('Fetching plans with filters:', filters);
+
+        const plans = await PlanService.getPlans(filters);
         res.status(200).json({ success: true, data: plans });
     } catch (error) {
         logger.error('Error in getPlans:', error);
@@ -178,9 +182,9 @@ exports.deletePlan = async (req, res) => {
  */
 exports.getAvailableEquipment = async (req, res) => {
     try {
-        const { startDate, endDate, type } = req.query;
+        const { startDate, endDate, type, projectId } = req.query;
 
-        console.log('getAvailableEquipment - Request params:', { startDate, endDate, type });
+        console.log('getAvailableEquipment - Request params:', { startDate, endDate, type, projectId });
 
         if (!startDate || !endDate || !type) {
             return res.status(400).json({
@@ -193,13 +197,15 @@ exports.getAvailableEquipment = async (req, res) => {
         console.log('getAvailableEquipment - Parsed dates:', {
             startDate: new Date(startDate),
             endDate: new Date(endDate),
-            type
+            type,
+            projectId
         });
 
         const equipment = await PlanService.getAvailableEquipment(
             new Date(startDate),
             new Date(endDate),
-            type
+            type,
+            projectId
         );
 
         console.log(`getAvailableEquipment - Found ${equipment.length} available equipment`);

@@ -43,6 +43,8 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { RootState } from './store';
 import PlanningPage from "./pages/Planning";
 import { ReunionPage } from './pages/Reunion/ReunionPage';
+import { SidebarProvider } from "./context/SidebarContext";
+import { ModalProvider } from "./context/ModalContext";
 
 // Toast options for consistent styling
 const getToastOptions = () => {
@@ -109,97 +111,101 @@ const AppInitializer = () => {
 export default function App() {
   return (
     <Provider store={store}>
-      <HelmetProvider>
-        <Helmet>
-          <title>Petroleum Management System</title>
-          <meta name="description" content="Enterprise Resource Planning for Petroleum Operations" />
-        </Helmet>
-        <Router>
-          <AppInitializer />
-          <ScrollToTop />
-          <Routes>
-            {/* Auth Layout */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
+      <SidebarProvider>
+        <ModalProvider>
+          <HelmetProvider>
+            <Helmet>
+              <title>Petroleum Management System</title>
+              <meta name="description" content="Enterprise Resource Planning for Petroleum Operations" />
+            </Helmet>
+            <Router>
+              <AppInitializer />
+              <ScrollToTop />
+              <Routes>
+                {/* Auth Layout */}
+                <Route path="/signin" element={<SignIn />} />
+                <Route path="/signup" element={<SignUp />} />
 
-            {/* Dashboard Layout */}
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Home />} />
-              {/* Others Page */}
-              <Route path="/profile" element={<UserProfiles />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/blank" element={<Blank />} />
+                {/* Dashboard Layout */}
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Home />} />
+                  {/* Others Page */}
+                  <Route path="/profile" element={<UserProfiles />} />
+                  <Route path="/calendar" element={<Calendar />} />
+                  <Route path="/blank" element={<Blank />} />
 
-              {/* Forms */}
-              <Route path="/form-elements" element={<FormElements />} />
+                  {/* Forms */}
+                  <Route path="/form-elements" element={<FormElements />} />
 
-              {/* Tables */}
-              <Route path="/basic-tables" element={<BasicTables />} />
+                  {/* Tables */}
+                  <Route path="/basic-tables" element={<BasicTables />} />
 
-              {/* Ui Elements */}
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/avatars" element={<Avatars />} />
-              <Route path="/badge" element={<Badges />} />
-              <Route path="/buttons" element={<Buttons />} />
-              <Route path="/images" element={<Images />} />
-              <Route path="/videos" element={<Videos />} />
+                  {/* Ui Elements */}
+                  <Route path="/alerts" element={<Alerts />} />
+                  <Route path="/avatars" element={<Avatars />} />
+                  <Route path="/badge" element={<Badges />} />
+                  <Route path="/buttons" element={<Buttons />} />
+                  <Route path="/images" element={<Images />} />
+                  <Route path="/videos" element={<Videos />} />
 
-              {/* Charts */}
-              <Route path="/line-chart" element={<LineChart />} />
-              <Route path="/bar-chart" element={<BarChart />} />
+                  {/* Charts */}
+                  <Route path="/line-chart" element={<LineChart />} />
+                  <Route path="/bar-chart" element={<BarChart />} />
 
-              {/* User Management */}
-              <Route
-                path="/user-management"
-                element={
-                  <UserManagement />
-                }
-              />
+                  {/* User Management */}
+                  <Route
+                    path="/user-management"
+                    element={
+                      <UserManagement />
+                    }
+                  />
 
-              {/* Projects */}
-              <Route path="/projects/preparation" element={<ProjectPreparation />} />
-              <Route path="/projects/add" element={<AddProject />} />
-              <Route path="/projects/:id" element={<ProjectDetails />} />
-              <Route path="/projects/:id/edit" element={<EditProject />} />
+                  {/* Projects */}
+                  <Route path="/projects/preparation" element={<ProjectPreparation />} />
+                  <Route path="/projects/add" element={<AddProject />} />
+                  <Route path="/projects/:id" element={<ProjectDetails />} />
+                  <Route path="/projects/:id/edit" element={<EditProject />} />
 
-              <Route path="/tasks" element={
-                <Tasks />
-              } />
+                  <Route path="/tasks" element={
+                    <Tasks />
+                  } />
 
-              {/* Global Actions */}
-              <Route path="/global-actions" element={<GlobalActions />} />
+                  {/* Global Actions */}
+                  <Route path="/global-actions" element={<GlobalActions />} />
 
-              {/* Equipment Management Routes */}
-              <Route path="/equipments" element={<EquipmentList />} />
-              <Route path="/equipments/:id" element={<EquipmentDetailView />} />
-              <Route path="/equipments/add" element={<EquipmentAdd />} />
-              <Route path="/equipments/:id/edit" element={<EquipmentEdit />} />
+                  {/* Equipment Management Routes */}
+                  <Route path="/equipments" element={<EquipmentList />} />
+                  <Route path="/equipments/:id" element={<EquipmentDetailView />} />
+                  <Route path="/equipments/add" element={<EquipmentAdd />} />
+                  <Route path="/equipments/:id/edit" element={<EquipmentEdit />} />
 
-              {/* Planning Page */}
-              <Route path="/planning" element={<PlanningPage />} />
+                  {/* Planning Page */}
+                  <Route path="/planning" element={<PlanningPage />} />
 
-              {/* Reunions Page */}
-              <Route path="/reunions" element={<ReunionPage />} />
+                  {/* Reunions Page */}
+                  <Route path="/reunions" element={<ReunionPage />} />
 
-              {/* HR Management */}
-              <Route path="/gestion-rh" element={<GestionRH />} />
+                  {/* HR Management */}
+                  <Route path="/gestion-rh" element={<GestionRH />} />
 
-              {/* Chat */}
-              <Route path="/chat" element={<Chat />} />
-            </Route>
+                  {/* Chat */}
+                  <Route path="/chat" element={<Chat />} />
+                </Route>
 
-            {/* Redirect root to signin */}
-            <Route path="/" element={<Navigate to="/signin" replace />} />
+                {/* Redirect root to signin */}
+                <Route path="/" element={<Navigate to="/signin" replace />} />
 
-            {/* Activation Page */}
-            <Route path="/activate" element={<ActivationPage />} />
+                {/* Activation Page */}
+                <Route path="/activate" element={<ActivationPage />} />
 
-            {/* Fallback Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Router>
-        <Toaster position="bottom-right" toastOptions={getToastOptions()} />
-      </HelmetProvider>
+                {/* Fallback Route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Router>
+            <Toaster position="bottom-right" toastOptions={getToastOptions()} />
+          </HelmetProvider>
+        </ModalProvider>
+      </SidebarProvider>
     </Provider>
   );
 }

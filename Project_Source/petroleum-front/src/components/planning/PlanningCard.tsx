@@ -15,7 +15,8 @@ interface Plan {
     title: string;
     description?: string;
     type: PlanType;
-    equipmentId: EquipmentData;
+    customTypeName?: string;
+    equipmentId?: EquipmentData;
     responsiblePerson?: {
         name: string;
         email?: string;
@@ -80,7 +81,7 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
     };
 
     // Get type display label
-    const getTypeLabel = (type: PlanType) => {
+    const getTypeLabel = (type: PlanType, customTypeName?: string) => {
         switch (type) {
             case PlanType.PLACEMENT:
                 return 'Placement';
@@ -88,6 +89,8 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
                 return 'Maintenance';
             case PlanType.REPAIR:
                 return 'Réparation';
+            case PlanType.CUSTOM:
+                return customTypeName || 'Personnalisé';
             default:
                 return type;
         }
@@ -107,7 +110,7 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
                 </span>
             </div>
 
-            <div className="text-sm text-gray-500">Type: <span className="text-gray-700">{getTypeLabel(plan.type)}</span></div>
+            <div className="text-sm text-gray-500">Type: <span className="text-gray-700">{getTypeLabel(plan.type, plan.customTypeName)}</span></div>
             <div className="text-sm text-gray-500">Responsable: <span className="text-gray-700">
                 {plan.responsiblePerson ?
                     (typeof plan.responsiblePerson === 'object' ?
@@ -117,7 +120,11 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
                     'Non assigné'
                 }
             </span></div>
-            <div className="text-sm text-gray-500">Équipement: <span className="text-gray-700">{plan.equipmentId.nom} ({plan.equipmentId.reference})</span></div>
+            <div className="text-sm text-gray-500">Équipement: <span className="text-gray-700">
+                {plan.equipmentId ?
+                    `${plan.equipmentId.nom} (${plan.equipmentId.reference})` :
+                    'N/A'}
+            </span></div>
 
             {plan.location && (
                 <div className="text-sm text-gray-500">Lieu: <span className="text-gray-700">{plan.location}</span></div>

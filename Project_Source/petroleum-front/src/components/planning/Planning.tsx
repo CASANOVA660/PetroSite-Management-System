@@ -26,6 +26,7 @@ type Filters = {
     equipmentId?: string;
     startDate?: string;
     endDate?: string;
+    isCustom?: boolean;
 };
 
 export default function Planning() {
@@ -48,7 +49,23 @@ export default function Planning() {
     // Filtered plans based on the filters
     const filteredPlans = plansArray.filter((p: any) => {
         if (filters.status && p.status !== filters.status) return false;
+
+        // Handle filtering for standard vs custom types
+        if (filters.isCustom === true) {
+            // Show only custom types (non-standard types)
+            if (p.type === PlanType.PLACEMENT || p.type === PlanType.MAINTENANCE || p.type === PlanType.REPAIR) {
+                return false;
+            }
+        } else if (filters.isCustom === false) {
+            // Show only standard types
+            if (p.type !== PlanType.PLACEMENT && p.type !== PlanType.MAINTENANCE && p.type !== PlanType.REPAIR) {
+                return false;
+            }
+        }
+
+        // If specific type is selected, filter by it
         if (filters.type && p.type !== filters.type) return false;
+
         if (filters.equipmentId && p.equipmentId._id !== filters.equipmentId) return false;
 
         // Date range filtering
@@ -71,6 +88,11 @@ export default function Planning() {
     const placements = plansArray.filter((p: any) => p.type === PlanType.PLACEMENT).length;
     const maintenances = plansArray.filter((p: any) => p.type === PlanType.MAINTENANCE).length;
     const repairs = plansArray.filter((p: any) => p.type === PlanType.REPAIR).length;
+    const customPlans = plansArray.filter((p: any) =>
+        p.type !== PlanType.PLACEMENT &&
+        p.type !== PlanType.MAINTENANCE &&
+        p.type !== PlanType.REPAIR
+    ).length;
     const scheduled = plansArray.filter((p: any) => p.status === PlanStatus.SCHEDULED).length;
     const inProgress = plansArray.filter((p: any) => p.status === PlanStatus.IN_PROGRESS).length;
 
@@ -78,6 +100,7 @@ export default function Planning() {
         { icon: '🚜', label: 'Placements', value: placements, color: 'text-orange-500' },
         { icon: '🔧', label: 'Maintenances', value: maintenances, color: 'text-blue-500' },
         { icon: '🛠️', label: 'Réparations', value: repairs, color: 'text-red-500' },
+        { icon: '📝', label: 'Personnalisés', value: customPlans, color: 'text-purple-500' },
         { icon: '⏳', label: 'Planifiés', value: scheduled, color: 'text-yellow-500' },
         { icon: '⚙️', label: 'En cours', value: inProgress, color: 'text-green-500' },
     ];
@@ -118,21 +141,27 @@ export default function Planning() {
 
     // Function to handle card clicks for summary cards
     const handleCardClick = (index: number) => {
+        // Reset filters first
+        setFilters({});
+
         // Set filters based on which card was clicked
         switch (index) {
             case 0: // Placements
-                setFilters(prev => ({ ...prev, type: PlanType.PLACEMENT }));
+                setFilters(prev => ({ ...prev, type: PlanType.PLACEMENT, isCustom: false }));
                 break;
             case 1: // Maintenances
-                setFilters(prev => ({ ...prev, type: PlanType.MAINTENANCE }));
+                setFilters(prev => ({ ...prev, type: PlanType.MAINTENANCE, isCustom: false }));
                 break;
             case 2: // Repairs
-                setFilters(prev => ({ ...prev, type: PlanType.REPAIR }));
+                setFilters(prev => ({ ...prev, type: PlanType.REPAIR, isCustom: false }));
                 break;
-            case 3: // Scheduled
+            case 3: // Custom plans
+                setFilters(prev => ({ ...prev, isCustom: true }));
+                break;
+            case 4: // Scheduled
                 setFilters(prev => ({ ...prev, status: PlanStatus.SCHEDULED }));
                 break;
-            case 4: // In Progress
+            case 5: // In Progress
                 setFilters(prev => ({ ...prev, status: PlanStatus.IN_PROGRESS }));
                 break;
             default:
@@ -154,6 +183,7 @@ export default function Planning() {
             { label: 'Placement', value: PlanType.PLACEMENT },
             { label: 'Maintenance', value: PlanType.MAINTENANCE },
             { label: 'Réparation', value: PlanType.REPAIR },
+            { label: 'Personnalisé', value: 'custom', isCustom: true },
         ],
         equipment: plansArray.reduce((options: any[], plan: any) => {
             if (plan.equipmentId && !options.some((opt) => opt.value === plan.equipmentId._id)) {

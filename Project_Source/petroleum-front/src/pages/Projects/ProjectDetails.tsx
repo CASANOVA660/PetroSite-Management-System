@@ -17,9 +17,29 @@ import Actions from '../../components/actions/Actions';
 import KpiConfiguration from '../../components/documents/configkpi/KpiConfiguration';
 import Budget from '../../components/budget/Budget';
 import ProjectRequirements from '../../components/requirements/ProjectRequirements';
-import { ChevronDownIcon, ChevronUpIcon, DocumentIcon, FolderIcon, UserGroupIcon, ShieldCheckIcon, CalendarIcon, ClipboardDocumentListIcon, ClockIcon, ChartBarIcon, WrenchScrewdriverIcon, PencilIcon, ArrowLeftIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+    ChevronDownIcon,
+    ChevronUpIcon,
+    DocumentIcon,
+    FolderIcon,
+    UserGroupIcon,
+    ShieldCheckIcon,
+    CalendarIcon,
+    ClipboardDocumentListIcon,
+    ClockIcon,
+    ChartBarIcon,
+    WrenchScrewdriverIcon,
+    PencilIcon,
+    ArrowLeftIcon,
+    CurrencyDollarIcon,
+    TrashIcon,
+    DocumentTextIcon,
+    BeakerIcon,
+    LightBulbIcon
+} from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
+import ProjectPlanning from '../../components/planning/ProjectPlanning';
 
 interface SectionProps {
     title: string;
@@ -285,30 +305,8 @@ const ProjectDetails: React.FC = () => {
                     </div>
                 </Section>
 
-                <Section title="Statut du Projet" icon={<ChartBarIcon className="h-6 w-6 text-white" />} color="bg-orange-500">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Statut
-                            </label>
-                            <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]">
-                                <option value="En cours">En cours</option>
-                                <option value="Clôturé">Clôturé</option>
-                                <option value="Annulé">Annulé</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Note
-                            </label>
-                            <textarea className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]" rows={3} />
-                        </div>
-                        <div className="flex justify-end">
-                            <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                Mettre à jour
-                            </button>
-                        </div>
-                    </div>
+                <Section title="Planification du Projet" icon={<CalendarIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
+                    {id && <ProjectPlanning projectId={id} />}
                 </Section>
             </div>
         </div>

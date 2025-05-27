@@ -24,18 +24,29 @@ const planSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ['placement', 'maintenance', 'repair'],
+        enum: ['placement', 'maintenance', 'repair', 'custom'],
         required: [true, 'Le type de plan est requis']
+    },
+    customTypeName: {
+        type: String,
+        trim: true
     },
     status: {
         type: String,
         enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
         default: 'scheduled'
     },
+    projectId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Project'
+    },
     equipmentId: {
         type: Schema.Types.ObjectId,
         ref: 'Equipment',
-        required: [true, 'L\'ID de l\'équipement est requis']
+        required: [function () {
+            // Equipment is only required for non-custom plan types
+            return this.type !== 'custom';
+        }, 'L\'ID de l\'équipement est requis pour les plans standard']
     },
     activityId: {
         type: Schema.Types.ObjectId,
@@ -104,7 +115,9 @@ planSchema.methods.toAPI = function () {
         startDate: this.startDate,
         endDate: this.endDate,
         type: this.type,
+        customTypeName: this.customTypeName,
         status: this.status,
+        projectId: this.projectId,
         equipmentId: this.equipmentId,
         activityId: this.activityId,
         location: this.location,

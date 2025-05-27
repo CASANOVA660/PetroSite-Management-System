@@ -17,6 +17,7 @@ interface Plan {
     startDate: string;
     endDate: string;
     notes?: string;
+    projectId?: string;
 }
 
 interface PlanToSave extends Omit<Plan, 'responsiblePerson'> {
@@ -32,6 +33,7 @@ interface PlanModalProps {
     onClose: () => void;
     onSave: (plan: PlanToSave) => void;
     plan?: any;
+    projectId?: string;
 }
 
 const typeOptions = [
@@ -44,7 +46,7 @@ const inputClass =
     'w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-400 outline-none bg-white text-gray-700 text-base shadow-sm transition placeholder-gray-400 mb-2';
 const labelClass = 'text-sm font-medium text-gray-700 mb-1';
 
-export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProps) {
+export default function PlanModal({ open, onClose, onSave, plan, projectId }: PlanModalProps) {
     const dispatch = useAppDispatch();
     const equipmentList = useSelector((state: any) => state.equipment.equipment);
     const availableEquipment = useSelector((state: any) => state.planning.availableEquipment);
@@ -94,7 +96,8 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
                 equipmentId: typeof plan.equipmentId === 'object' && plan.equipmentId !== null
                     ? plan.equipmentId._id
                     : plan.equipmentId || '',
-                responsiblePerson: plan.responsiblePerson || ''
+                responsiblePerson: plan.responsiblePerson || '',
+                projectId: plan.projectId || (plan.projectId?._id || plan.projectId)
             });
             setTypeSelected(plan.type);
         } else {
@@ -278,7 +281,8 @@ export default function PlanModal({ open, onClose, onSave, plan }: PlanModalProp
             createdBy: userId,
             responsiblePerson: {
                 name: form.responsiblePerson
-            }
+            },
+            projectId: projectId || (plan?.projectId?._id || plan?.projectId)
         };
 
         console.log('Saving plan with data:', planToSave);

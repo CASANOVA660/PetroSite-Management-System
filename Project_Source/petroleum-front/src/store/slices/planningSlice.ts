@@ -5,7 +5,8 @@ import axios from '../../utils/axios';
 export enum PlanType {
     PLACEMENT = 'placement',
     MAINTENANCE = 'maintenance',
-    REPAIR = 'repair'
+    REPAIR = 'repair',
+    CUSTOM = 'custom'
 }
 
 // Match backend plan status
@@ -21,6 +22,7 @@ export interface Plan {
     title: string;
     description?: string;
     type: PlanType;
+    customTypeName?: string; // For storing custom plan type names
     equipmentId: string; // Reference to equipment
     activityId?: string; // Reference to activity in equipment
     status: PlanStatus;
@@ -39,6 +41,7 @@ export interface Plan {
     createdAt?: string;
     updatedAt?: string;
     isDeleted?: boolean;
+    projectId?: string;
 }
 
 export interface EquipmentData {
@@ -50,7 +53,7 @@ export interface EquipmentData {
 }
 
 export interface PlanWithEquipment extends Omit<Plan, 'equipmentId'> {
-    equipmentId: EquipmentData;
+    equipmentId?: EquipmentData;
 }
 
 interface PlanningState {
@@ -73,9 +76,13 @@ export const fetchPlans = createAsyncThunk(
     'planning/fetchPlans',
     async (filters: any = {}, { rejectWithValue }) => {
         try {
+            console.log('Fetching plans with filters:', filters);
+            // If we have a projectId filter, make sure it's included in the request
             const response = await axios.get('/plans', { params: filters });
+            console.log('Fetched plans data:', response.data);
             return response.data;
         } catch (error: any) {
+            console.error('Error fetching plans:', error.response?.data || error.message);
             return rejectWithValue(error.response?.data?.error || 'Failed to fetch plans');
         }
     }
@@ -98,6 +105,24 @@ export const createPlan = createAsyncThunk(
     async (planData: Partial<Plan>, { rejectWithValue }) => {
         try {
             console.log('Creating plan with data:', planData);
+
+            // Basic validation for required fields
+            if (!planData.title || !planData.startDate || !planData.endDate || !planData.type) {
+                return rejectWithValue('Missing required fields: title, dates, and type are required');
+            }
+
+            // Equipment validation only for standard plan types
+            const isCustomType = planData.type === PlanType.CUSTOM;
+            if (!isCustomType && !planData.equipmentId) {
+                return rejectWithValue('Equipment is required for standard plan types');
+            }
+
+            // Make sure custom plans are always associated with a project
+            if (isCustomType && !planData.projectId) {
+                return rejectWithValue('Custom plans must be associated with a project');
+            }
+
+            // Create the plan with all necessary data
             const response = await axios.post('/plans', planData);
             console.log('Plan created successfully:', response.data);
             return response.data;
