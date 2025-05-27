@@ -218,6 +218,9 @@ app.use('/api/gestion-rh/employees', gestionRhRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/requirements', requirementRoutes);
 
+// Project employees routes
+app.use('/api/projects/:projectId/employees', require('./modules/projects/routes/projectEmployeeRoutes'));
+
 // Routes pour les réunions
 app.use('/api/meetings', meetRoutes);
 app.use('/api/projects/:projectId/meetings', projectMeetRoutes);

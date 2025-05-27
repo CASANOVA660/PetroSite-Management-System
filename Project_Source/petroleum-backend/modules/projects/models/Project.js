@@ -60,6 +60,36 @@ const projectSchema = new mongoose.Schema({
             enum: ['Dossier Technique', 'Dossier RH', 'Dossier HSE', 'Dossier Administratif']
         }
     }],
+    employees: [{
+        employeeId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Employee',
+            required: true
+        },
+        status: {
+            type: String,
+            enum: ['Assigné', 'En opération', 'Terminé'],
+            default: 'Assigné'
+        },
+        role: {
+            type: String,
+            required: true
+        },
+        startDate: {
+            type: Date
+        },
+        endDate: {
+            type: Date
+        },
+        assignedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        assignedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
