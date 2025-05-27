@@ -69,10 +69,24 @@ const userSchema = new Schema({
 // Generate employee ID before saving
 userSchema.pre('save', async function (next) {
   if (!this.employeeId) {
-    // Get the count of existing users to generate the number
-    const count = await mongoose.model('User').countDocuments();
-    const number = (count + 1).toString().padStart(4, '0');
-    this.employeeId = `ITAL-MAG-${number}`;
+    // Find the highest existing employee ID number instead of using count
+    const highestUser = await mongoose.model('User')
+      .findOne({}, { employeeId: 1 })
+      .sort({ employeeId: -1 });
+
+    let nextNumber = 1; // Default starting number
+
+    if (highestUser && highestUser.employeeId) {
+      // Extract the number part from the highest employeeId
+      const match = highestUser.employeeId.match(/(\d+)$/);
+      if (match && match[1]) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    // Format the number with leading zeros
+    const formattedNumber = nextNumber.toString().padStart(4, '0');
+    this.employeeId = `ITAL-MAG-${formattedNumber}`;
   }
   next();
 });
