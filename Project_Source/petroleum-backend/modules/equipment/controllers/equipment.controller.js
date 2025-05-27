@@ -1,6 +1,8 @@
 const equipmentService = require('../services/equipment.service');
 const logger = require('../../../utils/logger');
 const { createNotification } = require('../../notifications/controllers/notificationController');
+const mongoose = require('mongoose');
+const { EQUIPMENT_STATUS, ACTIVITY_TYPE } = require('../models/equipment.model');
 
 // Create a new equipment
 const createEquipment = async (req, res) => {
@@ -81,6 +83,11 @@ const getAllEquipment = async (req, res) => {
             sort: req.query.sort || '-createdAt'
         };
 
+        // Add include parameter if present
+        if (req.query.include) {
+            options.include = req.query.include.split(',');
+        }
+
         const result = await equipmentService.getAllEquipment(filters, options);
 
         res.status(200).json({
@@ -140,7 +147,7 @@ const getEquipmentById = async (req, res) => {
 // Update equipment by ID
 const updateEquipment = async (req, res) => {
     try {
-        const equipment = await equipmentService.updateEquipment(req.params.id, req.body);
+        const equipment = await equipmentService.updateEquipment(req.params.id, req.body, req.user._id);
 
         if (!equipment) {
             return res.status(404).json({
@@ -395,6 +402,358 @@ const getEquipmentHistory = async (req, res) => {
     }
 };
 
+// Schedule an activity for equipment
+const scheduleActivity = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        // Validate required fields
+        const { type, startDate, endDate } = req.body;
+        if (!type || !startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation Error',
+                details: 'Le type, la date de début et la date de fin sont requis'
+            });
+        }
+
+        const result = await equipmentService.scheduleActivity(
+            req.params.id,
+            req.body,
+            req.user._id
+        );
+
+        // Emit socket event for real-time update if socket.io is available
+        if (global.io) {
+            global.io.emit('equipmentUpdate', {
+                action: 'activityScheduled',
+                equipmentId: req.params.id
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        logger.error('Controller - Error scheduling activity', {
+            equipmentId: req.params.id,
+            error: error.message
+        });
+
+        let statusCode = 500;
+        let errorMessage = error.message;
+
+        if (error.message.includes('non trouvé')) {
+            statusCode = 404;
+        } else if (error.message.includes('déjà une activité') ||
+            error.message.includes('n\'est pas disponible') ||
+            error.message.includes('ne peut pas être')) {
+            statusCode = 400;
+        }
+
+        res.status(statusCode).json({
+            success: false,
+            error: 'Error',
+            details: errorMessage
+        });
+    }
+};
+
+// Start a scheduled activity
+const startActivity = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id) ||
+            !mongoose.Types.ObjectId.isValid(req.params.activityId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        const activity = await equipmentService.startActivity(
+            req.params.id,
+            req.params.activityId,
+            req.user._id
+        );
+
+        // Emit socket event for real-time update if socket.io is available
+        if (global.io) {
+            global.io.emit('equipmentUpdate', {
+                action: 'activityStarted',
+                equipmentId: req.params.id,
+                activityId: req.params.activityId
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: activity
+        });
+    } catch (error) {
+        logger.error('Controller - Error starting activity', {
+            equipmentId: req.params.id,
+            activityId: req.params.activityId,
+            error: error.message
+        });
+
+        let statusCode = 500;
+        let errorMessage = error.message;
+
+        if (error.message.includes('non trouvée')) {
+            statusCode = 404;
+        } else if (error.message.includes('déjà commencée')) {
+            statusCode = 400;
+        }
+
+        res.status(statusCode).json({
+            success: false,
+            error: 'Error',
+            details: errorMessage
+        });
+    }
+};
+
+// Complete an activity
+const completeActivity = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id) ||
+            !mongoose.Types.ObjectId.isValid(req.params.activityId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        const activity = await equipmentService.completeActivity(
+            req.params.id,
+            req.params.activityId,
+            req.user._id
+        );
+
+        // Emit socket event for real-time update if socket.io is available
+        if (global.io) {
+            global.io.emit('equipmentUpdate', {
+                action: 'activityCompleted',
+                equipmentId: req.params.id,
+                activityId: req.params.activityId
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: activity
+        });
+    } catch (error) {
+        logger.error('Controller - Error completing activity', {
+            equipmentId: req.params.id,
+            activityId: req.params.activityId,
+            error: error.message
+        });
+
+        let statusCode = 500;
+        let errorMessage = error.message;
+
+        if (error.message.includes('non trouvée')) {
+            statusCode = 404;
+        }
+
+        res.status(statusCode).json({
+            success: false,
+            error: 'Error',
+            details: errorMessage
+        });
+    }
+};
+
+// Cancel an activity
+const cancelActivity = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id) ||
+            !mongoose.Types.ObjectId.isValid(req.params.activityId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        const activity = await equipmentService.cancelActivity(
+            req.params.id,
+            req.params.activityId,
+            req.user._id,
+            req.body.reason
+        );
+
+        // Emit socket event for real-time update if socket.io is available
+        if (global.io) {
+            global.io.emit('equipmentUpdate', {
+                action: 'activityCancelled',
+                equipmentId: req.params.id,
+                activityId: req.params.activityId
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: activity
+        });
+    } catch (error) {
+        logger.error('Controller - Error cancelling activity', {
+            equipmentId: req.params.id,
+            activityId: req.params.activityId,
+            error: error.message
+        });
+
+        let statusCode = 500;
+        let errorMessage = error.message;
+
+        if (error.message.includes('non trouvée')) {
+            statusCode = 404;
+        }
+
+        res.status(statusCode).json({
+            success: false,
+            error: 'Error',
+            details: errorMessage
+        });
+    }
+};
+
+// Check equipment availability
+const checkAvailability = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        const { startDate, endDate } = req.query;
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                error: 'Validation Error',
+                details: 'Les dates de début et de fin sont requises'
+            });
+        }
+
+        const result = await equipmentService.checkAvailability(
+            req.params.id,
+            new Date(startDate),
+            new Date(endDate)
+        );
+
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        logger.error('Controller - Error checking availability', {
+            equipmentId: req.params.id,
+            error: error.message
+        });
+
+        let statusCode = 500;
+        let errorMessage = error.message;
+
+        if (error.message.includes('non trouvé')) {
+            statusCode = 404;
+        }
+
+        res.status(statusCode).json({
+            success: false,
+            error: 'Error',
+            details: errorMessage
+        });
+    }
+};
+
+// Get equipment status summary
+const getStatusSummary = async (req, res) => {
+    try {
+        const summary = await equipmentService.getStatusSummary();
+
+        res.status(200).json({
+            success: true,
+            data: summary
+        });
+    } catch (error) {
+        logger.error('Controller - Error getting status summary', {
+            error: error.message
+        });
+
+        res.status(500).json({
+            success: false,
+            error: 'Server Error',
+            details: error.message
+        });
+    }
+};
+
+// Get equipment status history
+const getStatusHistory = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid ID',
+                details: 'Format d\'ID invalide'
+            });
+        }
+
+        const history = await equipmentService.getEquipmentStatusHistory(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            data: history
+        });
+    } catch (error) {
+        logger.error('Controller - Error getting status history', {
+            equipmentId: req.params.id,
+            error: error.message
+        });
+
+        res.status(500).json({
+            success: false,
+            error: 'Server Error',
+            details: error.message
+        });
+    }
+};
+
+// Get active equipment (with ongoing activities)
+const getActiveEquipment = async (req, res) => {
+    try {
+        const equipment = await equipmentService.getActiveEquipment();
+
+        res.status(200).json({
+            success: true,
+            data: equipment
+        });
+    } catch (error) {
+        logger.error('Controller - Error getting active equipment', {
+            error: error.message
+        });
+
+        res.status(500).json({
+            success: false,
+            error: 'Server Error',
+            details: error.message
+        });
+    }
+};
+
 module.exports = {
     createEquipment,
     getAllEquipment,
@@ -402,5 +761,13 @@ module.exports = {
     updateEquipment,
     deleteEquipment,
     addHistoryEntry,
-    getEquipmentHistory
+    getEquipmentHistory,
+    scheduleActivity,
+    startActivity,
+    completeActivity,
+    cancelActivity,
+    checkAvailability,
+    getStatusSummary,
+    getStatusHistory,
+    getActiveEquipment
 }; 

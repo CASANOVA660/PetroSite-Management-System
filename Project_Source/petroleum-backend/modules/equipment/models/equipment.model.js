@@ -1,6 +1,32 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+// Equipment Status Constants
+const EQUIPMENT_STATUS = {
+    AVAILABLE: 'AVAILABLE',
+    IN_USE: 'IN_USE',
+    MAINTENANCE: 'MAINTENANCE',
+    REPAIR: 'REPAIR',
+    OUT_OF_SERVICE: 'OUT_OF_SERVICE'
+};
+
+// Activity Type Constants
+const ACTIVITY_TYPE = {
+    PLACEMENT: 'placement',
+    OPERATION: 'operation',
+    MAINTENANCE: 'maintenance',
+    REPAIR: 'repair'
+};
+
+// Map old status values to new ones for backward compatibility
+const STATUS_MAPPING = {
+    'disponible': EQUIPMENT_STATUS.AVAILABLE,
+    'disponible_needs_repair': EQUIPMENT_STATUS.AVAILABLE,
+    'on_repair': EQUIPMENT_STATUS.REPAIR,
+    'disponible_bon_etat': EQUIPMENT_STATUS.AVAILABLE,
+    'working_non_disponible': EQUIPMENT_STATUS.IN_USE
+};
+
 const dimensionsSchema = new Schema({
     height: {
         type: Number,
@@ -37,6 +63,59 @@ const operatingConditionsSchema = new Schema({
     }
 });
 
+// Activity schema for scheduled and current activities
+const activitySchema = new Schema({
+    type: {
+        type: String,
+        enum: Object.values(ACTIVITY_TYPE),
+        required: true
+    },
+    description: {
+        type: String,
+        trim: true
+    },
+    startDate: {
+        type: Date,
+        required: true
+    },
+    endDate: {
+        type: Date,
+        required: true
+    },
+    actualStartDate: {
+        type: Date
+    },
+    actualEndDate: {
+        type: Date
+    },
+    status: {
+        type: String,
+        enum: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+        default: 'SCHEDULED'
+    },
+    location: {
+        type: String,
+        trim: true
+    },
+    responsiblePerson: {
+        name: String,
+        email: String,
+        phone: String,
+        userId: {
+            type: Schema.Types.ObjectId,
+            ref: 'User'
+        }
+    },
+    planId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Plan'
+    },
+    createdBy: {
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    }
+});
+
 const equipmentSchema = new Schema({
     nom: {
         type: String,
@@ -70,15 +149,46 @@ const equipmentSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['disponible', 'disponible_needs_repair', 'on_repair', 'disponible_bon_etat', 'working_non_disponible'],
-        default: 'disponible'
+        enum: [...Object.values(EQUIPMENT_STATUS), ...Object.keys(STATUS_MAPPING)],
+        default: EQUIPMENT_STATUS.AVAILABLE
+    },
+    activities: [activitySchema],
+    lastMaintenanceDate: {
+        type: Date
+    },
+    nextMaintenanceDate: {
+        type: Date
     },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+// Virtual field for external activities from EquipmentHistory
+equipmentSchema.virtual('externalActivities', {
+    ref: 'EquipmentHistory',
+    localField: '_id',
+    foreignField: 'equipmentId',
+    options: {
+        match: {
+            toDate: { $exists: false },
+            isStatusChange: false
+        },
+        sort: { fromDate: 1 }
+    }
 });
 
 // Indexes for faster queries
@@ -86,5 +196,27 @@ equipmentSchema.index({ reference: 1 });
 equipmentSchema.index({ matricule: 1 });
 equipmentSchema.index({ status: 1 });
 equipmentSchema.index({ nom: 'text', reference: 'text', matricule: 'text' });
+equipmentSchema.index({ isDeleted: 1 });
 
-module.exports = mongoose.model('Equipment', equipmentSchema); 
+// Check for scheduling conflicts
+equipmentSchema.methods.hasScheduleConflict = function (startDate, endDate) {
+    return this.activities.some(activity => {
+        if (activity.status === 'CANCELLED') return false;
+        return (
+            (activity.startDate <= endDate && activity.endDate >= startDate) &&
+            (activity.status === 'SCHEDULED' || activity.status === 'IN_PROGRESS')
+        );
+    });
+};
+
+// Normalize old status values to new ones
+equipmentSchema.pre('save', function (next) {
+    if (STATUS_MAPPING[this.status]) {
+        this.status = STATUS_MAPPING[this.status];
+    }
+    next();
+});
+
+module.exports = mongoose.model('Equipment', equipmentSchema);
+module.exports.EQUIPMENT_STATUS = EQUIPMENT_STATUS;
+module.exports.ACTIVITY_TYPE = ACTIVITY_TYPE; 

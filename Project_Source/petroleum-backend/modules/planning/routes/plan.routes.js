@@ -1,12 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const planController = require('../controllers/plan.controller');
+const { authenticateToken } = require('../../middleware/auth');
+
+// All routes require authentication
+router.use(authenticateToken);
 
 // Create a new plan
 router.post('/', planController.createPlan);
 
 // Get all plans
 router.get('/', planController.getPlans);
+
+// Get available equipment for planning
+router.get('/available-equipment', planController.getAvailableEquipment);
 
 // Get a plan by ID
 router.get('/:id', planController.getPlanById);

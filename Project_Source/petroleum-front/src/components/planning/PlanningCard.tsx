@@ -1,15 +1,32 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { PlanType, PlanStatus } from '../../store/slices/planningSlice';
+
+interface EquipmentData {
+    _id: string;
+    nom: string;
+    reference: string;
+    matricule: string;
+    status: string;
+}
 
 interface Plan {
     _id: string;
     title: string;
-    type: 'placement' | 'maintenance';
-    responsible: string;
-    equipment: string | { name: string };
+    description?: string;
+    type: PlanType;
+    equipmentId: EquipmentData;
+    responsiblePerson?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        userId?: string;
+    };
+    location?: string;
     startDate: string;
     endDate: string;
-    status: string;
+    status: PlanStatus;
+    notes?: string;
 }
 
 interface PlanningCardProps {
@@ -19,7 +36,63 @@ interface PlanningCardProps {
     onDelete: (id: string) => void;
 }
 
+// Helper function to format dates
+const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+};
+
 export default function PlanningCard({ plan, onView, onEdit, onDelete }: PlanningCardProps) {
+    // Get status color and background
+    const getStatusStyles = (status: PlanStatus) => {
+        switch (status) {
+            case PlanStatus.COMPLETED:
+                return 'bg-green-100 text-green-700';
+            case PlanStatus.SCHEDULED:
+                return 'bg-yellow-100 text-yellow-700';
+            case PlanStatus.IN_PROGRESS:
+                return 'bg-blue-100 text-blue-700';
+            case PlanStatus.CANCELLED:
+                return 'bg-red-100 text-red-700';
+            default:
+                return 'bg-gray-100 text-gray-700';
+        }
+    };
+
+    // Get status display label
+    const getStatusLabel = (status: PlanStatus) => {
+        switch (status) {
+            case PlanStatus.COMPLETED:
+                return 'Terminé';
+            case PlanStatus.SCHEDULED:
+                return 'Planifié';
+            case PlanStatus.IN_PROGRESS:
+                return 'En cours';
+            case PlanStatus.CANCELLED:
+                return 'Annulé';
+            default:
+                return status;
+        }
+    };
+
+    // Get type display label
+    const getTypeLabel = (type: PlanType) => {
+        switch (type) {
+            case PlanType.PLACEMENT:
+                return 'Placement';
+            case PlanType.MAINTENANCE:
+                return 'Maintenance';
+            case PlanType.REPAIR:
+                return 'Réparation';
+            default:
+                return type;
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -29,16 +102,51 @@ export default function PlanningCard({ plan, onView, onEdit, onDelete }: Plannin
         >
             <div className="flex items-center justify-between mb-2">
                 <span className="text-lg font-semibold text-gray-900">{plan.title}</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${plan.status === 'Done' ? 'bg-green-100 text-green-700' : plan.status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : plan.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{plan.status}</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusStyles(plan.status)}`}>
+                    {getStatusLabel(plan.status)}
+                </span>
             </div>
-            <div className="text-sm text-gray-500">Type: <span className="text-gray-700">{plan.type}</span></div>
-            <div className="text-sm text-gray-500">Responsible: <span className="text-gray-700">{plan.responsible}</span></div>
-            <div className="text-sm text-gray-500">Equipment: <span className="text-gray-700">{typeof plan.equipment === 'object' ? plan.equipment.name : plan.equipment}</span></div>
-            <div className="text-sm text-gray-500">Dates: <span className="text-gray-700">{plan.startDate} - {plan.endDate}</span></div>
-            <div className="flex gap-4 mt-3 justify-end">
-                <button onClick={() => onView(plan._id)} className="hover:text-blue-600" title="View">👁</button>
-                <button onClick={() => onEdit(plan._id)} className="hover:text-yellow-600" title="Edit">✏️</button>
-                <button onClick={() => onDelete(plan._id)} className="hover:text-red-600" title="Delete">🗑️</button>
+
+            <div className="text-sm text-gray-500">Type: <span className="text-gray-700">{getTypeLabel(plan.type)}</span></div>
+            <div className="text-sm text-gray-500">Responsable: <span className="text-gray-700">
+                {plan.responsiblePerson ?
+                    (typeof plan.responsiblePerson === 'object' ?
+                        plan.responsiblePerson.name :
+                        plan.responsiblePerson
+                    ) :
+                    'Non assigné'
+                }
+            </span></div>
+            <div className="text-sm text-gray-500">Équipement: <span className="text-gray-700">{plan.equipmentId.nom} ({plan.equipmentId.reference})</span></div>
+
+            {plan.location && (
+                <div className="text-sm text-gray-500">Lieu: <span className="text-gray-700">{plan.location}</span></div>
+            )}
+
+            <div className="text-sm text-gray-500">Période: <span className="text-gray-700">{formatDate(plan.startDate)} - {formatDate(plan.endDate)}</span></div>
+
+            <div className="flex gap-2 mt-3 justify-end">
+                <button
+                    onClick={() => onView(plan._id)}
+                    className="text-gray-600 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors"
+                    title="Voir les détails"
+                >
+                    👁️
+                </button>
+                <button
+                    onClick={() => onEdit(plan._id)}
+                    className="text-gray-600 hover:text-yellow-600 p-2 rounded-full hover:bg-yellow-50 transition-colors"
+                    title="Modifier"
+                >
+                    ✏️
+                </button>
+                <button
+                    onClick={() => onDelete(plan._id)}
+                    className="text-gray-600 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
+                    title="Supprimer"
+                >
+                    🗑️
+                </button>
             </div>
         </motion.div>
     );

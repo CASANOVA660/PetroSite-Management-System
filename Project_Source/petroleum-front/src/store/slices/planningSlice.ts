@@ -1,31 +1,69 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from '../../utils/axios';
 
+// Match backend activity types
+export enum PlanType {
+    PLACEMENT = 'placement',
+    MAINTENANCE = 'maintenance',
+    REPAIR = 'repair'
+}
+
+// Match backend plan status
+export enum PlanStatus {
+    SCHEDULED = 'scheduled',
+    IN_PROGRESS = 'in_progress',
+    COMPLETED = 'completed',
+    CANCELLED = 'cancelled'
+}
+
 export interface Plan {
     _id: string;
     title: string;
     description?: string;
-    type: 'placement' | 'maintenance';
-    equipment: any; // Should match Equipment type
-    responsible: string;
-    route: string[];
+    type: PlanType;
+    equipmentId: string; // Reference to equipment
+    activityId?: string; // Reference to activity in equipment
+    status: PlanStatus;
     startDate: string;
     endDate: string;
-    status: 'Upcoming' | 'In Progress' | 'Done';
+    location?: string;
+    responsiblePerson?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        userId?: string;
+    };
     notes?: string;
+    createdBy?: string;
+    updatedBy?: string;
     createdAt?: string;
     updatedAt?: string;
+    isDeleted?: boolean;
+}
+
+export interface EquipmentData {
+    _id: string;
+    nom: string;
+    reference: string;
+    matricule: string;
+    status: string;
+}
+
+export interface PlanWithEquipment extends Omit<Plan, 'equipmentId'> {
+    equipmentId: EquipmentData;
 }
 
 interface PlanningState {
-    plans: Plan[];
-    currentPlan: Plan | null;
+    plans: PlanWithEquipment[];
+    availableEquipment: EquipmentData[];
+    currentPlan: PlanWithEquipment | null;
     loading: boolean;
     error: string | null;
 }
 
 const initialState: PlanningState = {
     plans: [],
+    availableEquipment: [],
     currentPlan: null,
     loading: false,
     error: null
@@ -33,9 +71,9 @@ const initialState: PlanningState = {
 
 export const fetchPlans = createAsyncThunk(
     'planning/fetchPlans',
-    async (_, { rejectWithValue }) => {
+    async (filters: any = {}, { rejectWithValue }) => {
         try {
-            const response = await axios.get('/plans');
+            const response = await axios.get('/plans', { params: filters });
             return response.data;
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.error || 'Failed to fetch plans');
@@ -57,12 +95,19 @@ export const fetchPlanById = createAsyncThunk(
 
 export const createPlan = createAsyncThunk(
     'planning/createPlan',
-    async (planData: Omit<Plan, '_id' | 'createdAt' | 'updatedAt'>, { rejectWithValue }) => {
+    async (planData: Partial<Plan>, { rejectWithValue }) => {
         try {
+            console.log('Creating plan with data:', planData);
             const response = await axios.post('/plans', planData);
+            console.log('Plan created successfully:', response.data);
             return response.data;
         } catch (error: any) {
-            return rejectWithValue(error.response?.data?.error || 'Failed to create plan');
+            console.error('Error creating plan:', error.response?.data || error.message);
+            return rejectWithValue(
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                'Failed to create plan'
+            );
         }
     }
 );
@@ -91,11 +136,39 @@ export const deletePlan = createAsyncThunk(
     }
 );
 
+export const getAvailableEquipment = createAsyncThunk(
+    'planning/getAvailableEquipment',
+    async ({ startDate, endDate, type }: { startDate: string, endDate: string, type: PlanType }, { rejectWithValue }) => {
+        try {
+            console.log('Sending request to get available equipment:', { startDate, endDate, type });
+            const response = await axios.get('/plans/available-equipment', {
+                params: { startDate, endDate, type }
+            });
+            console.log('Available equipment API response:', response.data);
+
+            // Return data from the nested structure
+            const equipment = response.data.data || [];
+            console.log(`Parsed equipment data: ${equipment.length} items`, equipment);
+
+            if (equipment.length === 0) {
+                console.log('No equipment returned from API');
+            } else {
+                console.log('First equipment item:', equipment[0]);
+            }
+
+            return equipment;
+        } catch (error: any) {
+            console.error('Error fetching available equipment:', error.response?.data || error.message);
+            return rejectWithValue(error.response?.data?.message || 'Failed to get available equipment');
+        }
+    }
+);
+
 const planningSlice = createSlice({
     name: 'planning',
     initialState,
     reducers: {
-        setCurrentPlan(state, action: PayloadAction<Plan | null>) {
+        setCurrentPlan(state, action: PayloadAction<PlanWithEquipment | null>) {
             state.currentPlan = action.payload;
         },
         clearPlanningError(state) {
@@ -110,7 +183,8 @@ const planningSlice = createSlice({
             })
             .addCase(fetchPlans.fulfilled, (state, action) => {
                 state.loading = false;
-                state.plans = action.payload;
+                // Handle both direct data and nested data structure
+                state.plans = action.payload.data || action.payload;
             })
             .addCase(fetchPlans.rejected, (state, action) => {
                 state.loading = false;
@@ -122,7 +196,8 @@ const planningSlice = createSlice({
             })
             .addCase(fetchPlanById.fulfilled, (state, action) => {
                 state.loading = false;
-                state.currentPlan = action.payload;
+                // Handle both direct data and nested data structure
+                state.currentPlan = action.payload.data || action.payload;
             })
             .addCase(fetchPlanById.rejected, (state, action) => {
                 state.loading = false;
@@ -134,7 +209,10 @@ const planningSlice = createSlice({
             })
             .addCase(createPlan.fulfilled, (state, action) => {
                 state.loading = false;
-                state.plans.push(action.payload);
+                if (!Array.isArray(state.plans)) {
+                    state.plans = [];
+                }
+                state.plans.push(action.payload.data || action.payload);
             })
             .addCase(createPlan.rejected, (state, action) => {
                 state.loading = false;
@@ -146,7 +224,11 @@ const planningSlice = createSlice({
             })
             .addCase(updatePlan.fulfilled, (state, action) => {
                 state.loading = false;
-                state.plans = state.plans.map(plan => plan._id === action.payload._id ? action.payload : plan);
+                const updatedPlan = action.payload.data || action.payload;
+                if (!Array.isArray(state.plans)) {
+                    state.plans = [];
+                }
+                state.plans = state.plans.map(plan => plan._id === updatedPlan._id ? updatedPlan : plan);
             })
             .addCase(updatePlan.rejected, (state, action) => {
                 state.loading = false;
@@ -158,9 +240,25 @@ const planningSlice = createSlice({
             })
             .addCase(deletePlan.fulfilled, (state, action) => {
                 state.loading = false;
+                if (!Array.isArray(state.plans)) {
+                    state.plans = [];
+                    return;
+                }
                 state.plans = state.plans.filter(plan => plan._id !== action.payload);
             })
             .addCase(deletePlan.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
+            .addCase(getAvailableEquipment.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(getAvailableEquipment.fulfilled, (state, action) => {
+                state.loading = false;
+                state.availableEquipment = action.payload;
+            })
+            .addCase(getAvailableEquipment.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
             });

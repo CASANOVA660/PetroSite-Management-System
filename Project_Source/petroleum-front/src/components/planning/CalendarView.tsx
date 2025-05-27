@@ -1,149 +1,59 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { PlanType, PlanStatus } from '../../store/slices/planningSlice';
+
+interface EquipmentData {
+    _id: string;
+    nom: string;
+    reference: string;
+    matricule: string;
+    status: string;
+}
 
 interface Plan {
-    id: string | number;
+    _id: string;
     title: string;
-    type: string;
-    responsible: string;
-    equipment: string;
-    startDate: string; // ISO string, e.g. '2025-01-14T08:00'
-    endDate: string;   // ISO string
-    status: string;
-    avatar?: string; // optional avatar url
+    description?: string;
+    type: PlanType;
+    equipmentId: EquipmentData;
+    responsiblePerson: string;
+    location?: string;
+    startDate: string;
+    endDate: string;
+    status: PlanStatus;
+    notes?: string;
 }
 
 interface CalendarViewProps {
-    plans?: Plan[];
-    onPlanClick: (id: string | number) => void;
+    plans: Plan[];
+    onPlanClick: (id: string) => void;
 }
 
 // Helper: get color by type
-const typeColor = (type: string) => {
-    if (type === 'Maintenance') return 'bg-green-100 text-green-700 border-green-300';
-    if (type === 'Mobilization') return 'bg-orange-100 text-orange-700 border-orange-300';
-    return 'bg-blue-100 text-blue-700 border-blue-300';
+const typeColor = (type: PlanType) => {
+    if (type === PlanType.MAINTENANCE) return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (type === PlanType.PLACEMENT) return 'bg-orange-100 text-orange-700 border-orange-300';
+    if (type === PlanType.REPAIR) return 'bg-red-100 text-red-700 border-red-300';
+    return 'bg-gray-100 text-gray-700 border-gray-300';
 };
 
-const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Helper: get color by status
+const statusColor = (status: PlanStatus) => {
+    if (status === PlanStatus.SCHEDULED) return 'bg-yellow-50 border-yellow-200';
+    if (status === PlanStatus.IN_PROGRESS) return 'bg-blue-50 border-blue-200';
+    if (status === PlanStatus.COMPLETED) return 'bg-green-50 border-green-200';
+    if (status === PlanStatus.CANCELLED) return 'bg-red-50 border-red-200';
+    return 'bg-gray-50 border-gray-200';
+};
+
+const weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ];
 
-const mockAvatars = [
-    'https://randomuser.me/api/portraits/men/32.jpg',
-    'https://randomuser.me/api/portraits/women/44.jpg',
-    'https://randomuser.me/api/portraits/men/45.jpg',
-    'https://randomuser.me/api/portraits/women/46.jpg',
-    'https://randomuser.me/api/portraits/men/47.jpg',
-    'https://randomuser.me/api/portraits/women/48.jpg',
-    'https://randomuser.me/api/portraits/men/49.jpg',
-    'https://randomuser.me/api/portraits/women/50.jpg',
-];
-
-const mockPlans: Plan[] = [
-    {
-        id: 1,
-        title: 'Discuss Property with Jane.',
-        type: 'Maintenance',
-        responsible: 'Jane Doe',
-        equipment: 'Laptop',
-        startDate: '2025-01-14T08:00',
-        endDate: '2025-01-14T09:30',
-        status: 'Upcoming',
-        avatar: mockAvatars[1],
-    },
-    {
-        id: 2,
-        title: 'Maplewood Estate Visit',
-        type: 'Mobilization',
-        responsible: 'John Smith',
-        equipment: 'Car',
-        startDate: '2025-01-14T08:30',
-        endDate: '2025-01-14T10:45',
-        status: 'In Progress',
-        avatar: mockAvatars[0],
-    },
-    {
-        id: 3,
-        title: 'Maplewood Estate Site Eval',
-        type: 'Mobilization',
-        responsible: 'Alex Green',
-        equipment: 'Tablet',
-        startDate: '2025-01-15T08:00',
-        endDate: '2025-01-15T10:00',
-        status: 'Upcoming',
-        avatar: mockAvatars[2],
-    },
-    {
-        id: 4,
-        title: 'Client Review Aspen Creek',
-        type: 'Maintenance',
-        responsible: 'Sara Lee',
-        equipment: 'Docs',
-        startDate: '2025-01-16T08:00',
-        endDate: '2025-01-16T08:55',
-        status: 'Upcoming',
-        avatar: mockAvatars[3],
-    },
-    {
-        id: 5,
-        title: 'Executive Planning Session',
-        type: 'Maintenance',
-        responsible: 'Chris Brown',
-        equipment: 'Whiteboard',
-        startDate: '2025-01-19T11:25',
-        endDate: '2025-01-19T13:00',
-        status: 'Upcoming',
-        avatar: mockAvatars[4],
-    },
-    {
-        id: 6,
-        title: 'Site Visit for Lakeview Villas',
-        type: 'Mobilization',
-        responsible: 'Emily Clark',
-        equipment: 'Car',
-        startDate: '2025-01-14T10:50',
-        endDate: '2025-01-14T11:40',
-        status: 'Upcoming',
-        avatar: mockAvatars[5],
-    },
-    {
-        id: 7,
-        title: 'Finance Budget Review',
-        type: 'Maintenance',
-        responsible: 'Michael Scott',
-        equipment: 'Laptop',
-        startDate: '2025-01-14T11:00',
-        endDate: '2025-01-14T11:50',
-        status: 'Upcoming',
-        avatar: mockAvatars[6],
-    },
-    {
-        id: 8,
-        title: 'Marketing Strategy Meeting',
-        type: 'Maintenance',
-        responsible: 'Pam Beesly',
-        equipment: 'Projector',
-        startDate: '2025-01-14T10:00',
-        endDate: '2025-01-14T11:50',
-        status: 'Upcoming',
-        avatar: mockAvatars[7],
-    },
-    // Multi-day event for visual testing
-    {
-        id: 9,
-        title: '7-Day Project Sprint',
-        type: 'Mobilization',
-        responsible: 'Project Team',
-        equipment: 'All',
-        startDate: '2025-01-10T09:00',
-        endDate: '2025-01-17T18:00',
-        status: 'In Progress',
-        avatar: mockAvatars[0],
-    },
-];
+// Mock data is now only used if no plans are provided
+const mockPlans: Plan[] = [];
 
 function getMonthMatrix(year: number, month: number) {
     // Returns a 2D array of Date objects for the month view
@@ -179,11 +89,11 @@ const hours = Array.from({ length: 12 }, (_, i) => `${(8 + i).toString().padStar
 
 export default function CalendarView({ plans, onPlanClick }: CalendarViewProps) {
     const [viewMode, setViewMode] = useState<'month' | 'year' | 'day'>('month');
-    const [currentMonth, setCurrentMonth] = useState(0); // 0 = January
-    const [currentYear, setCurrentYear] = useState(2025);
+    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); // Current month
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear()); // Current year
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-    const plansToShow = plans && plans.length > 0 ? plans : mockPlans;
+    const plansToShow = plans.length > 0 ? plans : mockPlans;
 
     // Month matrix for the current month
     const monthMatrix = getMonthMatrix(currentYear, currentMonth);
@@ -198,288 +108,303 @@ export default function CalendarView({ plans, onPlanClick }: CalendarViewProps) 
             const key = d.toISOString().slice(0, 10);
             if (!plansByDay[key]) plansByDay[key] = [];
             // Only push if not already present (avoid duplicates)
-            if (!plansByDay[key].some(p => p.id === plan.id)) {
+            if (!plansByDay[key].some(p => p._id === plan._id)) {
                 plansByDay[key].push(plan);
             }
         }
     });
 
-    // Handlers
+    // Functions (these functions remain the same as before, just updated references)
+
     const goToPrevMonth = () => {
         if (currentMonth === 0) {
             setCurrentMonth(11);
-            setCurrentYear(y => y - 1);
+            setCurrentYear(currentYear - 1);
         } else {
-            setCurrentMonth(m => m - 1);
+            setCurrentMonth(currentMonth - 1);
         }
     };
+
     const goToNextMonth = () => {
         if (currentMonth === 11) {
             setCurrentMonth(0);
-            setCurrentYear(y => y + 1);
+            setCurrentYear(currentYear + 1);
         } else {
-            setCurrentMonth(m => m + 1);
+            setCurrentMonth(currentMonth + 1);
         }
     };
+
     const goToToday = () => {
-        setCurrentMonth(0);
-        setCurrentYear(2025);
-        setViewMode('month');
-        setSelectedDay(null);
+        const today = new Date();
+        setCurrentMonth(today.getMonth());
+        setCurrentYear(today.getFullYear());
+        setSelectedDay(today);
+        setViewMode('day');
     };
 
-    // Year view handler
     const handleMonthClick = (idx: number) => {
         setCurrentMonth(idx);
         setViewMode('month');
     };
 
-    // Day view navigation
     const goToDay = (date: Date) => {
         setSelectedDay(date);
         setViewMode('day');
     };
+
     const goToPrevDay = () => {
         if (selectedDay) {
-            const prev = new Date(selectedDay);
-            prev.setDate(prev.getDate() - 1);
-            setSelectedDay(prev);
-        }
-    };
-    const goToNextDay = () => {
-        if (selectedDay) {
-            const next = new Date(selectedDay);
-            next.setDate(next.getDate() + 1);
-            setSelectedDay(next);
+            const prevDay = new Date(selectedDay);
+            prevDay.setDate(prevDay.getDate() - 1);
+            setSelectedDay(prevDay);
         }
     };
 
-    // Render multi-day event bar in month view (one per week, not repeated)
+    const goToNextDay = () => {
+        if (selectedDay) {
+            const nextDay = new Date(selectedDay);
+            nextDay.setDate(nextDay.getDate() + 1);
+            setSelectedDay(nextDay);
+        }
+    };
+
     function renderMultiDayBarsForMatrix(plan: Plan, matrix: Date[][]) {
-        const start = new Date(plan.startDate);
-        const end = new Date(plan.endDate);
-        const firstDay = matrix[0][0];
-        const lastDay = matrix[matrix.length - 1][6];
-        // Clamp to visible month
-        const barStart = start < firstDay ? firstDay : start;
-        const barEnd = end > lastDay ? lastDay : end;
-        // For each week, render a bar only in the first cell of the week where the event is present
-        const bars: React.ReactNode[] = [];
-        matrix.forEach((week, weekIdx) => {
-            // Find the first and last day in this week that the event covers
-            const weekStart = week[0];
-            const weekEnd = week[6];
-            // If the event covers the whole week, fill all 7 columns
-            let segStart = barStart > weekStart ? barStart : weekStart;
-            let segEnd = barEnd < weekEnd ? barEnd : weekEnd;
-            if (segStart > segEnd) return; // No overlap this week
-            let colStart = week.findIndex(d => d.toISOString().slice(0, 10) === segStart.toISOString().slice(0, 10));
-            let colEnd = week.findIndex(d => d.toISOString().slice(0, 10) === segEnd.toISOString().slice(0, 10));
-            // If the event covers the whole week, set colStart=0 and colEnd=6
-            if (segStart <= weekStart && segEnd >= weekEnd) {
-                colStart = 0;
-                colEnd = 6;
+        const startDate = new Date(plan.startDate);
+        const endDate = new Date(plan.endDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        // If plan doesn't overlap with current month view at all, return null
+        const monthStart = new Date(currentYear, currentMonth, 1);
+        const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+        if (endDate < monthStart || startDate > monthEnd) return null;
+
+        // Calculate visible period of the plan
+        const visibleStart = startDate < monthStart ? monthStart : startDate;
+        const visibleEnd = endDate > monthEnd ? monthEnd : endDate;
+
+        // Find which weeks the plan spans in the matrix
+        let startWeek = -1;
+        let startDayInWeek = -1;
+        let endWeek = -1;
+        let endDayInWeek = -1;
+
+        for (let week = 0; week < matrix.length; week++) {
+            for (let day = 0; day < matrix[week].length; day++) {
+                const date = matrix[week][day];
+                if (date.getTime() === visibleStart.getTime() ||
+                    (date > visibleStart && startWeek === -1)) {
+                    startWeek = week;
+                    startDayInWeek = day;
+                }
+                if (date.getTime() === visibleEnd.getTime() ||
+                    (date < visibleEnd && date.getDate() === visibleEnd.getDate())) {
+                    endWeek = week;
+                    endDayInWeek = day;
+                }
             }
-            if (colStart !== -1) {
-                bars.push(
-                    <div
-                        key={plan.id + '-bar-' + weekIdx}
-                        className="absolute flex items-center h-6 rounded-full pointer-events-auto cursor-pointer transition hover:scale-[1.03]"
-                        style={{
-                            left: `calc(${(colStart / 7) * 100}% + 2px)`,
-                            width: `calc(${((colEnd - colStart + 1) / 7) * 100}% - 4px)`,
-                            top: `calc(${weekIdx * 100 / matrix.length}% + 4px)`,
-                            minWidth: 60,
-                            maxWidth: '100%',
-                            zIndex: 2,
-                        }}
-                        onClick={e => { e.stopPropagation(); onPlanClick(plan.id); }}
-                    >
-                        <div
-                            className={`flex items-center h-6 rounded-full px-2 border shadow font-semibold text-xs ${typeColor(plan.type)}`}
-                            style={{
-                                borderTopLeftRadius: (colStart === 0 && segStart <= firstDay) ? 0 : 9999,
-                                borderBottomLeftRadius: (colStart === 0 && segStart <= firstDay) ? 0 : 9999,
-                                borderTopRightRadius: (colEnd === 6 && segEnd >= lastDay) ? 0 : 9999,
-                                borderBottomRightRadius: (colEnd === 6 && segEnd >= lastDay) ? 0 : 9999,
-                            }}
-                        >
-                            <img src={plan.avatar || mockAvatars[0]} alt="avatar" className="w-5 h-5 rounded-full border border-white shadow mr-2" />
-                            <span className="truncate max-w-[120px]">{plan.title}</span>
-                            {segEnd < end && <span className="ml-2">→</span>}
-                        </div>
-                    </div>
-                );
-            }
-        });
+        }
+
+        if (startWeek === -1 || endWeek === -1) return null;
+
+        // Generate bars for each week the plan spans
+        const bars = [];
+        for (let week = startWeek; week <= endWeek; week++) {
+            const weekStartDay = week === startWeek ? startDayInWeek : 0;
+            const weekEndDay = week === endWeek ? endDayInWeek : 6;
+
+            bars.push(
+                <div
+                    key={`multiday-${plan._id}-week-${week}`}
+                    className={`absolute h-5 rounded-md ${statusColor(plan.status)} border px-2 text-xs flex items-center z-10 overflow-hidden whitespace-nowrap`}
+                    style={{
+                        top: `${32 + week * 120}px`, // 32px for header, 120px per week
+                        left: `${14.28 * weekStartDay}%`,
+                        width: `${14.28 * (weekEndDay - weekStartDay + 1)}%`,
+                    }}
+                    onClick={e => { e.stopPropagation(); onPlanClick(plan._id); }}
+                >
+                    <div className={`w-2 h-2 rounded-full ${typeColor(plan.type).split(' ')[0]} mr-1 flex-shrink-0`}></div>
+                    <span className="truncate">{plan.title}</span>
+                </div>
+            );
+        }
         return bars;
+    }
+
+    if (viewMode === 'year') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-white rounded-2xl shadow p-6 overflow-hidden"
+            >
+                <div className="flex justify-between items-center mb-6">
+                    <button onClick={() => setCurrentYear(currentYear - 1)} className="p-2 hover:bg-gray-100 rounded-full">&lt;</button>
+                    <h2 className="text-xl font-bold">{currentYear}</h2>
+                    <button onClick={() => setCurrentYear(currentYear + 1)} className="p-2 hover:bg-gray-100 rounded-full">&gt;</button>
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                    {months.map((month, idx) => (
+                        <div
+                            key={month}
+                            className="p-3 rounded-xl hover:bg-blue-50 cursor-pointer transition-colors"
+                            onClick={() => handleMonthClick(idx)}
+                        >
+                            <h3 className="text-center font-medium">{month}</h3>
+                        </div>
+                    ))}
+                </div>
+            </motion.div>
+        );
+    }
+
+    if (viewMode === 'day' && selectedDay) {
+        const dayKey = selectedDay.toISOString().slice(0, 10);
+        const dayPlans = plansByDay[dayKey] || [];
+        // Group plans by hour for better rendering
+        const plansByHour: Record<string, Plan[]> = {};
+        dayPlans.forEach(plan => {
+            const planStartDate = new Date(plan.startDate);
+            const hour = `${planStartDate.getHours().toString().padStart(2, '0')}:00`;
+            if (!plansByHour[hour]) plansByHour[hour] = [];
+            plansByHour[hour].push(plan);
+        });
+
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-white rounded-2xl shadow p-6 overflow-hidden h-full"
+            >
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <button onClick={() => setViewMode('month')} className="text-blue-600 hover:underline">⬅ Retour au mois</button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={goToPrevDay} className="p-2 hover:bg-gray-100 rounded-full">&lt;</button>
+                        <h2 className="text-xl font-bold">{selectedDay.getDate()} {months[selectedDay.getMonth()]}, {selectedDay.getFullYear()}</h2>
+                        <button onClick={goToNextDay} className="p-2 hover:bg-gray-100 rounded-full">&gt;</button>
+                    </div>
+                    <button onClick={goToToday} className="px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-700 text-sm">Aujourd'hui</button>
+                </div>
+
+                <div className="overflow-y-auto h-[calc(100vh-240px)]">
+                    {hours.map(hour => (
+                        <div key={hour} className="flex border-t border-gray-100 py-4">
+                            <div className="w-20 flex-shrink-0 text-gray-500 text-sm">{hour}</div>
+                            <div className="flex-grow">
+                                {plansByHour[hour]?.map(plan => (
+                                    <div
+                                        key={plan._id}
+                                        className={`p-3 mb-2 rounded-lg ${statusColor(plan.status)} border cursor-pointer hover:shadow-md transition`}
+                                        onClick={() => onPlanClick(plan._id)}
+                                    >
+                                        <div className="font-medium">{plan.title}</div>
+                                        <div className="text-sm text-gray-600 flex gap-2 mt-1">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs ${typeColor(plan.type)}`}>{plan.type}</span>
+                                            <span>• {plan.responsiblePerson}</span>
+                                            <span>• {plan.equipmentId.nom}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </motion.div>
+        );
     }
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="rounded-2xl bg-white shadow-lg p-6 overflow-x-auto"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-white rounded-2xl shadow p-6 overflow-hidden"
         >
-            {/* Top bar: Month/Year, navigation, view toggle */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                    <button onClick={goToPrevMonth} className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">&#8592;</button>
-                    <span className="text-xl font-semibold text-gray-800 cursor-pointer" onClick={() => setViewMode(viewMode === 'month' ? 'year' : 'month')}>
-                        {viewMode === 'day' && selectedDay ? `${months[selectedDay.getMonth()]} ${selectedDay.getDate()}, ${selectedDay.getFullYear()}` : `${months[currentMonth]} ${currentYear}`}
-                    </span>
-                    <button onClick={goToNextMonth} className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">&#8594;</button>
-                    <button onClick={goToToday} className="ml-2 rounded-lg bg-blue-50 text-blue-600 px-3 py-1 text-sm font-medium">Today</button>
-                    {viewMode === 'month' && selectedDay && (
-                        <button onClick={() => setViewMode('day')} className="ml-2 rounded-lg bg-purple-50 text-purple-600 px-3 py-1 text-sm font-medium">Day View</button>
-                    )}
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex gap-2">
+                    <button onClick={goToPrevMonth} className="p-2 hover:bg-gray-100 rounded-full">&lt;</button>
+                    <h2 className="text-xl font-bold">{months[currentMonth]} {currentYear}</h2>
+                    <button onClick={goToNextMonth} className="p-2 hover:bg-gray-100 rounded-full">&gt;</button>
                 </div>
-                <button onClick={() => setViewMode(viewMode === 'month' ? 'year' : 'month')} className="rounded-lg border px-3 py-1 text-sm text-gray-500 ml-2">
-                    {viewMode === 'month' ? 'Year View' : 'Month View'}
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={goToToday} className="px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-700 text-sm">Aujourd'hui</button>
+                    <button onClick={() => setViewMode('year')} className="px-3 py-1 bg-gray-100 rounded-full hover:bg-gray-200 text-sm">Vue annuelle</button>
+                </div>
             </div>
-            {viewMode === 'year' ? (
-                <div className="grid grid-cols-4 gap-4">
-                    {months.map((m, idx) => (
-                        <button
-                            key={m}
-                            onClick={() => handleMonthClick(idx)}
-                            className={`rounded-xl p-6 text-lg font-semibold shadow transition border-2 ${idx === currentMonth ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 bg-white text-gray-500 hover:bg-gray-50'}`}
-                        >
-                            {m}
-                        </button>
+
+            <div className="relative">
+                {/* Calendar header */}
+                <div className="grid grid-cols-7 gap-0 mb-2">
+                    {weekdays.map(day => (
+                        <div key={day} className="text-center text-sm font-medium text-gray-500">{day}</div>
                     ))}
                 </div>
-            ) : viewMode === 'day' && selectedDay ? (
-                <div>
-                    {/* Day View */}
-                    <div className="flex items-center justify-between mb-4">
-                        <button onClick={goToPrevDay} className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">&#8592;</button>
-                        <span className="text-lg font-semibold text-gray-800">{months[selectedDay.getMonth()]} {selectedDay.getDate()}, {selectedDay.getFullYear()}</span>
-                        <button onClick={goToNextDay} className="rounded-full bg-gray-100 px-3 py-1 text-gray-500">&#8594;</button>
-                        <button onClick={() => setViewMode('month')} className="ml-2 rounded-lg bg-gray-50 text-gray-600 px-3 py-1 text-sm font-medium">Back to Month</button>
-                    </div>
-                    <div className="grid grid-cols-[80px_1fr] gap-2">
-                        {/* Time slots */}
-                        <div className="flex flex-col">
-                            {hours.map(h => (
-                                <div key={h} className="h-16 flex items-start justify-end pr-2 text-xs text-gray-400 pt-2">{h}</div>
-                            ))}
-                        </div>
-                        {/* Events */}
-                        <div className="relative">
-                            {plansToShow.filter(plan => {
-                                const d = new Date(plan.startDate);
-                                return d.toISOString().slice(0, 10) === selectedDay.toISOString().slice(0, 10);
-                            }).map((plan, idx) => {
-                                const start = new Date(plan.startDate);
-                                const end = new Date(plan.endDate);
-                                const startHour = start.getHours();
-                                const endHour = end.getHours();
-                                const top = (startHour - 8) * 64; // 8am start, 64px per hour
-                                const height = Math.max(1, (endHour - startHour + 1)) * 64 - 8;
-                                return (
-                                    <button
-                                        key={plan.id}
-                                        onClick={() => onPlanClick(plan.id)}
-                                        className={`absolute left-0 flex items-center gap-2 px-4 py-2 rounded-2xl border shadow-md ${typeColor(plan.type)} transition hover:scale-[1.03]`}
-                                        style={{ top, height, minWidth: 180, zIndex: 2 }}
-                                        title={plan.title}
-                                    >
-                                        <img src={plan.avatar || mockAvatars[idx % mockAvatars.length]} alt="avatar" className="w-7 h-7 rounded-full border border-white shadow" />
-                                        <span className="font-semibold text-sm truncate max-w-[120px]">{plan.title}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div>
-                    {/* Weekday headers */}
-                    <div className="grid grid-cols-7 mb-2">
-                        {weekdays.map(day => (
-                            <div key={day} className="text-center text-gray-400 font-medium text-sm py-1">{day}</div>
-                        ))}
-                    </div>
-                    {/* Month grid */}
-                    <div className="relative">
-                        {/* Month grid, week by week */}
-                        {monthMatrix.map((week, weekIdx) => {
-                            return (
-                                <div key={weekIdx} className="grid grid-cols-7 relative mb-1 min-h-[90px]">
-                                    {week.map((date, dayIdx) => {
-                                        const isCurrentMonth = date.getMonth() === currentMonth;
-                                        const dayKey = date.toISOString().slice(0, 10);
-                                        // Multi-day events that cover this day
-                                        const multiDayBars = plansToShow.filter(plan => {
-                                            const start = new Date(plan.startDate);
-                                            const end = new Date(plan.endDate);
-                                            return (
-                                                (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) >= 1 &&
-                                                start <= date && end >= date
-                                            );
-                                        });
-                                        // Single-day events
-                                        const dayPlans = (plansByDay[dayKey] || []).filter(plan => {
-                                            const start = new Date(plan.startDate);
-                                            const end = new Date(plan.endDate);
-                                            return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) < 1;
-                                        });
-                                        return (
-                                            <div
-                                                key={dayIdx}
-                                                className={`rounded-xl p-1 flex flex-col gap-1 border transition relative min-h-[90px] ${isCurrentMonth ? 'bg-gray-50 border-gray-200' : 'bg-white border-transparent opacity-60'}`}
-                                                onClick={() => goToDay(date)}
-                                                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-                                            >
-                                                <div className={`text-xs font-semibold mb-1 ${isCurrentMonth ? 'text-gray-700' : 'text-gray-300'}`}>{date.getDate()}</div>
-                                                {/* Multi-day bars inside the cell, at the top */}
-                                                {multiDayBars.map((plan, i) => {
-                                                    const start = new Date(plan.startDate);
-                                                    const end = new Date(plan.endDate);
-                                                    const isStart = start.toISOString().slice(0, 10) === dayKey;
-                                                    const isEnd = end.toISOString().slice(0, 10) === dayKey;
-                                                    let rounded = '';
-                                                    if (isStart && isEnd) rounded = 'rounded-full';
-                                                    else if (isStart) rounded = 'rounded-l-full';
-                                                    else if (isEnd) rounded = 'rounded-r-full';
-                                                    else rounded = 'rounded-none';
-                                                    return (
-                                                        <div
-                                                            key={plan.id + '-bar-' + dayKey}
-                                                            className={`flex items-center h-6 px-2 border shadow font-semibold text-xs mb-1 ${typeColor(plan.type)} ${rounded}`}
-                                                            style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}
-                                                            onClick={e => { e.stopPropagation(); onPlanClick(plan.id); }}
-                                                        >
-                                                            {isStart && <img src={plan.avatar || mockAvatars[0]} alt="avatar" className="w-5 h-5 rounded-full border border-white shadow mr-2" />}
-                                                            <span className="truncate max-w-[80px]">{plan.title}</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                                <div className="flex flex-col gap-1">
-                                                    {dayPlans.map((plan, i) => (
-                                                        <button
-                                                            key={plan.id}
-                                                            onClick={e => { e.stopPropagation(); onPlanClick(plan.id); }}
-                                                            className={`flex items-center gap-2 px-2 py-1 rounded-lg border shadow-sm ${typeColor(plan.type)} text-xs font-medium truncate hover:scale-[1.03] transition`}
-                                                            title={plan.title}
-                                                        >
-                                                            <img src={plan.avatar || mockAvatars[i % mockAvatars.length]} alt="avatar" className="w-5 h-5 rounded-full border border-white shadow" />
-                                                            <span className="truncate max-w-[80px]">{plan.title}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+
+                {/* Render multi-day events first as bars */}
+                {plansToShow.filter(plan => {
+                    // Only show plans that span multiple days
+                    const start = new Date(plan.startDate);
+                    const end = new Date(plan.endDate);
+                    start.setHours(0, 0, 0, 0);
+                    end.setHours(0, 0, 0, 0);
+                    return end.getTime() - start.getTime() > 86400000; // > 1 day
+                }).map(plan => renderMultiDayBarsForMatrix(plan, monthMatrix))}
+
+                {/* Calendar days */}
+                <div className="grid grid-cols-7 gap-0">
+                    {monthMatrix.flat().map((date, idx) => {
+                        const isCurrentMonth = date.getMonth() === currentMonth;
+                        const isToday = new Date().toDateString() === date.toDateString();
+                        const dateKey = date.toISOString().slice(0, 10);
+                        const datePlans = plansByDay[dateKey] || [];
+
+                        // Filter out multi-day plans for cell display (they're shown as bars)
+                        const singleDayPlans = datePlans.filter(plan => {
+                            const start = new Date(plan.startDate);
+                            const end = new Date(plan.endDate);
+                            start.setHours(0, 0, 0, 0);
+                            end.setHours(0, 0, 0, 0);
+                            return end.getTime() - start.getTime() <= 86400000; // <= 1 day
+                        });
+
+                        return (
+                            <div
+                                key={idx}
+                                className={`relative h-28 border-t border-l ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'} ${isToday ? 'ring-2 ring-blue-400 z-10' : ''}`}
+                                onClick={() => goToDay(date)}
+                            >
+                                <div className={`text-right p-1 ${isCurrentMonth ? 'text-gray-700' : 'text-gray-400'}`}>
+                                    {date.getDate()}
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <div className="px-1 overflow-y-auto max-h-[85px]">
+                                    {singleDayPlans.slice(0, 2).map(plan => (
+                                        <div
+                                            key={plan._id}
+                                            className={`mb-1 px-2 py-1 text-xs rounded ${statusColor(plan.status)} border truncate cursor-pointer`}
+                                            onClick={e => { e.stopPropagation(); onPlanClick(plan._id); }}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <div className={`w-2 h-2 rounded-full ${typeColor(plan.type).split(' ')[0]}`}></div>
+                                                <span className="truncate">{plan.title}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {singleDayPlans.length > 2 && (
+                                        <div
+                                            className="text-xs text-blue-600 cursor-pointer"
+                                            onClick={e => { e.stopPropagation(); goToDay(date); }}
+                                        >
+                                            +{singleDayPlans.length - 2} plus
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
-            )}
+            </div>
         </motion.div>
     );
 } 

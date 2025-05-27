@@ -35,13 +35,41 @@ export const fetchEquipment = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         // Return mock data if using mocks
         if (USE_MOCK_DATA) {
+            console.log('Using mock equipment data');
             return mockEquipment;
         }
 
         try {
-            const response = await axios.get('/equipment');
-            return response.data.data;
+            console.log('Fetching equipment from API...');
+            // Include activities in the response and don't filter by status
+            const response = await axios.get('/equipment', {
+                params: { include: 'activities', limit: 100 }
+            });
+            console.log('Equipment API response:', response);
+
+            if (!response.data) {
+                console.error('Invalid API response format - no data:', response);
+                return [];
+            }
+
+            // Handle both data formats - nested data object or direct array
+            const equipmentData = response.data.data || response.data;
+
+            if (!Array.isArray(equipmentData)) {
+                console.error('Invalid equipment data format - not an array:', equipmentData);
+                return [];
+            }
+
+            console.log(`Received ${equipmentData.length} equipment items`);
+
+            // Log the first item to see its structure
+            if (equipmentData.length > 0) {
+                console.log('First equipment item:', equipmentData[0]);
+            }
+
+            return equipmentData;
         } catch (error: any) {
+            console.error('Error fetching equipment:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch equipment');
         }
     }

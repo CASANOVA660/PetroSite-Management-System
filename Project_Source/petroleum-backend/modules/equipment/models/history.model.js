@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { EQUIPMENT_STATUS, ACTIVITY_TYPE } = require('./equipment.model');
 
 const responsiblePersonSchema = new Schema({
     name: {
@@ -13,56 +14,76 @@ const responsiblePersonSchema = new Schema({
         type: String
     },
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'User'
     }
 });
 
 const equipmentHistorySchema = new Schema({
     equipmentId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'Equipment',
-        required: [true, 'L\'ID de l\'équipement est requis'],
+        required: [true, 'ID d\'équipement requis'],
         index: true
     },
     type: {
         type: String,
-        enum: ['placement', 'operation', 'maintenance'],
-        required: [true, 'Le type d\'historique est requis'],
+        enum: Object.values(ACTIVITY_TYPE),
+        required: [true, 'Type d\'activité requis'],
         index: true
     },
     description: {
         type: String,
-        required: [true, 'La description est requise'],
-        trim: true
+        required: [true, 'Description requise']
     },
     fromDate: {
         type: Date,
-        required: [true, 'La date de début est requise'],
+        required: [true, 'Date de début requise'],
         index: true
     },
     toDate: {
-        type: Date,
-        // Can be null for ongoing events
+        type: Date
     },
     location: {
-        type: String,
-        trim: true
+        type: String
     },
     responsiblePerson: {
         type: responsiblePersonSchema
     },
     createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, 'L\'ID de l\'utilisateur créateur est requis']
+        required: true
+    },
+    // New fields for status tracking
+    isStatusChange: {
+        type: Boolean,
+        default: false
+    },
+    fromStatus: {
+        type: String,
+        enum: [...Object.values(EQUIPMENT_STATUS), null]
+    },
+    toStatus: {
+        type: String,
+        enum: [...Object.values(EQUIPMENT_STATUS), null]
+    },
+    reason: {
+        type: String,
+        trim: true
+    },
+    activityId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Equipment.activities'
     }
 }, {
     timestamps: true
 });
 
-// Create compound index for common queries
-equipmentHistorySchema.index({ equipmentId: 1, type: 1, fromDate: -1 });
+// Indexes for faster queries
+equipmentHistorySchema.index({ equipmentId: 1, type: 1 });
+equipmentHistorySchema.index({ equipmentId: 1, fromDate: -1 });
+equipmentHistorySchema.index({ equipmentId: 1, isStatusChange: 1 });
 
 // Validate that toDate is after fromDate if provided
 equipmentHistorySchema.pre('save', function (next) {

@@ -9,8 +9,9 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { toast } from 'react-toastify';
 import { PencilIcon } from '../../icons';
+import EquipmentStatusView from '../../components/equipment/EquipmentStatusView';
 
-type TabType = 'details' | 'placement' | 'operation' | 'maintenance';
+type TabType = 'details' | 'placement' | 'operation' | 'maintenance' | 'status';
 
 const EquipmentDetailView: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -196,27 +197,57 @@ const EquipmentDetailView: React.FC = () => {
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
-                    <div className="border-b border-gray-200 dark:border-gray-700">
-                        <nav className="flex flex-wrap -mb-px">
-                            {(['details', 'placement', 'operation', 'maintenance'] as const).map((tab) => (
-                                <button
-                                    key={tab}
-                                    className={`px-6 py-3 border-b-2 text-sm font-medium transition-all duration-300 ease-in-out ${activeTab === tab
-                                        ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38] bg-gradient-to-t from-white dark:from-gray-800'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-                                        }`}
-                                    onClick={() => setActiveTab(tab)}
-                                >
-                                    {tab === 'details' && 'Détails'}
-                                    {tab === 'placement' && 'Historique de placement'}
-                                    {tab === 'operation' && 'Historique d’opération'}
-                                    {tab === 'maintenance' && 'Historique de maintenance'}
-                                </button>
-                            ))}
+                    <div className="mt-6 border-b border-gray-200">
+                        <nav className="-mb-px flex space-x-8">
+                            <button
+                                onClick={() => setActiveTab('details')}
+                                className={`${activeTab === 'details'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Détails
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('status')}
+                                className={`${activeTab === 'status'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Statut et Activités
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('placement')}
+                                className={`${activeTab === 'placement'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Placement
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('operation')}
+                                className={`${activeTab === 'operation'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Opération
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('maintenance')}
+                                className={`${activeTab === 'maintenance'
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Maintenance
+                            </button>
                         </nav>
                     </div>
 
-                    <div className="p-6">
+                    <div className="py-6">
                         {activeTab === 'details' && (
                             <div className="space-y-6">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">Caractéristiques techniques</h3>
@@ -258,6 +289,12 @@ const EquipmentDetailView: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'status' && id && (
+                            <div>
+                                <EquipmentStatusView equipmentId={id} />
                             </div>
                         )}
 

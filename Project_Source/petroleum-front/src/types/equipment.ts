@@ -23,7 +23,7 @@ export interface Equipment {
 export interface EquipmentHistoryEntry {
     _id: string;
     equipmentId: string;
-    type: 'placement' | 'operation' | 'maintenance';
+    type: 'placement' | 'operation' | 'maintenance' | 'repair';
     description: string;
     fromDate: string;
     toDate?: string;
@@ -33,7 +33,37 @@ export interface EquipmentHistoryEntry {
         email?: string;
         phone?: string;
     };
+    activityId?: string;
+    status?: string;
+    isStatusChange?: boolean;
+    fromStatus?: string;
+    toStatus?: string;
+    reason?: string;
+    createdBy?: {
+        _id: string;
+        nom: string;
+        prenom: string;
+    };
     createdAt: string;
+}
+
+export interface EquipmentActivity {
+    _id: string;
+    type: 'placement' | 'operation' | 'maintenance' | 'repair';
+    description?: string;
+    startDate: string;
+    endDate: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
+    status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    location?: string;
+    responsiblePerson?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        userId?: string;
+    };
+    createdBy?: string;
 }
 
 export const equipmentStatusLabels: Record<Equipment['status'], string> = {
