@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FA812F" />
+      <stop offset="100%" stop-color="#E64A19" />
+    </linearGradient>
+    <linearGradient id="dropGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E88E5" />
+      <stop offset="100%" stop-color="#0D47A1" />
+    </linearGradient>
+    
+    <!-- Text shadow filter -->
+    <filter id="textShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.5" flood-opacity="0.5" flood-color="#000"/>
+    </filter>
+  </defs>
+  
+  <!-- Dark background -->
+  <rect x="0" y="0" width="240" height="60" rx="6" fill="#121826" />
+  
+  <!-- Oil drop icon - same big size -->
+  <g transform="translate(8, 10)">
+    <path d="M20 0C20 0 0 20 0 30C0 40 9 40 20 40C31 40 40 40 40 30C40 20 20 0 20 0Z" fill="url(#dropGradient)" />
+    <path d="M20 10C20 10 8 22 8 28C8 34 14 34 20 34C26 34 32 34 32 28C32 22 20 10 20 10Z" fill="white" opacity="0.5" />
+  </g>
+  
+  <!-- Company name with smaller text -->
+  <text x="60" y="38" font-family="Arial Black, Impact, sans-serif" font-size="20" font-weight="900" fill="url(#logoGradient)" letter-spacing="0" filter="url(#textShadow)">PETRO</text>
+  <text x="124" y="38" font-family="Arial Black, Impact, sans-serif" font-size="20" font-weight="900" fill="white" letter-spacing="0" filter="url(#textShadow)">CONNECT</text>
+</svg> 

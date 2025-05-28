@@ -327,23 +327,25 @@ const AppSidebar: React.FC = () => {
           }`}
       >
         <Link to="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <img
-              className="h-30 -mt-10"
-              src="/images/logo/logo.PNG"
-              alt="Italfluid Petroconnect"
-              width={200}
-              height={100}
-            />
-          ) : (
-            <img
-              className="h-10"
-              src="/images/logo/small-logo.png"
-              alt="Italfluid Petroconnect"
-              width={40}
-              height={40}
-            />
-          )}
+          <div className="flex flex-col items-center">
+            {isExpanded || isHovered || isMobileOpen ? (
+              <img
+                className="h-16 w-auto"
+                src="/images/logo/petroconnect-logo.svg"
+                alt="Petroconnect"
+                width={240}
+                height={60}
+              />
+            ) : (
+              <img
+                className="h-12"
+                src="/images/logo/petroconnect-small.svg"
+                alt="Petroconnect"
+                width={48}
+                height={48}
+              />
+            )}
+          </div>
         </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
