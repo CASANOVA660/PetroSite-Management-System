@@ -29,7 +29,7 @@ export default function SignInForm() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate(user.role === 'Manager' ? '/ManagerDashboard' : '/dashboard');
+      navigate(user.role === 'Manager' ? '/manager-dashboard' : '/dashboard');
     }
   }, [user, navigate]);
 
