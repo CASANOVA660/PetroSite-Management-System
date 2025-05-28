@@ -11,7 +11,8 @@ export interface Project {
     description: string;
     startDate: string;
     endDate: string;
-    status: 'En cours' | 'Fermé' | 'Annulé';
+    status: 'En cours' | 'Clôturé' | 'Annulé' | 'En opération';
+    statusNote?: string;
     creationDate: string;
     createdBy: {
         _id: string;
@@ -437,6 +438,24 @@ export const sendValidationRequest = createAsyncThunk(
     }
 );
 
+// Update project status
+export const updateProjectStatus = createAsyncThunk(
+    'projects/updateStatus',
+    async ({ id, status }: { id: string, status: 'En cours' | 'Clôturé' | 'Annulé' | 'En opération' }, { rejectWithValue }) => {
+        try {
+            // This would make an API call to update the project status
+            // const response = await axios.patch(`${API_URL}/projects/${id}/status`, { status });
+            // return response.data;
+
+            // For now, we'll simulate a successful update
+            console.log(`Project ${id} status updated to ${status}`);
+            return { id, status };
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to update project status');
+        }
+    }
+);
+
 const projectSlice = createSlice({
     name: 'projects',
     initialState,
@@ -605,6 +624,29 @@ const projectSlice = createSlice({
                 state.requirementsLoading = false;
                 state.requirementsError = action.payload as string;
                 toast.error('Erreur lors de la suppression de l\'exigence');
+            })
+
+            // Handle updateProjectStatus
+            .addCase(updateProjectStatus.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateProjectStatus.fulfilled, (state, action) => {
+                state.loading = false;
+                // Update the project status in the state
+                if (state.projects) {
+                    const index = state.projects.findIndex(p => p._id === action.payload.id);
+                    if (index !== -1) {
+                        state.projects[index].status = action.payload.status;
+                    }
+                }
+                if (state.selectedProject && state.selectedProject._id === action.payload.id) {
+                    state.selectedProject.status = action.payload.status;
+                }
+            })
+            .addCase(updateProjectStatus.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
             });
     },
 });

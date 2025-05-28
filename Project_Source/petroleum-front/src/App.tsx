@@ -25,6 +25,7 @@ import UserManagement from "./pages/UserManagement/UserManagement";
 import ActivationPage from './pages/Activation/ActivationPage';
 import ProjectPreparation from './pages/Projects/ProjectPreparation';
 import ProjectDetails from './pages/Projects/ProjectDetails';
+import ProjectOperation from './pages/Projects/ProjectOperation';
 import AddProject from './pages/Projects/AddProject';
 import EditProject from './pages/Projects/EditProject';
 import Tasks from './pages/Tasks';
@@ -165,6 +166,8 @@ export default function App() {
                   <Route path="/projects/add" element={<AddProject />} />
                   <Route path="/projects/:id" element={<ProjectDetails />} />
                   <Route path="/projects/:id/edit" element={<EditProject />} />
+                  <Route path="/projects/:id/operation" element={<ProjectOperation />} />
+                  <Route path="/projects/operation" element={<ProjectPreparation operationView={true} />} />
 
                   <Route path="/tasks" element={
                     <Tasks />

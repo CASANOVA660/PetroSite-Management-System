@@ -24,6 +24,13 @@ router.post('/', projectValidation, projectController.createProject);
 router.put('/:id', projectValidation, projectController.updateProject);
 router.delete('/:id', projectController.deleteProject);
 
+/**
+ * @route   PATCH /api/projects/:id/status
+ * @desc    Update project status
+ * @access  Private
+ */
+router.patch('/:id/status', projectController.updateProjectStatus);
+
 // Equipment routes
 router.post('/:projectId/equipment', projectController.addProjectEquipment);
 router.get('/:projectId/equipment/:dossierType', projectController.getProjectEquipment);

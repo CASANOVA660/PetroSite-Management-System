@@ -60,7 +60,11 @@ const KPI_STEPS = [
     'customize',
 ];
 
-const KpiConfiguration: React.FC = () => {
+interface KpiConfigurationProps {
+    projectId: string;
+}
+
+const KpiConfiguration: React.FC<KpiConfigurationProps> = ({ projectId }) => {
     const dispatch = useAppDispatch();
     const { kpis, fields, loading, error } = useSelector((state: any) => state.kpis);
 

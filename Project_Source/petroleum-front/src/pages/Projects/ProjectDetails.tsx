@@ -17,6 +17,7 @@ import Actions from '../../components/actions/Actions';
 import KpiConfiguration from '../../components/documents/configkpi/KpiConfiguration';
 import Budget from '../../components/budget/Budget';
 import ProjectRequirements from '../../components/requirements/ProjectRequirements';
+import ProjectStatus from '../../components/projects/ProjectStatus';
 import {
     ChevronDownIcon,
     ChevronUpIcon,
@@ -209,7 +210,7 @@ const ProjectDetails: React.FC = () => {
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
                             <p className="text-sm text-gray-500 dark:text-gray-400">Statut</p>
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1 ${selectedProject.status === 'En cours' ? 'bg-green-100 text-green-800' :
-                                selectedProject.status === 'Fermé' ? 'bg-gray-100 text-gray-800' :
+                                selectedProject.status === 'Clôturé' ? 'bg-gray-100 text-gray-800' :
                                     'bg-red-100 text-red-800'
                                 }`}>
                                 {selectedProject.status}
@@ -224,7 +225,7 @@ const ProjectDetails: React.FC = () => {
                 {id && (
                     <>
                         <Section title="Configuration des KPIs" icon={<ChartBarIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
-                            <KpiConfiguration />
+                            <KpiConfiguration projectId={id} />
                         </Section>
 
                         <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
@@ -279,35 +280,16 @@ const ProjectDetails: React.FC = () => {
                         <Section title="Exigences" icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
                             <ProjectRequirements projectId={id} />
                         </Section>
+
+                        <Section title="Planification du Projet" icon={<CalendarIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
+                            {id && <ProjectPlanning projectId={id} />}
+                        </Section>
+
+                        <Section title="Statut du Projet" icon={<ClockIcon className="h-6 w-6 text-white" />} color="bg-orange-500">
+                            {id && <ProjectStatus projectId={id} />}
+                        </Section>
                     </>
                 )}
-
-                <Section title="Planning" icon={<CalendarIcon className="h-6 w-6 text-white" />} color="bg-yellow-500">
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <div className="flex gap-2">
-                                <select className="rounded-md border-gray-300 shadow-sm focus:border-[#F28C38] focus:ring-[#F28C38]">
-                                    <option>À faire</option>
-                                    <option>En cours</option>
-                                    <option>Terminé</option>
-                                    <option>Validé</option>
-                                </select>
-                                <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                    Mettre à jour
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-end">
-                            <button className="px-4 py-2 bg-[#F28C38] text-white rounded-md hover:bg-[#E67E2E]">
-                                Ouvrir une Action
-                            </button>
-                        </div>
-                    </div>
-                </Section>
-
-                <Section title="Planification du Projet" icon={<CalendarIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
-                    {id && <ProjectPlanning projectId={id} />}
-                </Section>
             </div>
         </div>
     );

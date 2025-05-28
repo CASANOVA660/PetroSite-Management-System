@@ -473,4 +473,84 @@ exports.removeProjectEquipment = async (req, res) => {
             message: 'Erreur lors de la suppression de l\'équipement'
         });
     }
+};
+
+// Update project status
+exports.updateProjectStatus = async (req, res) => {
+    try {
+        console.log(`[updateProjectStatus] Request to update status of project with ID: ${req.params.id}`);
+        console.log(`[updateProjectStatus] Request body:`, req.body);
+        console.log(`[updateProjectStatus] User:`, req.user ? { id: req.user._id, name: req.user.name } : 'Not authenticated');
+
+        const { status, statusNote } = req.body;
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le statut est requis'
+            });
+        }
+
+        // Verify authentication first
+        if (!req.user || !req.user._id) {
+            console.log(`[updateProjectStatus] Authentication required`);
+            return res.status(401).json({
+                success: false,
+                message: 'Authentification requise'
+            });
+        }
+
+        // Check if user role is Manager
+        if (req.user.role !== 'Manager') {
+            console.log(`[updateProjectStatus] User ${req.user._id} is not a Manager`);
+            return res.status(403).json({
+                success: false,
+                message: 'Seul un Manager peut modifier le statut du projet'
+            });
+        }
+
+        // Check if ID is valid MongoDB ObjectId
+        if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            console.log(`[updateProjectStatus] Invalid MongoDB ObjectId format: ${req.params.id}`);
+            return res.status(400).json({
+                success: false,
+                message: 'ID de projet invalide'
+            });
+        }
+
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            console.log(`[updateProjectStatus] Project not found with ID: ${req.params.id}`);
+            return res.status(404).json({
+                success: false,
+                message: 'Projet non trouvé'
+            });
+        }
+
+        // Update status and statusNote
+        project.status = status;
+        project.statusNote = statusNote || '';
+
+        await project.save();
+        await project.populate('createdBy', 'name surname');
+
+        console.log(`[updateProjectStatus] Project status updated successfully:`, {
+            id: project._id,
+            name: project.name,
+            status: project.status,
+            statusNote: project.statusNote
+        });
+
+        res.json({
+            success: true,
+            data: project
+        });
+    } catch (error) {
+        console.error('[updateProjectStatus] Error updating project status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la mise à jour du statut du projet'
+        });
+    }
 }; 

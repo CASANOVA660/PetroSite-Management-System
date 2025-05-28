@@ -21,7 +21,7 @@ import {
   WarehouseIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { ClipboardIcon, ChatBubbleLeftRightIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { ClipboardIcon, ChatBubbleLeftRightIcon, UserGroupIcon, VideoCameraIcon } from "@heroicons/react/24/outline";
 
 
 type NavItem = {
@@ -251,7 +251,10 @@ const AppSidebar: React.FC = () => {
     {
       icon: <FolderIcon />,
       name: "Préparation Projet",
-      path: "/projects/preparation"
+      subItems: [
+        { name: "Projets", path: "/projects/preparation", pro: false },
+        { name: "Opération", path: "/projects/operation", pro: false },
+      ]
     },
     {
       icon: <ListIcon />,
@@ -278,6 +281,11 @@ const AppSidebar: React.FC = () => {
       icon: <CalenderIcon />,
       name: "Planning",
       path: "/planning"
+    },
+    {
+      icon: <VideoCameraIcon className="w-6 h-6" />,
+      name: "Réunions",
+      path: "/reunions"
     },
     {
       icon: <UserGroupIcon className="w-6 h-6" />,
