@@ -256,8 +256,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId }
                     <button
                         onClick={() => setStatusFilter('all')}
                         className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${statusFilter === 'all'
-                                ? 'bg-[#F28C38] text-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
+                            ? 'bg-[#F28C38] text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
                             }`}
                     >
                         Tous
@@ -265,8 +265,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId }
                     <button
                         onClick={() => setStatusFilter('draft')}
                         className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${statusFilter === 'draft'
-                                ? 'bg-gray-700 text-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
+                            ? 'bg-gray-700 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
                             }`}
                     >
                         Brouillons
@@ -274,8 +274,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId }
                     <button
                         onClick={() => setStatusFilter('submitted')}
                         className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${statusFilter === 'submitted'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
                             }`}
                     >
                         Soumis
@@ -283,8 +283,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId }
                     <button
                         onClick={() => setStatusFilter('approved')}
                         className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${statusFilter === 'approved'
-                                ? 'bg-green-600 text-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
                             }`}
                     >
                         Approuvés
@@ -292,8 +292,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId }
                     <button
                         onClick={() => setStatusFilter('rejected')}
                         className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${statusFilter === 'rejected'
-                                ? 'bg-red-600 text-white'
-                                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700'
                             }`}
                     >
                         Rejetés

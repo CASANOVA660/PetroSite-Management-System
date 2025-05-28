@@ -240,8 +240,8 @@ const AppSidebar: React.FC = () => {
   const navItems: NavItem[] = [
     {
       icon: <GridIcon />,
-      name: "Tableau de bord",
-      path: "/dashboard"
+      name: isManager ? "Tableau de Manager" : "Tableau de bord",
+      path: isManager ? "/manager-dashboard" : "/dashboard"
     },
     {
       icon: <UserCircleIcon />,

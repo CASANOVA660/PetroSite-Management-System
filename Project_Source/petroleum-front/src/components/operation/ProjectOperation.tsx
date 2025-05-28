@@ -24,8 +24,8 @@ const ProjectOperation: React.FC<ProjectOperationProps> = ({ projectId }) => {
                     <button
                         onClick={() => setActiveTab('shifts')}
                         className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center whitespace-nowrap ${activeTab === 'shifts'
-                                ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
+                            ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
                             }`}
                         aria-current={activeTab === 'shifts' ? 'page' : undefined}
                     >
@@ -36,8 +36,8 @@ const ProjectOperation: React.FC<ProjectOperationProps> = ({ projectId }) => {
                     <button
                         onClick={() => setActiveTab('employees')}
                         className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center whitespace-nowrap ${activeTab === 'employees'
-                                ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
+                            ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
                             }`}
                         aria-current={activeTab === 'employees' ? 'page' : undefined}
                     >
@@ -48,8 +48,8 @@ const ProjectOperation: React.FC<ProjectOperationProps> = ({ projectId }) => {
                     <button
                         onClick={() => setActiveTab('equipment')}
                         className={`py-4 px-6 text-sm font-medium border-b-2 flex items-center whitespace-nowrap ${activeTab === 'equipment'
-                                ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
+                            ? 'border-[#F28C38] text-[#F28C38] dark:text-[#F28C38]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-700'
                             }`}
                         aria-current={activeTab === 'equipment' ? 'page' : undefined}
                     >

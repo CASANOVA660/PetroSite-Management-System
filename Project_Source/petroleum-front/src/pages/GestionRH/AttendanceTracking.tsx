@@ -210,8 +210,8 @@ const AttendanceTracking: React.FC = () => {
                     <button
                         onClick={() => setViewMode('daily')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'daily'
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         Journalier
@@ -219,8 +219,8 @@ const AttendanceTracking: React.FC = () => {
                     <button
                         onClick={() => setViewMode('weekly')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'weekly'
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         Hebdomadaire
@@ -228,8 +228,8 @@ const AttendanceTracking: React.FC = () => {
                     <button
                         onClick={() => setViewMode('monthly')}
                         className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${viewMode === 'monthly'
-                                ? 'bg-orange-600 text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                             }`}
                     >
                         Mensuel

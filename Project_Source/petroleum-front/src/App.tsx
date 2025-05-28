@@ -19,6 +19,7 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import ManagerDashboard from "./pages/Dashboard/ManagerDashboard";
 import { Provider } from 'react-redux';
 import { store } from './store';
 import UserManagement from "./pages/UserManagement/UserManagement";
@@ -42,10 +43,12 @@ import socketService from './services/socketService';
 import { Toaster } from 'react-hot-toast';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { RootState } from './store';
-import PlanningPage from "./pages/Planning";
+import PlanningPage from './pages/Planning';
 import { ReunionPage } from './pages/Reunion/ReunionPage';
 import { SidebarProvider } from "./context/SidebarContext";
 import { ModalProvider } from "./context/ModalContext";
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AuthCheck } from './components/AuthCheck';
 
 // Toast options for consistent styling
 const getToastOptions = () => {
@@ -129,7 +132,24 @@ export default function App() {
 
                 {/* Dashboard Layout */}
                 <Route element={<AppLayout />}>
-                  <Route path="/dashboard" element={<Home />} />
+                  <Route path="/dashboard" element={
+                    <Routes>
+                      <Route path="" element={
+                        <AuthCheck>
+                          {(user) =>
+                            user?.role === 'Manager' || user?.role === 'manager' ?
+                              <Navigate to="/manager-dashboard" replace /> :
+                              <Home />
+                          }
+                        </AuthCheck>
+                      } />
+                    </Routes>
+                  } />
+                  <Route path="/manager-dashboard" element={
+                    <ProtectedRoute roles={['Manager', 'manager']}>
+                      <ManagerDashboard />
+                    </ProtectedRoute>
+                  } />
                   {/* Others Page */}
                   <Route path="/profile" element={<UserProfiles />} />
                   <Route path="/calendar" element={<Calendar />} />

@@ -21,8 +21,8 @@ const DossierRH: React.FC<DossierRHProps> = ({ projectId }) => {
                 <div className="flex space-x-4">
                     <button
                         className={`py-3 px-4 font-medium text-sm focus:outline-none ${activeTab === 'documents'
-                                ? 'border-b-2 border-[#F28C38] text-[#F28C38]'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'border-b-2 border-[#F28C38] text-[#F28C38]'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                         onClick={() => setActiveTab('documents')}
                     >
@@ -33,8 +33,8 @@ const DossierRH: React.FC<DossierRHProps> = ({ projectId }) => {
                     </button>
                     <button
                         className={`py-3 px-4 font-medium text-sm focus:outline-none ${activeTab === 'employees'
-                                ? 'border-b-2 border-[#F28C38] text-[#F28C38]'
-                                : 'text-gray-500 hover:text-gray-700'
+                            ? 'border-b-2 border-[#F28C38] text-[#F28C38]'
+                            : 'text-gray-500 hover:text-gray-700'
                             }`}
                         onClick={() => setActiveTab('employees')}
                     >
