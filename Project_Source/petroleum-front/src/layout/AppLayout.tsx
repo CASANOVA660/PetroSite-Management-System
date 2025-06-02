@@ -39,8 +39,8 @@ const LayoutContent: React.FC = () => {
         className={`flex-1 transition-all duration-300 ease-in-out ${isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
           } ${isMobileOpen ? "ml-0" : ""}`}
       >
-        {/* Hide AppHeader only on /chat route */}
-        {location.pathname !== '/chat' && <AppHeader />}
+        {/* Hide AppHeader on chat and RAG chatbot routes */}
+        {location.pathname !== '/chat' && location.pathname !== '/rag-chat' && <AppHeader />}
         <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
           <Outlet />
         </div>

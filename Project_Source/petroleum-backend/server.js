@@ -24,6 +24,7 @@ const meetRoutes = require('./modules/meet/routes/meetRoutes');
 const projectMeetRoutes = require('./modules/meet/routes/projectMeetRoutes');
 const budgetRoutes = require('./modules/budget/routes/budgetRoutes');
 const requirementRoutes = require('./modules/projects/routes/requirementRoutes');
+const { shiftRoutes, operationEquipmentRoutes, dailyReportRoutes, employeeAttendanceRoutes } = require('./modules/projectoperation/routes');
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errorHandler');
 const http = require('http');
@@ -220,6 +221,12 @@ app.use('/api/requirements', requirementRoutes);
 
 // Project employees routes
 app.use('/api/projects/:projectId/employees', require('./modules/projects/routes/projectEmployeeRoutes'));
+
+// Project operation routes
+app.use('/api/projects', shiftRoutes);
+app.use('/api/projects', operationEquipmentRoutes);
+app.use('/api/projects', dailyReportRoutes);
+app.use('/api/projects', employeeAttendanceRoutes);
 
 // Routes pour les réunions
 app.use('/api/meetings', meetRoutes);

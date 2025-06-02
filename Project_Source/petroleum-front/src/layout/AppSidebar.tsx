@@ -21,7 +21,7 @@ import {
   WarehouseIcon
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { ClipboardIcon, ChatBubbleLeftRightIcon, UserGroupIcon, VideoCameraIcon } from "@heroicons/react/24/outline";
+import { ClipboardIcon, ChatBubbleLeftRightIcon, UserGroupIcon, VideoCameraIcon, SparklesIcon } from "@heroicons/react/24/outline";
 
 
 type NavItem = {
@@ -298,6 +298,11 @@ const AppSidebar: React.FC = () => {
       icon: <ClipboardIcon />,
       name: "Actions Globales",
       path: "/global-actions"
+    }] : []),
+    ...(isManager ? [{
+      icon: <SparklesIcon className="w-6 h-6" />,
+      name: "RAG Chatbot",
+      path: "/rag-chat"
     }] : []),
     ...(isManager ? [{
       icon: <GroupIcon />,
