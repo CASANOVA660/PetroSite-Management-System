@@ -191,6 +191,30 @@ const RAGChatbot: React.FC = () => {
         return acc;
     }, {} as Record<string, ChatHistory[]>);
 
+    // Add this function to check if device is mobile
+    const isMobile = () => {
+        return window.innerWidth < 768;
+    };
+
+    // Add a state for tracking mobile view
+    const [isMobileView, setIsMobileView] = useState(false);
+
+    // Add useEffect to handle window resize
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobileView(isMobile());
+        };
+
+        // Check on mount
+        checkMobile();
+
+        // Add resize listener
+        window.addEventListener('resize', checkMobile);
+
+        // Clean up
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     // If not manager, show access denied
     if (!isManager) {
         return (
@@ -207,7 +231,10 @@ const RAGChatbot: React.FC = () => {
     return (
         <div className="fixed inset-0 flex overflow-hidden">
             {/* Main chat area */}
-            <div className={`flex-1 flex flex-col bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative transition-all duration-300 ml-72 ${sidebarOpen ? 'mr-72' : 'mr-0'}`}>
+            <div className={`flex-1 flex flex-col bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative transition-all duration-300 ${isMobileView
+                    ? (sidebarOpen ? 'ml-0 mr-0 opacity-30 pointer-events-none' : 'ml-0 mr-0')
+                    : 'ml-72 ' + (sidebarOpen ? 'mr-72' : 'mr-0')
+                }`}>
                 {/* Header - fixed at top with higher z-index */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-20 relative">
                     <div className="flex items-center">
@@ -292,7 +319,7 @@ const RAGChatbot: React.FC = () => {
                     ) : (
                         /* Chat screen */
                         <div className="flex-1 overflow-y-auto px-4 py-2">
-                            <div className="max-w-3xl mx-auto">
+                            <div className={`${isMobileView ? 'w-full' : 'max-w-3xl mx-auto'}`}>
                                 {messages.map((message) => (
                                     <div
                                         key={message.id}
@@ -304,7 +331,7 @@ const RAGChatbot: React.FC = () => {
                                             </div>
                                         )}
                                         <div
-                                            className={`p-3 rounded-lg max-w-[80%] ${message.isBot
+                                            className={`p-3 rounded-lg ${isMobileView ? 'max-w-[90%]' : 'max-w-[80%]'} ${message.isBot
                                                 ? theme === 'dark'
                                                     ? 'bg-gray-800 text-white'
                                                     : 'bg-white text-gray-900 border border-gray-200'
@@ -351,7 +378,7 @@ const RAGChatbot: React.FC = () => {
 
                 {/* Input field */}
                 <div className="w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                    <div className="max-w-3xl mx-auto">
+                    <div className={`${isMobileView ? 'w-full' : 'max-w-3xl mx-auto'}`}>
                         <form onSubmit={handleSendMessage} className="relative">
                             <textarea
                                 ref={inputRef}
@@ -377,8 +404,8 @@ const RAGChatbot: React.FC = () => {
                             </div>
                         </form>
 
-                        <div className="flex justify-between items-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-                            <div>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            <div className="mb-1 sm:mb-0">
                                 <span>ThinkAI can make mistakes. Please double-check responses.</span>
                             </div>
                             <div>
@@ -396,18 +423,30 @@ const RAGChatbot: React.FC = () => {
 
             {/* Right sidebar - chat history */}
             <div
-                className={`fixed top-0 right-0 bottom-0 w-72 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
+                className={`fixed top-0 right-0 bottom-0 ${isMobileView ? 'w-full' : 'w-72'
+                    } transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
                     } ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border-l border-gray-200 dark:border-gray-700 z-40 shadow-lg`}
             >
                 <div className="flex flex-col h-full">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <h2 className="font-medium">Chat History</h2>
-                        <button
-                            onClick={startNewChat}
-                            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        >
-                            <PlusIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                        </button>
+                        <div className="flex items-center space-x-2">
+                            {isMobileView && (
+                                <button
+                                    onClick={toggleSidebar}
+                                    className="p-1.5 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center"
+                                    aria-label="Close sidebar"
+                                >
+                                    <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                </button>
+                            )}
+                            <button
+                                onClick={startNewChat}
+                                className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <PlusIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Rest of sidebar content */}
@@ -450,6 +489,10 @@ const RAGChatbot: React.FC = () => {
                                                     isBot: true,
                                                 }
                                             ]);
+                                            // Close sidebar on mobile after selecting chat
+                                            if (isMobileView) {
+                                                setSidebarOpen(false);
+                                            }
                                         }}
                                     >
                                         <div className="font-medium truncate">{chat.title}</div>
