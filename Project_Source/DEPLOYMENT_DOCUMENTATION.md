@@ -180,8 +180,59 @@ The system follows a modern microservices-inspired architecture:
    - Add it to Render environment variables as `REDIS_URL`
    - Enable TLS for secure connections
 
+## Environment Variables
 
+### Required Environment Variables
 
+The application depends on the following environment variables that must be configured in Render for proper operation:
+
+1. **Database Configuration**:
+   - `MONGODB_URI`: MongoDB connection string
+   - `MONGODB_DB_NAME`: Name of the MongoDB database
+
+2. **Authentication**:
+   - `JWT_SECRET`: Secret key for JWT token generation
+   - `JWT_EXPIRY`: Token expiration time (e.g., "7d" for 7 days)
+
+3. **Redis**:
+   - `REDIS_URL`: Connection string for Redis
+
+4. **Email Service**:
+   - `SMTP_HOST`: SMTP server host
+   - `SMTP_PORT`: SMTP server port
+   - `SMTP_USER`: SMTP username
+   - `SMTP_PASS`: SMTP password
+   - `EMAIL_FROM`: Default sender email address
+
+5. **File Storage**:
+   - `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name
+   - `CLOUDINARY_API_KEY`: Cloudinary API key
+   - `CLOUDINARY_API_SECRET`: Cloudinary API secret
+
+6. **API Keys**:
+   - `OPENAI_API_KEY`: OpenAI API key (optional - RAG features will be disabled if not provided)
+
+7. **Application Settings**:
+   - `NODE_ENV`: Environment ("development", "production", or "test")
+   - `PORT`: Port number for the server
+   - `FRONTEND_URL`: URL of the frontend application (for CORS)
+   - `BACKEND_URL`: URL of the backend application (for webhooks and callbacks)
+
+### Adding Environment Variables in Render
+
+1. Navigate to the Render dashboard and select your backend service
+2. Go to "Environment" tab
+3. Add each environment variable with its corresponding value
+4. Click "Save Changes" to apply
+5. Restart the service for the changes to take effect
+
+### Optional Features
+
+Some features depend on specific environment variables:
+
+- **RAG System (AI-powered chat)**: Requires `OPENAI_API_KEY`. If not provided, the RAG feature will be disabled but the application will continue to function. 
+- **File Storage**: Requires Cloudinary credentials. If not provided, file upload features will be disabled.
+- **Email Notifications**: Requires SMTP configuration. If not provided, email features will be disabled.
 
 ## Maintenance Procedures
 
@@ -243,6 +294,12 @@ The system follows a modern microservices-inspired architecture:
    - Verify Cloudinary credentials
    - Check file size limits
    - Ensure proper MIME types are allowed
+
+6. **OpenAI API Issues**:
+   - Verify `OPENAI_API_KEY` is correctly set in environment variables
+   - Check OpenAI API usage limits and billing status
+   - If you don't want to use OpenAI features, they will be automatically disabled
+   - The application has been designed to function without OpenAI integration
 
 ### Debugging Tools
 

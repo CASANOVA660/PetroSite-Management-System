@@ -13,16 +13,8 @@ const logger = require('../../../utils/logger');
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama2';
 
-// Initialize OpenAI client only if API key is available
-let openai = null;
-if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY
-    });
-    logger.info('OpenAI client initialized successfully');
-} else {
-    logger.warn('OPENAI_API_KEY not found. OpenAI features will be disabled.');
-}
+// Remove OpenAI initialization
+logger.info('Using Ollama for all requests');
 
 // Update the array of keywords for project-related queries
 const projectKeywords = [
@@ -564,7 +556,7 @@ async function handleProjectInfoQuery(message, userId) {
  * Call the Ollama API to generate a response
  * @param {string} prompt - The prompt to send to Ollama
  * @param {object} context - The context documents for RAG
- * @returns {Promise<object>} - The formatted response from Ollama
+ * @returns {Promise<string>} - The formatted response from Ollama
  */
 const callOllamaAPI = async (prompt, context) => {
     try {
@@ -574,14 +566,14 @@ const callOllamaAPI = async (prompt, context) => {
         if (context && context.length > 0) {
             systemPrompt += "Use the following context to answer the question:\n\n";
             context.forEach(doc => {
-                systemPrompt += `${doc.pageContent}\n\n`;
+                systemPrompt += `${doc.pageContent || doc.text || ''}\n\n`;
             });
             systemPrompt += "If the context doesn't contain relevant information, just say you don't have enough information.";
         }
 
         try {
-            // First try Ollama
             // Make the API request to Ollama
+            logger.info(`Calling Ollama API at ${OLLAMA_API_URL}/api/generate`);
             const response = await axios.post(`${OLLAMA_API_URL}/api/generate`, {
                 model: OLLAMA_MODEL,
                 prompt: prompt,
@@ -589,66 +581,16 @@ const callOllamaAPI = async (prompt, context) => {
                 stream: false
             });
 
-            // Format the response similar to OpenAI format
-            return {
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: response.data.response
-                        }
-                    }
-                ]
-            };
+            // Return just the response content
+            return response.data.response;
         } catch (ollamaError) {
-            // If Ollama fails, check if OpenAI is available as fallback
-            logger.warn(`Ollama API failed: ${ollamaError.message}`);
-
-            if (!openai) {
-                logger.warn('OpenAI client not available for fallback. Returning error response.');
-                return {
-                    choices: [
-                        {
-                            message: {
-                                role: 'assistant',
-                                content: "I'm sorry, but I'm currently experiencing technical difficulties. Both primary and fallback AI services are unavailable. Please try again later or contact support."
-                            }
-                        }
-                    ]
-                };
-            }
-
-            // OpenAI is available, use it as fallback
-            logger.warn('Falling back to OpenAI');
-
-            // Format messages for OpenAI
-            const messages = [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: prompt }
-            ];
-
-            // Call OpenAI
-            const openaiResponse = await openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 1000
-            });
-
-            return {
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: openaiResponse.choices[0].message.content
-                        }
-                    }
-                ]
-            };
+            // If Ollama fails, log the error
+            logger.error(`Ollama API failed: ${ollamaError.message}`);
+            return "I'm sorry, but I'm currently experiencing technical difficulties. The AI service is unavailable. Please try again later or contact support.";
         }
     } catch (error) {
-        logger.error(`Error calling API services: ${error.message}`);
-        throw new Error(`Failed to get response: ${error.message}`);
+        logger.error(`Error calling Ollama API service: ${error.message}`);
+        return `Failed to get response: ${error.message}`;
     }
 };
 
@@ -773,6 +715,60 @@ async function getChatMessages(chatId) {
 }
 
 /**
+ * Process a message and generate a response
+ * @param {string} content - Message content
+ * @param {string} chatId - Chat ID
+ * @returns {Promise<Object>} - Response object with content and sources
+ */
+async function processMessage(content, chatId) {
+    try {
+        logger.info(`Processing message for chat ${chatId}`);
+
+        // Check if this is a project/database info query first
+        if (isProjectInfoQuery(content)) {
+            const chat = await RagChat.findById(chatId);
+            if (!chat) {
+                throw new Error('Chat not found');
+            }
+
+            const userId = chat.user.toString();
+            const response = await handleProjectInfoQuery(content, userId);
+
+            return {
+                content: response,
+                sources: []
+            };
+        }
+
+        // Proceed with Ollama processing
+        const chat = await RagChat.findById(chatId);
+        if (!chat) {
+            throw new Error('Chat not found');
+        }
+
+        // Retrieve context based on the user's query
+        const retrievalResults = await retrieveRelevantContext(content, chat);
+
+        // Use Ollama for response
+        const contextDocs = retrievalResults.sources.map(s => ({ text: s.text }));
+        const prompt = `User question: ${content}\n\nPlease provide a helpful response based on the provided context.`;
+        const response = await callOllamaAPI(prompt, contextDocs);
+
+        return {
+            content: response,
+            sources: retrievalResults.sources
+        };
+    } catch (error) {
+        logger.error(`Error processing message: ${error.message}`);
+        return {
+            content: "Je suis désolé, une erreur s'est produite lors du traitement de votre message. Veuillez réessayer plus tard.",
+            sources: [],
+            error: error.message
+        };
+    }
+}
+
+/**
  * Process a user message and generate a response
  * @param {string} chatId - Chat ID
  * @param {string} content - Message content
@@ -780,38 +776,7 @@ async function getChatMessages(chatId) {
  */
 async function processUserMessage(chatId, content) {
     try {
-        // Check if OpenAI client is available
-        if (!openai) {
-            logger.warn('OpenAI client not available for processing message. Using fallback response.');
-
-            const chat = await RagChat.findById(chatId);
-            if (!chat) {
-                throw new Error('Chat not found');
-            }
-
-            // Create user message
-            const userMessage = await createMessage({
-                chat: chatId,
-                content,
-                role: 'user'
-            });
-
-            // Create a fallback assistant message
-            const assistantMessage = await createMessage({
-                chat: chatId,
-                content: "I'm sorry, but the AI service is currently unavailable. Please check if the OpenAI API key is configured correctly in the environment variables.",
-                role: 'assistant',
-                sources: [],
-                metadata: {
-                    fallback: true
-                }
-            });
-
-            return assistantMessage;
-        }
-
         const chat = await RagChat.findById(chatId);
-
         if (!chat) {
             throw new Error('Chat not found');
         }
@@ -826,21 +791,15 @@ async function processUserMessage(chatId, content) {
         // Retrieve context based on the user's query
         const retrievalResults = await retrieveRelevantContext(content, chat);
 
-        // Format message history for the API
-        const messages = await formatMessageHistory(chatId, retrievalResults);
-
-        // Call OpenAI API
-        const response = await openai.chat.completions.create({
-            model: chat.settings.model,
-            messages,
-            temperature: chat.settings.temperature,
-            max_tokens: chat.settings.maxTokens
-        });
+        // Use Ollama for response
+        const contextDocs = retrievalResults.sources.map(s => ({ text: s.text }));
+        const prompt = `User question: ${content}\n\nPlease provide a helpful response based on the provided context.`;
+        const response = await callOllamaAPI(prompt, contextDocs);
 
         // Create assistant message with the response
         const assistantMessage = await createMessage({
             chat: chatId,
-            content: response.choices[0].message.content,
+            content: response,
             role: 'assistant',
             sources: retrievalResults.sources,
             metadata: {
@@ -848,11 +807,6 @@ async function processUserMessage(chatId, content) {
                     totalChunksRetrieved: retrievalResults.totalChunksRetrieved,
                     topRelevanceScore: retrievalResults.topRelevanceScore,
                     retrievalTime: retrievalResults.retrievalTime
-                },
-                apiResponse: {
-                    model: response.model,
-                    usage: response.usage,
-                    finishReason: response.choices[0].finish_reason
                 }
             }
         });
@@ -868,58 +822,11 @@ async function processUserMessage(chatId, content) {
  * Stream a response for a user message
  * @param {string} chatId - Chat ID
  * @param {string} content - Message content
- * @returns {Promise<ReadableStream>} - Stream of the response
+ * @returns {Promise<Object>} - Object with messageId and content stream
  */
 async function streamResponse(chatId, content) {
     try {
-        // Check if OpenAI client is available
-        if (!openai) {
-            logger.warn('OpenAI client not available. Using fallback response.');
-
-            const chat = await RagChat.findById(chatId);
-            if (!chat) {
-                throw new Error('Chat not found');
-            }
-
-            // Create user message
-            const userMessage = await createMessage({
-                chat: chatId,
-                content,
-                role: 'user'
-            });
-
-            // Create a placeholder for the assistant message with fallback content
-            const assistantMessage = await createMessage({
-                chat: chatId,
-                content: "I'm sorry, but the AI service is currently unavailable. Please check if the OpenAI API key is configured correctly in the environment variables.",
-                role: 'assistant',
-                sources: [],
-                metadata: {
-                    fallback: true
-                }
-            });
-
-            // Return a mock stream for compatibility
-            const mockStream = {
-                async *[Symbol.asyncIterator]() {
-                    yield {
-                        choices: [{
-                            delta: {
-                                content: assistantMessage.content
-                            }
-                        }]
-                    };
-                }
-            };
-
-            return {
-                stream: mockStream,
-                messageId: assistantMessage._id
-            };
-        }
-
         const chat = await RagChat.findById(chatId);
-
         if (!chat) {
             throw new Error('Chat not found');
         }
@@ -934,22 +841,15 @@ async function streamResponse(chatId, content) {
         // Retrieve context based on the user's query
         const retrievalResults = await retrieveRelevantContext(content, chat);
 
-        // Format message history for the API
-        const messages = await formatMessageHistory(chatId, retrievalResults);
-
-        // Call OpenAI API with streaming
-        const stream = await openai.chat.completions.create({
-            model: chat.settings.model,
-            messages,
-            temperature: chat.settings.temperature,
-            max_tokens: chat.settings.maxTokens,
-            stream: true
-        });
+        // Use Ollama for response (non-streaming since Ollama streaming is complex to implement)
+        const contextDocs = retrievalResults.sources.map(s => ({ text: s.text }));
+        const prompt = `User question: ${content}\n\nPlease provide a helpful response based on the provided context.`;
+        const response = await callOllamaAPI(prompt, contextDocs);
 
         // Create a placeholder for the assistant message
         const assistantMessage = await createMessage({
             chat: chatId,
-            content: '',
+            content: response,
             role: 'assistant',
             sources: retrievalResults.sources,
             metadata: {
@@ -961,9 +861,22 @@ async function streamResponse(chatId, content) {
             }
         });
 
-        // Return the stream and message ID for later update
+        // Create a simple mock stream that returns the full response
+        const mockStream = {
+            async *[Symbol.asyncIterator]() {
+                yield {
+                    choices: [{
+                        delta: {
+                            content: response
+                        }
+                    }]
+                };
+            }
+        };
+
+        // Return the stream and message ID
         return {
-            stream,
+            stream: mockStream,
             messageId: assistantMessage._id
         };
     } catch (error) {
@@ -999,6 +912,71 @@ async function updateStreamedMessage(messageId, content, metadata = {}) {
     }
 }
 
+// Existing code for retrieving relevant context (if not already defined)
+async function retrieveRelevantContext(query, chat) {
+    try {
+        const startTime = Date.now();
+
+        // Get relevant documents using the retrieval service
+        const { documents, relevanceScores } = await retrieveRelevantDocuments(query);
+
+        // Calculate retrieval metrics
+        const retrievalTime = Date.now() - startTime;
+        const topRelevanceScore = relevanceScores.length > 0 ? Math.max(...relevanceScores) : 0;
+
+        // Format sources for citation
+        const sources = documents.map((doc, index) => ({
+            document: doc.documentId,
+            text: doc.text,
+            relevanceScore: relevanceScores[index]
+        }));
+
+        return {
+            sources,
+            contextText: documents.map(doc => doc.text).join('\n\n'),
+            totalChunksRetrieved: documents.length,
+            topRelevanceScore,
+            retrievalTime
+        };
+    } catch (error) {
+        logger.error(`Error retrieving context: ${error.message}`);
+        return {
+            sources: [],
+            contextText: '',
+            totalChunksRetrieved: 0,
+            topRelevanceScore: 0,
+            retrievalTime: 0
+        };
+    }
+}
+
+// Existing code for formatting message history (if not already defined)
+async function formatMessageHistory(chatId, retrievalResults) {
+    try {
+        // Get chat history
+        const messages = await RagMessage.find({ chat: chatId })
+            .sort({ createdAt: 1 })
+            .limit(10); // Limit to last 10 messages for context window
+
+        // Format messages for OpenAI API
+        const formattedMessages = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+        }));
+
+        // Add system message with context at the beginning
+        const systemMessage = {
+            role: 'system',
+            content: `You are a helpful assistant. Use the following context to answer the user's question.\n\nContext:\n${retrievalResults.contextText}`
+        };
+
+        return [systemMessage, ...formattedMessages];
+    } catch (error) {
+        logger.error(`Error formatting message history: ${error.message}`);
+        return [];
+    }
+}
+
 module.exports = {
     processUserMessage,
     createMessage,
@@ -1012,5 +990,6 @@ module.exports = {
     isProjectInfoQuery,
     handleProjectInfoQuery,
     streamResponse,
-    updateStreamedMessage
+    updateStreamedMessage,
+    processMessage
 }; 

@@ -51,7 +51,7 @@ const simpleEmbedding = (text) => {
  * Retrieve relevant documents from vector store
  * @param {string} query - The user query
  * @param {number} topK - Number of documents to retrieve
- * @returns {Promise<Array>} - Array of relevant documents
+ * @returns {Promise<Object>} - Object with documents and relevance scores
  */
 const retrieveRelevantDocuments = async (query, topK = 5) => {
     try {
@@ -73,23 +73,34 @@ const retrieveRelevantDocuments = async (query, topK = 5) => {
             includeMetadata: true
         });
 
+        // Handle case where results.matches is undefined
+        const matches = results.matches || [];
+
         // Convert Pinecone results to document format
-        const documents = results.matches.map(match => ({
-            pageContent: match.metadata.content,
-            metadata: {
-                documentId: match.metadata.documentId,
-                chunkId: match.id,
-                title: match.metadata.title || 'Unknown Document'
-            }
+        const documents = matches.map(match => ({
+            documentId: match.metadata.documentId,
+            text: match.metadata.content,
+            title: match.metadata.title || 'Unknown Document',
+            chunkId: match.id
         }));
+
+        // Extract relevance scores
+        const relevanceScores = matches.map(match => match.score || 0);
 
         const retrievalTime = Date.now() - startTime;
         logger.info(`Retrieved ${documents.length} documents in ${retrievalTime}ms`);
 
-        return documents;
+        return {
+            documents,
+            relevanceScores
+        };
     } catch (error) {
         logger.error(`Error retrieving documents: ${error.message}`);
-        return [];
+        // Return empty arrays to prevent undefined errors
+        return {
+            documents: [],
+            relevanceScores: []
+        };
     }
 };
 
