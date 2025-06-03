@@ -37,6 +37,7 @@ import EquipmentAdd from './pages/Equipment/EquipmentAdd';
 import EquipmentEdit from './pages/Equipment/EquipmentEdit';
 import { Chat } from './pages/Chat';
 import { RAGChat } from './pages/RAGChat';
+import RAGChatbot from './components/chat/ragchatbott';
 import GestionRH from './pages/GestionRH';
 import { setupTokenExpirationChecker } from "./utils/authUtils";
 import { useSelector, useDispatch } from 'react-redux';
@@ -218,7 +219,7 @@ export default function App() {
                   {/* RAG Chatbot - Manager only */}
                   <Route path="/rag-chat" element={
                     <ProtectedRoute roles={['Manager', 'manager']}>
-                      <RAGChat />
+                      <RAGChatbot />
                     </ProtectedRoute>
                   } />
                 </Route>

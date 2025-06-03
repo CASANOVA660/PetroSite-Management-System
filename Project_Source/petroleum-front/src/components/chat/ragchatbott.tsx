@@ -1,16 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
+import { PaperAirplaneIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
-    PaperAirplaneIcon,
-    PlusIcon
-} from '@heroicons/react/24/solid';
-import {
-    ArrowPathIcon,
     XMarkIcon,
-    DocumentTextIcon,
-    ChevronRightIcon,
+    ArrowPathIcon,
     ChevronLeftIcon,
+    ChevronRightIcon,
+    DocumentTextIcon,
     DocumentIcon,
     TrashIcon,
     ClockIcon,
@@ -28,7 +25,7 @@ interface Message {
     id: string;
     content: string;
     timestamp: Date;
-    isBot?: boolean;
+    isBot: boolean;
 }
 
 interface ChatHistory {
@@ -36,6 +33,19 @@ interface ChatHistory {
     title: string;
     date: Date;
     lastMessage: string;
+}
+
+interface Document {
+    _id: string;
+    title: string;
+    description?: string;
+    fileType: string;
+    fileName: string;
+    fileSize: number;
+    chunkCount: number;
+    processingStatus: 'pending' | 'processing' | 'embedded' | 'failed';
+    createdAt: string;
+    updatedAt: string;
 }
 
 const RAGChatbot: React.FC = () => {
@@ -46,12 +56,13 @@ const RAGChatbot: React.FC = () => {
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [showWelcome, setShowWelcome] = useState(true);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [isManager, setIsManager] = useState(false);
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const [sidebarTab, setSidebarTab] = useState<'chats' | 'documents' | 'upload'>('chats');
+    const [useDirectQuery, setUseDirectQuery] = useState(false);
 
     // Document Upload State
     const [file, setFile] = useState<File | null>(null);
@@ -63,6 +74,7 @@ const RAGChatbot: React.FC = () => {
     // Document List State
     const documents = useSelector(selectRagDocuments);
     const loading = useSelector(selectRagLoading);
+    const currentChat = useSelector(selectCurrentRagChat);
 
     // Original mock chat history
     const [chatHistory, setChatHistory] = useState<ChatHistory[]>([
@@ -104,30 +116,6 @@ const RAGChatbot: React.FC = () => {
         }
     ]);
 
-    // Add this line near the top of the component
-    const currentChat = useSelector(selectCurrentRagChat);
-
-    // Update useEffect to sync messages when currentChat changes
-    useEffect(() => {
-        if (currentChat && currentChat.messages && currentChat.messages.length > 0) {
-            // Convert API messages to our local Message format
-            const formattedMessages = currentChat.messages.map(apiMsg => ({
-                id: apiMsg._id,
-                content: apiMsg.content,
-                isBot: apiMsg.role === 'assistant',
-                timestamp: new Date(apiMsg.createdAt)
-            }));
-
-            setMessages(formattedMessages);
-            setShowWelcome(false);
-        }
-    }, [currentChat]);
-
-    // Fetch documents on component mount
-    useEffect(() => {
-        dispatch(getDocuments());
-    }, [dispatch]);
-
     // Check if user has manager role (case insensitive)
     useEffect(() => {
         if (user && (user.role?.toLowerCase() === 'manager')) {
@@ -151,15 +139,33 @@ const RAGChatbot: React.FC = () => {
 
     // Log initial sidebar state
     useEffect(() => {
-        console.log('Initial sidebar state:', isSidebarOpen);
+        console.log('Initial sidebar state:', sidebarOpen);
     }, []);
+
+    // Fetch documents on component mount
+    useEffect(() => {
+        dispatch(getDocuments());
+    }, [dispatch]);
+
+    // Update messages when currentChat changes
+    useEffect(() => {
+        if (currentChat && currentChat.messages && currentChat.messages.length > 0) {
+            // Convert API messages to our local Message format
+            const formattedMessages = currentChat.messages.map(apiMsg => ({
+                id: apiMsg._id,
+                content: apiMsg.content,
+                isBot: apiMsg.role === 'assistant',
+                timestamp: new Date(apiMsg.createdAt)
+            }));
+
+            setMessages(formattedMessages);
+            setShowWelcome(false);
+        }
+    }, [currentChat]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
-
-    // Add state for direct database querying
-    const [useDirectQuery, setUseDirectQuery] = useState(false);
 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
@@ -224,18 +230,81 @@ const RAGChatbot: React.FC = () => {
                     console.error('Database query error:', error);
                 });
         } else {
-            // Original RAG chatbot logic
-            setTimeout(() => {
-                const botMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    content: 'This is a simulated response from the RAG chatbot. In a real implementation, this would be generated based on your query using the RAG (Retrieval Augmented Generation) system that searches through your company documents and knowledge base.',
-                    timestamp: new Date(),
-                    isBot: true,
-                };
+            // RAG mode
+            if (!currentChatId) {
+                // If no current chat, create one first
+                dispatch(createChat({ title: 'New Chat' }))
+                    .then((createResponse: any) => {
+                        if (createChat.fulfilled.match(createResponse)) {
+                            const newChatId = createResponse.payload._id;
+                            setCurrentChatId(newChatId);
 
-                setMessages(prev => [...prev, botMessage]);
-                setIsTyping(false);
-            }, 2000);
+                            // Now send the message with the new chat ID
+                            dispatch(sendMessage({
+                                chatId: newChatId,
+                                content: input
+                            }))
+                                .then((response: any) => {
+                                    if (response.error) {
+                                        // Handle error
+                                        const errorMessage: Message = {
+                                            id: (Date.now() + 1).toString(),
+                                            content: `Error: ${response.error}. Please try again.`,
+                                            timestamp: new Date(),
+                                            isBot: true,
+                                        };
+                                        setMessages(prev => [...prev, errorMessage]);
+                                    }
+                                    setIsTyping(false);
+                                })
+                                .catch(handleRagError);
+                        } else {
+                            handleRagError(new Error('Failed to create chat'));
+                        }
+                    })
+                    .catch(handleRagError);
+            } else {
+                // We already have a chat ID, send message directly
+                dispatch(sendMessage({
+                    chatId: currentChatId,
+                    content: input
+                }))
+                    .then((response: any) => {
+                        if (response.error) {
+                            // Handle error
+                            const errorMessage: Message = {
+                                id: (Date.now() + 1).toString(),
+                                content: `Error: ${response.error}. Please try again.`,
+                                timestamp: new Date(),
+                                isBot: true,
+                            };
+                            setMessages(prev => [...prev, errorMessage]);
+                        }
+                        setIsTyping(false);
+                    })
+                    .catch(handleRagError);
+            }
+        }
+    };
+
+    // Helper function to handle RAG errors
+    const handleRagError = (error: any) => {
+        // Handle API error
+        const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: 'Sorry, there was an error processing your message. Please try again.',
+            timestamp: new Date(),
+            isBot: true,
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsTyping(false);
+        console.error('RAG message error:', error);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage(e);
         }
     };
 
@@ -264,62 +333,13 @@ const RAGChatbot: React.FC = () => {
     };
 
     const toggleSidebar = () => {
-        console.log('Current sidebar state:', isSidebarOpen);
-        setIsSidebarOpen(prevState => {
+        console.log('Current sidebar state:', sidebarOpen);
+        setSidebarOpen(prevState => {
             const newState = !prevState;
             console.log('New sidebar state:', newState);
             return newState;
         });
     };
-
-    const formatDate = (date: Date) => {
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        if (date >= today) {
-            return 'Today';
-        } else if (date >= yesterday) {
-            return 'Yesterday';
-        } else {
-            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        }
-    };
-
-    // Group chat history by date
-    const groupedChatHistory = chatHistory.reduce((acc, chat) => {
-        const dateKey = formatDate(chat.date);
-        if (!acc[dateKey]) {
-            acc[dateKey] = [];
-        }
-        acc[dateKey].push(chat);
-        return acc;
-    }, {} as Record<string, ChatHistory[]>);
-
-    // Add this function to check if device is mobile
-    const isMobile = () => {
-        return window.innerWidth < 768;
-    };
-
-    // Add a state for tracking mobile view
-    const [isMobileView, setIsMobileView] = useState(false);
-
-    // Add useEffect to handle window resize
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobileView(isMobile());
-        };
-
-        // Check on mount
-        checkMobile();
-
-        // Add resize listener
-        window.addEventListener('resize', checkMobile);
-
-        // Clean up
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     // Document upload handlers
     const handleDrag = (e: React.DragEvent) => {
@@ -379,6 +399,55 @@ const RAGChatbot: React.FC = () => {
         }
     };
 
+    const formatDate = (date: Date) => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date >= today) {
+            return 'Today';
+        } else if (date >= yesterday) {
+            return 'Yesterday';
+        } else {
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+    };
+
+    // Group chat history by date
+    const groupedChatHistory = chatHistory.reduce((acc, chat) => {
+        const dateKey = formatDate(chat.date);
+        if (!acc[dateKey]) {
+            acc[dateKey] = [];
+        }
+        acc[dateKey].push(chat);
+        return acc;
+    }, {} as Record<string, ChatHistory[]>);
+
+    // Add this function to check if device is mobile
+    const isMobile = () => {
+        return window.innerWidth < 768;
+    };
+
+    // Add a state for tracking mobile view
+    const [isMobileView, setIsMobileView] = useState(false);
+
+    // Add useEffect to handle window resize
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobileView(isMobile());
+        };
+
+        // Check on mount
+        checkMobile();
+
+        // Add resize listener
+        window.addEventListener('resize', checkMobile);
+
+        // Clean up
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'pending':
@@ -409,6 +478,20 @@ const RAGChatbot: React.FC = () => {
         }
     };
 
+    // If not manager, show access denied
+    if (!isManager) {
+        return (
+            <div className={`fixed inset-0 flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                <div className="text-center p-8 rounded-lg">
+                    <XMarkIcon className="w-16 h-16 mx-auto text-red-500 mb-4" />
+                    <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+                    <p className="text-lg">Only managers can access the RAG chatbot.</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Functions to render sidebar content
     const renderSidebarContent = () => {
         switch (sidebarTab) {
             case 'documents':
@@ -654,7 +737,6 @@ const RAGChatbot: React.FC = () => {
     };
 
     const renderChatHistory = () => {
-        // Original chat history render function contents
         return (
             <div className="p-4">
                 <div className="flex justify-between items-center mb-4">
@@ -678,7 +760,24 @@ const RAGChatbot: React.FC = () => {
                                 <button
                                     key={chat.id}
                                     className={`w-full text-left p-2 rounded-lg hover:bg-opacity-80 transition-colors ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}
-                                    onClick={() => console.log('Load chat', chat.id)}
+                                    onClick={() => {
+                                        setShowWelcome(false);
+                                        // Simulate loading chat history
+                                        setMessages([
+                                            {
+                                                id: '1',
+                                                content: chat.lastMessage,
+                                                timestamp: chat.date,
+                                                isBot: false,
+                                            },
+                                            {
+                                                id: '2',
+                                                content: 'This is a previous chat history response',
+                                                timestamp: new Date(chat.date.getTime() + 60000),
+                                                isBot: true,
+                                            }
+                                        ]);
+                                    }}
                                 >
                                     <div className="font-medium truncate">{chat.title}</div>
                                     <div className={`text-xs truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -700,91 +799,22 @@ const RAGChatbot: React.FC = () => {
         );
     };
 
-    // If not manager, show access denied
-    if (!isManager) {
-        return (
-            <div className={`fixed inset-0 flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-                <div className="text-center p-8 rounded-lg">
-                    <XMarkIcon className="w-16 h-16 mx-auto text-red-500 mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-                    <p className="text-lg">Only managers can access the RAG chatbot.</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Add this function after handleSendMessage
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage(e);
-        }
-    };
-
     return (
-        <div className={`flex h-screen overflow-hidden ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-            {/* Sidebar */}
-            <div
-                className={`fixed top-0 right-0 h-full z-20 md:static transition-all duration-300 transform ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0 md:w-0'} 
-                ${theme === 'dark' ? 'bg-gray-850 border-gray-700' : 'bg-white border-gray-200'} 
-                border-l shadow-lg md:shadow-none flex-shrink-0 w-full md:w-80 md:max-w-xs`}
-            >
-                {/* Tab Navigation */}
-                <div className={`flex border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <button
-                        onClick={() => setSidebarTab('chats')}
-                        className={`flex-1 py-3 text-center transition ${sidebarTab === 'chats'
-                            ? theme === 'dark'
-                                ? 'text-green-400 border-b-2 border-green-400'
-                                : 'text-green-600 border-b-2 border-green-600'
-                            : theme === 'dark'
-                                ? 'text-gray-400 hover:text-gray-300'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Chats
-                    </button>
-                    <button
-                        onClick={() => setSidebarTab('documents')}
-                        className={`flex-1 py-3 text-center transition ${sidebarTab === 'documents'
-                            ? theme === 'dark'
-                                ? 'text-green-400 border-b-2 border-green-400'
-                                : 'text-green-600 border-b-2 border-green-600'
-                            : theme === 'dark'
-                                ? 'text-gray-400 hover:text-gray-300'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Documents
-                    </button>
-                    <button
-                        onClick={() => setSidebarTab('upload')}
-                        className={`flex-1 py-3 text-center transition ${sidebarTab === 'upload'
-                            ? theme === 'dark'
-                                ? 'text-green-400 border-b-2 border-green-400'
-                                : 'text-green-600 border-b-2 border-green-600'
-                            : theme === 'dark'
-                                ? 'text-gray-400 hover:text-gray-300'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Upload
-                    </button>
-                </div>
-
-                {/* Sidebar Content - Conditionally render based on selected tab */}
-                <div className="h-full overflow-y-auto">
-                    {renderSidebarContent()}
-                </div>
-            </div>
-
-            {/* Main Chat Area */}
-            <div className={`flex flex-col flex-1 h-full overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'md:mr-80' : ''}`}>
-                {/* Chat Header */}
-                <div className={`flex items-center justify-between p-4 border-b ${theme === 'dark' ? 'bg-gray-850 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <h1 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                        {useDirectQuery ? 'Database Query Mode' : 'RAG Chatbot'}
-                    </h1>
+        <div className="fixed inset-0 flex overflow-hidden">
+            {/* Main chat area */}
+            <div className={`flex-1 flex flex-col bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative transition-all duration-300 ml-72 ${sidebarOpen ? 'mr-72' : 'mr-0'}`}>
+                {/* Header - fixed at top with higher z-index */}
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-20 relative">
+                    <div className="flex items-center">
+                        <div className="text-xl font-bold flex items-center">
+                            <span className="mr-1">ThinkAI</span>
+                            {theme === 'dark' ? (
+                                <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">M</span>
+                            ) : (
+                                <span className="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">M</span>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex items-center space-x-2">
                         {/* Direct Query Toggle */}
                         <button
@@ -806,43 +836,38 @@ const RAGChatbot: React.FC = () => {
                             </span>
                         </button>
                         <button
-                            onClick={refreshPrompts}
-                            className={`p-2 rounded-full ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
-                            aria-label="Refresh prompts"
-                        >
-                            <ArrowPathIcon className="h-5 w-5" />
-                        </button>
-                        <button
                             onClick={toggleSidebar}
-                            className={`p-2 rounded-full ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
-                            aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                            className="p-2.5 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-700 flex items-center justify-center"
+                            aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
                         >
-                            {isSidebarOpen ? (
-                                <ChevronRightIcon className="h-5 w-5" />
+                            {sidebarOpen ? (
+                                <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                             ) : (
-                                <ChevronLeftIcon className="h-5 w-5" />
+                                <ChevronLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                             )}
                         </button>
                     </div>
                 </div>
 
-                {/* Chat Messages */}
-                <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
-                    {showWelcome && (
-                        <div className={`mb-4 p-4 rounded-lg ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} shadow`}>
-                            <h2 className="text-xl font-semibold mb-2">
-                                {useDirectQuery ? 'Database Query Mode' : 'Welcome to the RAG Chatbot!'}
-                            </h2>
-                            <p className="mb-3">
-                                {useDirectQuery
-                                    ? 'Ask me anything about your database - projects, tasks, and users. I have direct access to retrieve real-time information!'
-                                    : 'Ask me anything related to the documents in our knowledge base.'}
+                {/* Main content area */}
+                <div className="flex-1 overflow-hidden flex flex-col">
+                    {showWelcome ? (
+                        /* Welcome screen */
+                        <div className="flex-1 flex flex-col items-center justify-center px-4 pb-4 overflow-y-auto">
+                            {/* Logo and greeting */}
+                            <div className="w-20 h-20 rounded-full overflow-hidden mb-4">
+                                <div className="w-full h-full bg-gradient-to-b from-green-400 to-green-100 dark:from-green-500 dark:to-green-300"></div>
+                            </div>
+                            <h1 className="text-2xl font-bold mb-1 text-gray-900 dark:text-white text-center">
+                                Good evening, {user?.nom || 'Milovan'}
+                            </h1>
+                            <p className="text-xl mb-4 text-gray-900 dark:text-white text-center">
+                                Can I help you with anything?
                             </p>
-                            <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {useDirectQuery
-                                    ? 'This mode directly queries the database for up-to-date information. Try asking about projects, tasks, or user statistics.'
-                                    : 'This chatbot uses Retrieval Augmented Generation to provide accurate answers based on your document library.'}
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">
+                                Choose a prompt below or write your own to start chatting with ThinkAI
                             </p>
+
                             {/* Prompt suggestions */}
                             <div className="w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                                 {useDirectQuery ? (
@@ -903,106 +928,178 @@ const RAGChatbot: React.FC = () => {
                                     </>
                                 )}
                             </div>
-                        </div>
-                    )}
 
-                    {messages.map((message) => (
-                        <div
-                            key={message.id}
-                            className={`flex ${message.isBot ? 'justify-start' : 'justify-end'}`}
-                        >
-                            <div
-                                className={`max-w-[80%] p-3 rounded-lg shadow-sm 
-                                ${message.isBot
-                                        ? theme === 'dark'
-                                            ? 'bg-gray-800 text-white'
-                                            : 'bg-white text-gray-900'
-                                        : theme === 'dark'
-                                            ? 'bg-green-700 text-white'
-                                            : 'bg-green-600 text-white'
-                                    }`}
+                            {/* Refresh prompts button */}
+                            <button
+                                onClick={refreshPrompts}
+                                className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-8 hover:text-gray-700 dark:hover:text-gray-300"
                             >
-                                <div className="whitespace-pre-wrap">
-                                    {message.content}
-                                </div>
-                                <div
-                                    className={`text-xs mt-1 ${message.isBot
-                                        ? theme === 'dark'
-                                            ? 'text-gray-400'
-                                            : 'text-gray-500'
-                                        : 'text-green-200'
-                                        }`}
-                                >
-                                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </div>
+                                <ArrowPathIcon className="w-3.5 h-3.5 mr-1" />
+                                Refresh prompts
+                            </button>
+                        </div>
+                    ) : (
+                        /* Chat screen */
+                        <div className="flex-1 overflow-y-auto px-4 py-2">
+                            <div className="max-w-3xl mx-auto">
+                                {messages.map((message) => (
+                                    <div
+                                        key={message.id}
+                                        className={`mb-4 ${message.isBot ? 'flex' : 'flex justify-end'}`}
+                                    >
+                                        {message.isBot && (
+                                            <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                                                <div className="w-full h-full bg-gradient-to-b from-green-400 to-green-100 dark:from-green-500 dark:to-green-300"></div>
+                                            </div>
+                                        )}
+                                        <div
+                                            className={`p-3 rounded-lg max-w-[80%] ${message.isBot
+                                                ? theme === 'dark'
+                                                    ? 'bg-gray-800 text-white'
+                                                    : 'bg-white text-gray-900 border border-gray-200'
+                                                : theme === 'dark'
+                                                    ? 'bg-green-600 text-white'
+                                                    : 'bg-green-500 text-white'
+                                                }`}
+                                        >
+                                            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                                            <p className={`text-xs mt-1 ${message.isBot ? (theme === 'dark' ? 'text-gray-400' : 'text-gray-500') : 'text-green-100'}`}>
+                                                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        {!message.isBot && (
+                                            <div className="w-8 h-8 rounded-full overflow-hidden ml-2 flex-shrink-0">
+                                                <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                    <span className="text-sm font-medium">{user?.nom?.charAt(0) || 'U'}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {/* Typing indicator */}
+                                {isTyping && (
+                                    <div className="flex mb-4">
+                                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                                            <div className="w-full h-full bg-gradient-to-b from-green-400 to-green-100 dark:from-green-500 dark:to-green-300"></div>
+                                        </div>
+                                        <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
+                                            <div className="flex space-x-1">
+                                                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '0ms' }}></div>
+                                                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '150ms' }}></div>
+                                                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '300ms' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef} />
                             </div>
                         </div>
-                    ))}
-
-                    {isTyping && (
-                        <div className="flex justify-start">
-                            <div
-                                className={`max-w-[80%] p-3 rounded-lg shadow-sm ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}
-                            >
-                                <div className="flex space-x-1">
-                                    <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '0ms' }}></div>
-                                    <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '150ms' }}></div>
-                                    <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-gray-400' : 'bg-gray-500'}`} style={{ animationDelay: '300ms' }}></div>
-                                </div>
-                            </div>
-                        </div>
                     )}
-
-                    <div ref={messagesEndRef} />
                 </div>
 
-                {/* Chat Input */}
-                <div className={`p-4 border-t ${theme === 'dark' ? 'bg-gray-850 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
-                        <div className="flex-grow">
+                {/* Input field */}
+                <div className="w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                    <div className="max-w-3xl mx-auto">
+                        <form onSubmit={handleSendMessage} className="relative">
                             <textarea
                                 ref={inputRef}
+                                className="w-full p-4 pr-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400"
+                                placeholder={useDirectQuery ? "Ask a database question..." : "How can ThinkAI help you today?"}
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Type your message..."
-                                className={`w-full p-3 rounded-lg resize-none min-h-[50px] max-h-[150px] overflow-auto focus:outline-none focus:ring-2 ${theme === 'dark'
-                                    ? 'bg-gray-800 text-white border-gray-700 focus:ring-green-500'
-                                    : 'bg-gray-100 text-gray-900 border-gray-300 focus:ring-green-600'}`}
                                 rows={1}
+                                style={{ minHeight: '56px', maxHeight: '200px' }}
                             />
-                            <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Press Shift + Enter for a new line
-                            </p>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={!input.trim()}
-                            className={`p-3 rounded-lg ${input.trim()
-                                ? theme === 'dark'
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : 'bg-green-600 hover:bg-green-700 text-white'
-                                : theme === 'dark'
-                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                        >
-                            <PaperAirplaneIcon className="h-5 w-5" />
-                        </button>
-                    </form>
-                </div>
+                            <div className="absolute right-3 bottom-3">
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim()}
+                                    className={`p-1.5 rounded-md ${input.trim()
+                                        ? 'text-green-500 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        : 'text-gray-400 dark:text-gray-600'
+                                        }`}
+                                >
+                                    <PaperAirplaneIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </form>
 
-                {/* Footer */}
-                <div className="flex items-center mt-3">
-                    <span className="text-xs font-medium mr-1">
-                        {useDirectQuery ? "Database Query Mode" : "ThinkAI 3.5 Smart"}
-                    </span>
-                    <span className="text-xs text-blue-500 dark:text-blue-400">
-                        {useDirectQuery ? "◆ Real-time" : "◆ Format"}
-                    </span>
+                        <div className="flex justify-between items-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            <div>
+                                <span>ThinkAI can make mistakes. Please double-check responses.</span>
+                            </div>
+                            <div>
+                                <span>Use <kbd className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">shift</kbd> + <kbd className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">return</kbd> for new line</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center mt-3">
+                            <span className="text-xs font-medium mr-1">{useDirectQuery ? "Database Query Mode" : "ThinkAI 3.5 Smart"}</span>
+                            <span className="text-xs text-blue-500 dark:text-blue-400">{useDirectQuery ? "◆ Real-time" : "◆ Format"}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right sidebar - chat history */}
+            <div
+                className={`fixed top-0 right-0 bottom-0 w-72 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
+                    } ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border-l border-gray-200 dark:border-gray-700 z-40 shadow-lg`}
+            >
+                <div className="flex flex-col h-full">
+                    {/* Tab Navigation */}
+                    <div className={`flex border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <button
+                            onClick={() => setSidebarTab('chats')}
+                            className={`flex-1 py-3 text-center transition ${sidebarTab === 'chats'
+                                ? theme === 'dark'
+                                    ? 'text-green-400 border-b-2 border-green-400'
+                                    : 'text-green-600 border-b-2 border-green-600'
+                                : theme === 'dark'
+                                    ? 'text-gray-400 hover:text-gray-300'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Chats
+                        </button>
+                        <button
+                            onClick={() => setSidebarTab('documents')}
+                            className={`flex-1 py-3 text-center transition ${sidebarTab === 'documents'
+                                ? theme === 'dark'
+                                    ? 'text-green-400 border-b-2 border-green-400'
+                                    : 'text-green-600 border-b-2 border-green-600'
+                                : theme === 'dark'
+                                    ? 'text-gray-400 hover:text-gray-300'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Documents
+                        </button>
+                        <button
+                            onClick={() => setSidebarTab('upload')}
+                            className={`flex-1 py-3 text-center transition ${sidebarTab === 'upload'
+                                ? theme === 'dark'
+                                    ? 'text-green-400 border-b-2 border-green-400'
+                                    : 'text-green-600 border-b-2 border-green-600'
+                                : theme === 'dark'
+                                    ? 'text-gray-400 hover:text-gray-300'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Upload
+                        </button>
+                    </div>
+
+                    {/* Sidebar Content */}
+                    <div className="flex-1 overflow-y-auto">
+                        {renderSidebarContent()}
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-export default RAGChatbot;
+export default RAGChatbot; 
