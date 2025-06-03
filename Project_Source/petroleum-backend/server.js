@@ -34,6 +34,7 @@ const globalActionRoutes = require('./modules/actions/routes/globalAction.routes
 const { handleTyping } = require('./modules/chat/controllers/messageController');
 const kpiFieldsRoutes = require('./modules/kpis/fields.routes');
 const kpiRoutes = require('./modules/kpis/kpi.routes');
+const ragRoutes = require('./modules/rag/routes/ragRoutes');
 
 // Initialize core services
 connectDB(); // MongoDB
@@ -218,6 +219,7 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/gestion-rh/employees', gestionRhRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/requirements', requirementRoutes);
+app.use('/api/rag', ragRoutes);
 
 // Project employees routes
 app.use('/api/projects/:projectId/employees', require('./modules/projects/routes/projectEmployeeRoutes'));

@@ -43,4 +43,44 @@ const upload = multer({
     }
 });
 
-module.exports = upload; 
+// Document upload for RAG
+const ragDocumentFilter = (req, file, cb) => {
+    // Accept only document types suitable for RAG
+    const allowedTypes = [
+        'application/pdf',
+        'text/plain',
+        'text/html',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only PDF, TXT, HTML, DOC, and DOCX files are allowed.'), false);
+    }
+};
+
+// Create multer upload instance for RAG documents
+const ragStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/rag-documents/');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'rag-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadDocument = multer({
+    storage: ragStorage,
+    fileFilter: ragDocumentFilter,
+    limits: {
+        fileSize: 20 * 1024 * 1024 // 20MB limit for RAG documents
+    }
+}).single('document');
+
+module.exports = {
+    upload,
+    uploadDocument
+}; 

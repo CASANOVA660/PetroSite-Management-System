@@ -1,7 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../../../middleware/auth');
 const meetController = require('../controllers/meetController');
-const upload = require('../../../middleware/upload');
+const { upload } = require('../../../middleware/upload');
 const router = express.Router();
 
 // Protection de toutes les routes avec middleware d'authentification
