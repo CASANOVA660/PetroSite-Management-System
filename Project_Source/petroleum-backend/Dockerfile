@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with legacy-peer-deps flag to resolve conflicts
+RUN npm ci --legacy-peer-deps
 
 # Copy all files
 COPY . .
@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Copy package files for caching purposes
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --only=production --legacy-peer-deps
 
 # Create necessary directories
 RUN mkdir -p /app/uploads
