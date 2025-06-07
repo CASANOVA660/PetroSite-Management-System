@@ -66,8 +66,39 @@ const NewAttendanceView: React.FC<NewAttendanceViewProps> = ({ employees, projec
         }
     }, [dispatch, projectId, selectedDate]);
 
+    // Add useEffect for loading saved date from localStorage
+    useEffect(() => {
+        const savedDate = localStorage.getItem('attendance_selectedDate');
+        if (savedDate) {
+            setSelectedDate(savedDate);
+        } else {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            setSelectedDate(today);
+            localStorage.setItem('attendance_selectedDate', today);
+        }
+    }, []);
+
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSelectedDate(e.target.value);
+        const newDate = e.target.value;
+        setSelectedDate(newDate);
+        localStorage.setItem('attendance_selectedDate', newDate);
+    };
+
+    // Add functions to navigate to previous/next day
+    const goToPreviousDay = () => {
+        const currentDate = new Date(selectedDate);
+        currentDate.setDate(currentDate.getDate() - 1);
+        const newDate = format(currentDate, 'yyyy-MM-dd');
+        setSelectedDate(newDate);
+        localStorage.setItem('attendance_selectedDate', newDate);
+    };
+
+    const goToNextDay = () => {
+        const currentDate = new Date(selectedDate);
+        currentDate.setDate(currentDate.getDate() + 1);
+        const newDate = format(currentDate, 'yyyy-MM-dd');
+        setSelectedDate(newDate);
+        localStorage.setItem('attendance_selectedDate', newDate);
     };
 
     const handleCloseDialog = () => {
@@ -338,7 +369,15 @@ const NewAttendanceView: React.FC<NewAttendanceViewProps> = ({ employees, projec
     };
 
     const renderPointageModal = () => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999]"
+            style={{
+                position: 'fixed',
+                zIndex: 99999,
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+            }}
+        >
             <div className="bg-white rounded-lg shadow-xl overflow-hidden w-full max-w-md">
                 <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h3 className="text-lg font-medium text-gray-900">
@@ -470,17 +509,37 @@ const NewAttendanceView: React.FC<NewAttendanceViewProps> = ({ employees, projec
                     <h2 className="text-xl font-semibold text-gray-800">Pointage des Employés</h2>
                     <div className="flex space-x-4">
                         <div className="flex items-center">
-                            <span className="text-gray-500 mr-2">
+                            <button
+                                onClick={goToPreviousDay}
+                                className="p-2 rounded-l-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                aria-label="Previous day"
+                            >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
-                            </span>
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={handleDateChange}
-                                className="border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            />
+                            </button>
+                            <div className="relative flex items-center">
+                                <span className="text-gray-500 absolute left-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                    </svg>
+                                </span>
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={handleDateChange}
+                                    className="border border-gray-300 pl-10 pr-3 py-2 rounded-none focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </div>
+                            <button
+                                onClick={goToNextDay}
+                                className="p-2 rounded-r-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                aria-label="Next day"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                </svg>
+                            </button>
                         </div>
                         <button
                             onClick={() => { }}
