@@ -10,8 +10,8 @@ const databaseQueryService = require('./databaseQueryService');
 const logger = require('../../../utils/logger');
 
 // Get environment variables for Ollama configuration
-const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama2';
 
 // Remove OpenAI initialization
 logger.info('Using Ollama for all requests');

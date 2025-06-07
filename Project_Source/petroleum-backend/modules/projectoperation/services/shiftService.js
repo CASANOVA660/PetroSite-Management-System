@@ -81,6 +81,12 @@ class ShiftService {
      */
     async createShift(projectId, shiftData, userId) {
         try {
+            console.log('ShiftService.createShift called with:', {
+                projectId,
+                shiftData,
+                userId
+            });
+
             // Validate projectId format
             if (!mongoose.Types.ObjectId.isValid(projectId)) {
                 throw new Error('Format de l\'identifiant du projet invalide');
@@ -96,12 +102,14 @@ class ShiftService {
             if (!project) {
                 throw new Error('Projet non trouvé');
             }
+            console.log('Project found:', project._id);
 
             // Check if employee exists
             const employee = await Employee.findById(shiftData.employeeId);
             if (!employee) {
                 throw new Error('Employé non trouvé');
             }
+            console.log('Employee found:', employee._id);
 
             // Check if employee is assigned to the project
             const isAssigned = project.employees.some(
@@ -109,8 +117,10 @@ class ShiftService {
             );
 
             if (!isAssigned) {
+                console.log('Employee not assigned to project. Project employees:', project.employees);
                 throw new Error('Cet employé n\'est pas assigné à ce projet');
             }
+            console.log('Employee is assigned to project');
 
             // Create shift object
             const newShift = new Shift({
@@ -125,8 +135,11 @@ class ShiftService {
                 createdBy: userId
             });
 
+            console.log('New shift object created:', newShift);
+
             // Save shift
             await newShift.save();
+            console.log('Shift saved to database with ID:', newShift._id);
 
             // Return created shift with populated data
             const createdShift = await Shift.findById(newShift._id)
@@ -139,8 +152,10 @@ class ShiftService {
                     select: 'name email'
                 });
 
+            console.log('Returning populated shift:', createdShift);
             return createdShift;
         } catch (error) {
+            console.error('Error in ShiftService.createShift:', error);
             logger.error(`Error in createShift: ${error.message}`);
             throw error;
         }

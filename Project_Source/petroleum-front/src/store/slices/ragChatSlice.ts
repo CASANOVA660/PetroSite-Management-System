@@ -132,6 +132,7 @@ export const sendMessage = createAsyncThunk(
             const response = await axios.post(`/rag/chats/${chatId}/messages`, { content });
 
             dispatch(ragChatSlice.actions.setIsTyping(false));
+            console.log('Response:', response.data);
             return response.data.data;
         } catch (error: any) {
             dispatch(ragChatSlice.actions.setIsTyping(false));

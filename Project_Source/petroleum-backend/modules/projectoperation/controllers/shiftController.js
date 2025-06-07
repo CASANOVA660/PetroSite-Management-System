@@ -32,12 +32,21 @@ exports.createShift = async (req, res) => {
         // Validate request
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log('Validation errors:', errors.array());
             return res.status(400).json({ success: false, errors: errors.array() });
         }
 
         const { projectId } = req.params;
         const userId = req.user._id;
+
+        console.log('Creating shift with data:', {
+            projectId,
+            userId,
+            body: req.body
+        });
+
         const shift = await shiftService.createShift(projectId, req.body, userId);
+        console.log('Shift created successfully:', shift);
 
         // Emit socket event for real-time updates
         if (global.io) {
@@ -45,10 +54,12 @@ exports.createShift = async (req, res) => {
                 action: 'created',
                 shift: shift
             });
+            console.log('Socket event emitted for shift creation');
         }
 
         res.status(201).json({ success: true, data: shift });
     } catch (error) {
+        console.error(`Error in createShift controller:`, error);
         logger.error(`Error in createShift controller: ${error.message}`);
         res.status(500).json({ success: false, message: error.message });
     }

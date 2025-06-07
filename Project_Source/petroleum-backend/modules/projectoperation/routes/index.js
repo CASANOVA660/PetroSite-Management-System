@@ -1,11 +1,13 @@
 const shiftRoutes = require('./shiftRoutes');
 const operationEquipmentRoutes = require('./operationEquipmentRoutes');
-const dailyReportRoutes = require('./dailyReportRoutes');
-const employeeAttendanceRoutes = require('./employeeAttendanceRoutes');
+const progressRoutes = require('./progressRoutes');
+const reportRoutes = require('./reportRoutes');
+const attendanceRoutes = require('./attendanceRoutes');
 
 module.exports = {
     shiftRoutes,
     operationEquipmentRoutes,
-    dailyReportRoutes,
-    employeeAttendanceRoutes
+    progressRoutes,
+    reportRoutes,
+    attendanceRoutes
 }; 

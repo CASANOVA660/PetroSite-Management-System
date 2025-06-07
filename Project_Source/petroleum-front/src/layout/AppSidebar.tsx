@@ -301,7 +301,7 @@ const AppSidebar: React.FC = () => {
     }] : []),
     ...(isManager ? [{
       icon: <SparklesIcon className="w-6 h-6" />,
-      name: "RAG Chatbot",
+      name: "Think IA",
       path: "/rag-chat"
     }] : []),
     ...(isManager ? [{

@@ -16,6 +16,18 @@ import kpisReducer from './slices/kpisSlice';
 import planningReducer from './slices/planningSlice';
 import budgetReducer from './slices/budgetSlice';
 import ragChatReducer from './slices/ragChatSlice';
+import operationReducer from './slices/operationSlice';
+import attendanceReducer from './slices/attendanceSlice';
+
+// Import types separately to re-export with type syntax
+import type {
+    OperationEmployee,
+    Shift,
+    OperationProgress,
+    Milestone,
+    DailyReport,
+    EmployeeAttendance
+} from './slices/operationSlice';
 
 export const store = configureStore({
     reducer: {
@@ -34,7 +46,9 @@ export const store = configureStore({
         kpis: kpisReducer,
         planning: planningReducer,
         budget: budgetReducer,
-        ragChat: ragChatReducer
+        ragChat: ragChatReducer,
+        operation: operationReducer,
+        attendance: attendanceReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -50,3 +64,41 @@ export default store;
 
 export * from './slices/employeesSlice';
 export * from './slices/meetingSlice';
+
+// Re-export the types with type syntax
+export type { OperationEmployee, Shift, OperationProgress, Milestone, DailyReport, EmployeeAttendance };
+
+// Export operation slice thunks selectively to avoid name conflicts
+export {
+    // Operations/Shifts
+    fetchShifts,
+    createShift,
+    updateShift,
+    deleteShift,
+    // Progress
+    fetchProgress,
+    fetchMilestones,
+    createProgress,
+    // Daily Reports
+    fetchDailyReports,
+    createDailyReport,
+    updateDailyReport,
+    // Attendance
+    fetchAttendance as fetchOperationAttendance,
+    recordAttendance,
+    updateAttendance as updateOperationAttendance,
+    // Action creators
+    clearOperationData
+} from './slices/operationSlice';
+
+// Export attendance slice thunks
+export {
+    fetchAttendance,
+    createAttendance,
+    updateAttendance,
+    deleteAttendance,
+    clearAttendanceError,
+    resetAttendanceState
+} from './slices/attendanceSlice';
+
+export type { AttendanceRecord } from './slices/attendanceSlice';

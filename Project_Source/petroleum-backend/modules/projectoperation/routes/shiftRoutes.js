@@ -18,31 +18,41 @@ const shiftValidation = [
 router.use(authMiddleware);
 
 /**
- * @route   GET /api/projects/:projectId/operation/shifts
+ * @route   GET /api/projects/shifts/test
+ * @desc    Test route for shifts
+ * @access  Private
+ */
+router.get('/shifts/test', (req, res) => {
+    console.log('Shift test route accessed');
+    res.status(200).json({ success: true, message: 'Shift routes are working correctly' });
+});
+
+/**
+ * @route   GET /api/projects/:projectId/shifts
  * @desc    Get all shifts for a project
  * @access  Private
  */
-router.get('/:projectId/operation/shifts', shiftController.getProjectShifts);
+router.get('/:projectId/shifts', shiftController.getProjectShifts);
 
 /**
- * @route   POST /api/projects/:projectId/operation/shifts
+ * @route   POST /api/projects/:projectId/shifts
  * @desc    Create a new shift
  * @access  Private
  */
-router.post('/:projectId/operation/shifts', shiftValidation, shiftController.createShift);
+router.post('/:projectId/shifts', shiftValidation, shiftController.createShift);
 
 /**
- * @route   PUT /api/projects/:projectId/operation/shifts/:shiftId
+ * @route   PUT /api/projects/shifts/:shiftId
  * @desc    Update a shift
  * @access  Private
  */
-router.put('/:projectId/operation/shifts/:shiftId', shiftValidation, shiftController.updateShift);
+router.put('/shifts/:shiftId', shiftValidation, shiftController.updateShift);
 
 /**
- * @route   DELETE /api/projects/:projectId/operation/shifts/:shiftId
+ * @route   DELETE /api/projects/:projectId/shifts/:shiftId
  * @desc    Delete a shift
  * @access  Private
  */
-router.delete('/:projectId/operation/shifts/:shiftId', shiftController.deleteShift);
+router.delete('/:projectId/shifts/:shiftId', shiftController.deleteShift);
 
 module.exports = router; 

@@ -1,14 +1,20 @@
 module.exports = {
     testEnvironment: 'node',
-    testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+    verbose: true,
     collectCoverage: true,
-    coverageDirectory: 'coverage',
-    collectCoverageFrom: [
-        'modules/**/*.js',
-        '!modules/**/index.js',
-        '!**/node_modules/**'
-    ],
     coverageReporters: ['text', 'lcov'],
-    testTimeout: 10000,
-    setupFilesAfterEnv: ['./tests/setup.js']
+    coveragePathIgnorePatterns: [
+        '/node_modules/',
+        '/tests/',
+        '/coverage/'
+    ],
+    setupFilesAfterEnv: [
+        './tests/setup.js'
+    ],
+    maxWorkers: '50%',
+    watchPathIgnorePatterns: [
+        '/node_modules/',
+        '/coverage/'
+    ],
+    testTimeout: 10000
 }; 

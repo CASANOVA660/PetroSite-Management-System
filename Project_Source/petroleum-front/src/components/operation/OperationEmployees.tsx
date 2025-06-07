@@ -18,7 +18,7 @@ import {
     XMarkIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
-import EmployeeAttendance from './EmployeeAttendance';
+import NewAttendanceView from './NewAttendanceView';
 
 interface OperationEmployeesProps {
     projectId: string;
@@ -83,6 +83,7 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
     const [displayEmployees, setDisplayEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [availableEmployees, setAvailableEmployees] = useState<any[]>([]);
+    const [expandedEmployees, setExpandedEmployees] = useState<string[]>([]);
 
     // Static stats for now
     const totalEmployees = 2;
@@ -178,11 +179,56 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
     };
 
     // Handle add employee
-    const handleAddEmployee = () => {
-        toast.success('Employé ajouté au projet avec succès');
-        setShowAddModal(false);
-        // In a real implementation, this would add the employee and refresh the list
-        fetchProjectEmployees();
+    const handleAddEmployee = async () => {
+        // Get selected values from form
+        const employeeSelect = document.getElementById('employeeSelect') as HTMLSelectElement;
+        const roleSelect = document.getElementById('roleSelect') as HTMLSelectElement;
+        const shiftDay = document.getElementById('shiftDay') as HTMLInputElement;
+
+        if (!employeeSelect.value) {
+            toast.error('Veuillez sélectionner un employé');
+            return;
+        }
+
+        if (!roleSelect.value) {
+            toast.error('Veuillez sélectionner un rôle');
+            return;
+        }
+
+        const employeeData = {
+            employeeId: employeeSelect.value,
+            role: roleSelect.value,
+            shift: shiftDay.checked ? 'day' : 'night'
+        };
+
+        try {
+            // Show loading toast
+            const loadingToast = toast.loading('Ajout de l\'employé en cours...');
+
+            // Make API call to add employee to project
+            if (projectId && projectId !== 'dummy-project') {
+                await axios.post(`/projects/${projectId}/employees`, employeeData);
+            }
+
+            toast.dismiss(loadingToast);
+            toast.success('Employé ajouté au projet avec succès');
+            setShowAddModal(false);
+
+            // Refresh the employee list
+            fetchProjectEmployees();
+        } catch (error) {
+            console.error('Error adding employee:', error);
+            toast.error('Erreur lors de l\'ajout de l\'employé');
+        }
+    };
+
+    // Toggle employee card expansion
+    const toggleEmployeeExpansion = (employeeId: string) => {
+        setExpandedEmployees(prev =>
+            prev.includes(employeeId)
+                ? prev.filter(id => id !== employeeId)
+                : [...prev, employeeId]
+        );
     };
 
     return (
@@ -234,7 +280,7 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
             </div>
 
             {activeTab === 'attendance' ? (
-                <EmployeeAttendance projectId={projectId} />
+                <NewAttendanceView employees={displayEmployees} projectId={projectId} />
             ) : (
                 <>
                     {/* Statistics & Summary */}
@@ -345,7 +391,10 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
                                     transition={{ duration: 0.3 }}
                                     className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700"
                                 >
-                                    <div className="p-5">
+                                    <div
+                                        className="p-5 cursor-pointer"
+                                        onClick={() => toggleEmployeeExpansion(employee._id)}
+                                    >
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-start space-x-4">
                                                 <div className="flex-shrink-0">
@@ -377,75 +426,87 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
                                             <div className="flex">
                                                 <button
                                                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleEmployeeExpansion(employee._id);
+                                                    }}
                                                 >
-                                                    <ChevronRightIcon className="h-5 w-5" />
+                                                    <ChevronRightIcon className={`h-5 w-5 transition-transform duration-200 ${expandedEmployees.includes(employee._id) ? 'transform rotate-90' : ''}`} />
                                                 </button>
                                             </div>
                                         </div>
 
-                                        {/* Always expanded for now */}
-                                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <div>
-                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Spécialisation</h4>
-                                                    <p className="text-sm text-gray-900 dark:text-white">{employee.specialization}</p>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Position</h4>
-                                                    <p className="text-sm text-gray-900 dark:text-white">{employee.position || 'Non spécifié'}</p>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Expérience</h4>
-                                                    <p className="text-sm text-gray-900 dark:text-white">{employee.experience} ans</p>
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Heures de quart</h4>
-                                                    <p className="text-sm text-gray-900 dark:text-white">
-                                                        {employee.shiftStart && employee.shiftEnd
-                                                            ? `${employee.shiftStart} - ${employee.shiftEnd}`
-                                                            : 'Non assigné'}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="mb-4">
-                                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Contact</h4>
-                                                <p className="text-sm text-gray-900 dark:text-white">{employee.phone}</p>
-                                                <p className="text-sm text-gray-900 dark:text-white">{employee.email}</p>
-                                            </div>
-
-                                            {employee.certifications && employee.certifications.length > 0 && (
-                                                <div className="mb-4">
-                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Certifications</h4>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {employee.certifications.map((cert, index) => (
-                                                            <span
-                                                                key={index}
-                                                                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                                                            >
-                                                                {cert}
-                                                            </span>
-                                                        ))}
+                                        {/* Expanded content - only show when expanded */}
+                                        {expandedEmployees.includes(employee._id) && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
+                                            >
+                                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                                    <div>
+                                                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Spécialisation</h4>
+                                                        <p className="text-sm text-gray-900 dark:text-white">{employee.specialization}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Position</h4>
+                                                        <p className="text-sm text-gray-900 dark:text-white">{employee.position || 'Non spécifié'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Expérience</h4>
+                                                        <p className="text-sm text-gray-900 dark:text-white">{employee.experience} ans</p>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Heures de quart</h4>
+                                                        <p className="text-sm text-gray-900 dark:text-white">
+                                                            {employee.shiftStart && employee.shiftEnd
+                                                                ? `${employee.shiftStart} - ${employee.shiftEnd}`
+                                                                : 'Non assigné'}
+                                                        </p>
                                                     </div>
                                                 </div>
-                                            )}
 
-                                            <div className="flex justify-between pt-2">
-                                                <div className="flex space-x-2">
+                                                <div className="mb-4">
+                                                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Contact</h4>
+                                                    <p className="text-sm text-gray-900 dark:text-white">{employee.phone}</p>
+                                                    <p className="text-sm text-gray-900 dark:text-white">{employee.email}</p>
+                                                </div>
+
+                                                {employee.certifications && employee.certifications.length > 0 && (
+                                                    <div className="mb-4">
+                                                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Certifications</h4>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {employee.certifications.map((cert, index) => (
+                                                                <span
+                                                                    key={index}
+                                                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                                                >
+                                                                    {cert}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex justify-between pt-2">
+                                                    <div className="flex space-x-2">
+                                                        <button
+                                                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            Changer de quart
+                                                        </button>
+                                                    </div>
                                                     <button
-                                                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                                        className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                        title="Retirer l'employé"
+                                                        onClick={(e) => e.stopPropagation()}
                                                     >
-                                                        Changer de quart
+                                                        <XMarkIcon className="h-5 w-5" />
                                                     </button>
                                                 </div>
-                                                <button
-                                                    className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                                    title="Retirer l'employé"
-                                                >
-                                                    <XMarkIcon className="h-5 w-5" />
-                                                </button>
-                                            </div>
-                                        </div>
+                                            </motion.div>
+                                        )}
                                     </div>
                                 </motion.div>
                             ))}
@@ -456,17 +517,17 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
 
             {/* Add Employee Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[99999] p-4" style={{ position: 'fixed', zIndex: 99999 }}>
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 m-4"
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6 m-4"
                     >
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Ajouter un employé au projet</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ajouter un employé au projet</h3>
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                             >
                                 <XMarkIcon className="h-6 w-6" />
                             </button>
@@ -474,12 +535,13 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Sélectionner un employé
                                 </label>
                                 <div className="relative">
                                     <select
-                                        className="block w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        id="employeeSelect"
+                                        className="block w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F28C38] focus:border-[#F28C38] text-gray-900 dark:text-white"
                                     >
                                         <option value="">Sélectionner un employé</option>
                                         {availableEmployees.map(emp => (
@@ -503,18 +565,21 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Rôle dans le projet
                                 </label>
                                 <div className="relative">
                                     <select
-                                        className="block w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        id="roleSelect"
+                                        className="block w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F28C38] focus:border-[#F28C38] text-gray-900 dark:text-white"
                                     >
                                         <option value="">Sélectionner un rôle</option>
-                                        <option value="role1">Ingénieur projet</option>
-                                        <option value="role2">Technicien</option>
-                                        <option value="role3">Superviseur</option>
-                                        <option value="role4">Administrateur</option>
+                                        <option value="Ingénieur projet">Ingénieur projet</option>
+                                        <option value="Technicien">Technicien</option>
+                                        <option value="Superviseur">Superviseur</option>
+                                        <option value="Administrateur">Administrateur</option>
+                                        <option value="Opérateur">Opérateur</option>
+                                        <option value="Mécanicien">Mécanicien</option>
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                                         <ChevronRightIcon className="h-5 w-5 text-gray-400" />
@@ -523,17 +588,17 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Quart de travail
                                 </label>
                                 <div className="flex space-x-4">
                                     <label className="inline-flex items-center">
-                                        <input type="radio" name="shift" value="day" className="form-radio text-[#F28C38]" defaultChecked />
-                                        <span className="ml-2">Jour (08:00 - 20:00)</span>
+                                        <input id="shiftDay" type="radio" name="shift" value="day" className="form-radio text-[#F28C38]" defaultChecked />
+                                        <span className="ml-2 text-gray-900 dark:text-white">Jour (08:00 - 20:00)</span>
                                     </label>
                                     <label className="inline-flex items-center">
-                                        <input type="radio" name="shift" value="night" className="form-radio text-[#F28C38]" />
-                                        <span className="ml-2">Nuit (20:00 - 08:00)</span>
+                                        <input id="shiftNight" type="radio" name="shift" value="night" className="form-radio text-[#F28C38]" />
+                                        <span className="ml-2 text-gray-900 dark:text-white">Nuit (20:00 - 08:00)</span>
                                     </label>
                                 </div>
                             </div>
@@ -542,7 +607,7 @@ const OperationEmployees: React.FC<OperationEmployeesProps> = ({ projectId, init
                         <div className="mt-6 flex justify-end space-x-3">
                             <button
                                 onClick={() => setShowAddModal(false)}
-                                className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
+                                className="px-4 py-2 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                             >
                                 Annuler
                             </button>

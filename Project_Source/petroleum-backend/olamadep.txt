@@ -1,0 +1,11 @@
+//OLLAMA_API_URL=https://guttural-daffy-tangerine.glitch.me
+OLLAMA_MODEL=tinyllama
+
+OLLAMA_API_URL=http://localhost:11434
+OLLAMA_MODEL=llama2
+
+in ragservice.js
+
+// Get environment variables for Ollama configuration
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama2';
