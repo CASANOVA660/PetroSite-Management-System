@@ -36,7 +36,8 @@ import {
     TrashIcon,
     DocumentTextIcon,
     BeakerIcon,
-    LightBulbIcon
+    LightBulbIcon,
+    LockClosedIcon
 } from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,9 +48,10 @@ interface SectionProps {
     icon: React.ReactNode;
     children: React.ReactNode;
     color: string;
+    isLocked?: boolean;
 }
 
-const Section: React.FC<SectionProps> = ({ title, icon, children, color }) => {
+const Section: React.FC<SectionProps> = ({ title, icon, children, color, isLocked = false }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -67,6 +69,12 @@ const Section: React.FC<SectionProps> = ({ title, icon, children, color }) => {
                         {icon}
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h3>
+                    {isLocked && (
+                        <div className="flex items-center text-gray-500 dark:text-gray-400">
+                            <LockClosedIcon className="h-5 w-5 mr-1" />
+                            <span className="text-sm">Lecture seule</span>
+                        </div>
+                    )}
                 </div>
                 <motion.div
                     animate={{ rotate: isOpen ? 90 : 0 }}
@@ -100,6 +108,10 @@ const ProjectDetails: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const { loading, error, selectedProject } = useSelector((state: RootState) => state.projects);
     const { users } = useSelector((state: RootState) => state.users);
+    const { user } = useSelector((state: RootState) => state.auth);
+
+    // Check if user is Resp. RH
+    const isRespRH = user?.role === 'Resp. RH';
 
     useEffect(() => {
         if (id) {
@@ -152,6 +164,13 @@ const ProjectDetails: React.FC = () => {
         );
     }
 
+    // For Resp. RH, create read-only versions of components
+    const ReadOnlyView = ({ children }: { children: React.ReactNode }) => (
+        <div className="opacity-80 pointer-events-none">
+            {children}
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
             <PageMeta
@@ -177,13 +196,15 @@ const ProjectDetails: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-4">
-                            <button
-                                onClick={() => navigate(`/projects/${id}/edit`)}
-                                className="px-6 py-3 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
-                            >
-                                <PencilIcon className="h-5 w-5" />
-                                <span>Modifier</span>
-                            </button>
+                            {!isRespRH && (
+                                <button
+                                    onClick={() => navigate(`/projects/${id}/edit`)}
+                                    className="px-6 py-3 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
+                                >
+                                    <PencilIcon className="h-5 w-5" />
+                                    <span>Modifier</span>
+                                </button>
+                            )}
                             <button
                                 onClick={() => navigate('/projects/preparation')}
                                 className="px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
@@ -224,38 +245,107 @@ const ProjectDetails: React.FC = () => {
             <div className="max-w-7xl mx-auto space-y-6">
                 {id && (
                     <>
-                        <Section title="Configuration des KPIs" icon={<ChartBarIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
-                            <KpiConfiguration projectId={id} />
+                        <Section
+                            title="Configuration des KPIs"
+                            icon={<ChartBarIcon className="h-6 w-6 text-white" />}
+                            color="bg-indigo-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <KpiConfiguration projectId={id} />
+                                </ReadOnlyView>
+                            ) : (
+                                <KpiConfiguration projectId={id} />
+                            )}
                         </Section>
 
-                        <Section title="Documents" icon={<DocumentIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
-                            <DocumentsGlobale projectId={id} />
-                            <div className="flex items-center mb-4 mt-8">
-                                <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
-                            </div>
-                            <Actions projectId={id} category="Documents globale" users={users} />
+                        <Section
+                            title="Documents"
+                            icon={<DocumentIcon className="h-6 w-6 text-white" />}
+                            color="bg-blue-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <DocumentsGlobale projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Documents globale" users={users} />
+                                </ReadOnlyView>
+                            ) : (
+                                <>
+                                    <DocumentsGlobale projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Documents globale" users={users} />
+                                </>
+                            )}
                         </Section>
 
-                        <Section title="Dossier Administratif" icon={<FolderIcon className="h-6 w-6 text-white" />} color="bg-purple-500">
-                            <DossierAdministratif projectId={id} />
-                            <div className="flex items-center mb-4 mt-8">
-                                <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
-                            </div>
-                            <Actions projectId={id} category="Dossier Administratif" users={users} />
+                        <Section
+                            title="Dossier Administratif"
+                            icon={<FolderIcon className="h-6 w-6 text-white" />}
+                            color="bg-purple-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <DossierAdministratif projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier Administratif" users={users} />
+                                </ReadOnlyView>
+                            ) : (
+                                <>
+                                    <DossierAdministratif projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <FolderIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier Administratif" users={users} />
+                                </>
+                            )}
                         </Section>
 
-                        <Section title="Dossier Technique" icon={<WrenchScrewdriverIcon className="h-6 w-6 text-white" />} color="bg-green-500">
-                            <DossierTechnique projectId={id} />
-                            <div className="flex items-center mb-4 mt-8">
-                                <WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38] mr-2" />
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
-                            </div>
-                            <Actions projectId={id} category="Dossier Technique" users={users} />
+                        <Section
+                            title="Dossier Technique"
+                            icon={<WrenchScrewdriverIcon className="h-6 w-6 text-white" />}
+                            color="bg-green-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <DossierTechnique projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier Technique" users={users} />
+                                </ReadOnlyView>
+                            ) : (
+                                <>
+                                    <DossierTechnique projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <WrenchScrewdriverIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier Technique" users={users} />
+                                </>
+                            )}
                         </Section>
 
-                        <Section title="Dossier RH" icon={<UserGroupIcon className="h-6 w-6 text-white" />} color="bg-pink-500">
+                        <Section
+                            title="Dossier RH"
+                            icon={<UserGroupIcon className="h-6 w-6 text-white" />}
+                            color="bg-pink-500"
+                        >
                             <DossierRH projectId={id} />
                             <div className="flex items-center mb-4 mt-8">
                                 <UserGroupIcon className="h-6 w-6 text-[#F28C38] mr-2" />
@@ -264,29 +354,91 @@ const ProjectDetails: React.FC = () => {
                             <Actions projectId={id} category="Dossier RH" users={users} />
                         </Section>
 
-                        <Section title="Dossier HSE" icon={<ShieldCheckIcon className="h-6 w-6 text-white" />} color="bg-red-500">
-                            <DossierHSE projectId={id} />
-                            <div className="flex items-center mb-4 mt-8">
-                                <ShieldCheckIcon className="h-6 w-6 text-[#F28C38] mr-2" />
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
-                            </div>
-                            <Actions projectId={id} category="Dossier HSE" users={users} />
+                        <Section
+                            title="Dossier HSE"
+                            icon={<ShieldCheckIcon className="h-6 w-6 text-white" />}
+                            color="bg-red-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <DossierHSE projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <ShieldCheckIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier HSE" users={users} />
+                                </ReadOnlyView>
+                            ) : (
+                                <>
+                                    <DossierHSE projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <ShieldCheckIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier HSE" users={users} />
+                                </>
+                            )}
                         </Section>
 
-                        <Section title="Budget" icon={<CurrencyDollarIcon className="h-6 w-6 text-white" />} color="bg-emerald-500">
-                            <Budget projectId={id} />
+                        <Section
+                            title="Budget"
+                            icon={<CurrencyDollarIcon className="h-6 w-6 text-white" />}
+                            color="bg-emerald-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <Budget projectId={id} />
+                                </ReadOnlyView>
+                            ) : (
+                                <Budget projectId={id} />
+                            )}
                         </Section>
 
-                        <Section title="Exigences" icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />} color="bg-indigo-500">
-                            <ProjectRequirements projectId={id} />
+                        <Section
+                            title="Exigences"
+                            icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />}
+                            color="bg-indigo-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    <ProjectRequirements projectId={id} />
+                                </ReadOnlyView>
+                            ) : (
+                                <ProjectRequirements projectId={id} />
+                            )}
                         </Section>
 
-                        <Section title="Planification du Projet" icon={<CalendarIcon className="h-6 w-6 text-white" />} color="bg-blue-500">
-                            {id && <ProjectPlanning projectId={id} />}
+                        <Section
+                            title="Planification du Projet"
+                            icon={<CalendarIcon className="h-6 w-6 text-white" />}
+                            color="bg-blue-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    {id && <ProjectPlanning projectId={id} />}
+                                </ReadOnlyView>
+                            ) : (
+                                id && <ProjectPlanning projectId={id} />
+                            )}
                         </Section>
 
-                        <Section title="Statut du Projet" icon={<ClockIcon className="h-6 w-6 text-white" />} color="bg-orange-500">
-                            {id && <ProjectStatus projectId={id} />}
+                        <Section
+                            title="Statut du Projet"
+                            icon={<ClockIcon className="h-6 w-6 text-white" />}
+                            color="bg-orange-500"
+                            isLocked={isRespRH}
+                        >
+                            {isRespRH ? (
+                                <ReadOnlyView>
+                                    {id && <ProjectStatus projectId={id} />}
+                                </ReadOnlyView>
+                            ) : (
+                                id && <ProjectStatus projectId={id} />
+                            )}
                         </Section>
                     </>
                 )}

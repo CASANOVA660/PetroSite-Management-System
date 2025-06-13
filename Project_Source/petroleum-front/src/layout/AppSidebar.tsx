@@ -38,6 +38,7 @@ const AppSidebar: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { chats } = useSelector((state: RootState) => state.chat);
   const isManager = user?.role === 'Manager';
+  const isRH = user?.role === 'Resp. RH';
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main";
@@ -237,7 +238,8 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
 
-  const navItems: NavItem[] = [
+  // Define all possible navigation items
+  const allNavItems: NavItem[] = [
     {
       icon: <GridIcon />,
       name: isManager ? "Tableau de Manager" : "Tableau de bord",
@@ -260,11 +262,6 @@ const AppSidebar: React.FC = () => {
       icon: <ListIcon />,
       name: "Mes Tâches",
       path: "/tasks"
-    },
-    {
-      icon: <PageIcon />,
-      name: "Documents",
-      path: "/documents"
     },
     {
       icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
@@ -292,26 +289,52 @@ const AppSidebar: React.FC = () => {
       name: "Gestion RH",
       path: "/gestion-rh"
     },
-
-    // Add Global Actions for managers
-    ...(isManager ? [{
+    {
       icon: <ClipboardIcon />,
       name: "Actions Globales",
       path: "/global-actions"
-    }] : []),
-    ...(isManager ? [{
+    },
+    {
       icon: <SparklesIcon className="w-6 h-6" />,
       name: "Think IA",
       path: "/rag-chat"
-    }] : []),
-    ...(isManager ? [{
+    },
+    {
       icon: <GroupIcon />,
       name: "Gestion des Utilisateurs",
       path: "/user-management"
-    }] : [])
+    }
   ];
 
-
+  // Filter navigation items based on user role
+  const navItems: NavItem[] = (() => {
+    if (isRH) {
+      // Only show specific items for RH role
+      return allNavItems.filter(item =>
+        item.name === "User Profile" ||
+        item.name === "Mes Tâches" ||
+        item.name === "Messagerie" ||
+        item.name === "Gestion RH"
+      ).concat([
+        // Custom Préparation Projet item for RH that only shows the preparation path
+        {
+          icon: <FolderIcon />,
+          name: "Préparation Projet",
+          path: "/projects/preparation"
+        }
+      ]);
+    } else if (isManager) {
+      // Show all items for Manager role
+      return allNavItems;
+    } else {
+      // Default navigation items (exclude manager-specific items)
+      return allNavItems.filter(item =>
+        item.name !== "Actions Globales" &&
+        item.name !== "Think IA" &&
+        item.name !== "Gestion des Utilisateurs"
+      );
+    }
+  })();
 
   return (
     <aside
