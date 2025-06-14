@@ -41,6 +41,10 @@ interface OperationDailyReportProps {
 const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, initialReports = [] }) => {
     const dispatch = useDispatch<AppDispatch>();
     const { data: reportData, loading } = useSelector((state: RootState) => state.operation.dailyReports);
+    const { user } = useSelector((state: RootState) => state.auth);
+
+    // Check if the user is a manager
+    const isManager = user?.role === 'Manager';
 
     const [reports, setReports] = useState<DailyReport[]>([]);
     const [expandedReport, setExpandedReport] = useState<string | null>(null);
@@ -160,9 +164,11 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
 
     // Add functions to handle approving and rejecting reports
     const handleApproveReport = (reportId: string) => {
-        // Log user role for debugging
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        console.log('Current user role:', user.role);
+        // Check if user is a manager
+        if (!isManager) {
+            toast.error('Seuls les managers peuvent approuver les rapports');
+            return;
+        }
 
         // Show loading toast
         const loadingToast = toast.loading('Approbation du rapport...');
@@ -182,12 +188,24 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
     };
 
     const openRejectModal = (reportId: string) => {
+        // Check if user is a manager
+        if (!isManager) {
+            toast.error('Seuls les managers peuvent rejeter les rapports');
+            return;
+        }
+
         setRejectReportId(reportId);
         setRejectionReason('');
         setShowRejectModal(true);
     };
 
     const handleRejectReport = (reportId: string) => {
+        // Check if user is a manager
+        if (!isManager) {
+            toast.error('Seuls les managers peuvent rejeter les rapports');
+            return;
+        }
+
         if (!rejectionReason.trim()) {
             toast.error('Veuillez fournir une raison de rejet');
             return;
@@ -341,7 +359,7 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                 toast.dismiss(loadingToast);
                 toast.error(`Erreur: ${error.message || 'Une erreur est survenue'}`);
                 console.error('Failed to submit report:', error);
-        });
+            });
     };
 
     return (
@@ -413,10 +431,10 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                         </div>
                     ) : (
                         getFilteredReports().map((report) => (
-                        <motion.div
+                            <motion.div
                                 key={report._id}
                                 initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
+                                animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.3 }}
                                 className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden"
                             >
@@ -434,12 +452,12 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                             <div className="flex items-center space-x-4 mt-1">
                                                 <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                                                     <CalendarIcon className="h-4 w-4 mr-1" />
-                                                {formatDate(report.date)}
-                                        </div>
+                                                    {formatDate(report.date)}
+                                                </div>
                                                 <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                                        <UserIcon className="h-4 w-4 mr-1" />
-                                        {report.supervisor}
-                                    </div>
+                                                    <UserIcon className="h-4 w-4 mr-1" />
+                                                    {report.supervisor}
+                                                </div>
                                                 <div className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(report.status)}`}>
                                                     {getStatusLabel(report.status)}
                                                 </div>
@@ -450,7 +468,7 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                         <div className="flex space-x-2">
                                             {getWeatherIcon(report.weather || '')}
                                             {getSafetyIcon(report.safety || '')}
-                                    {report.issues && report.issues.length > 0 && (
+                                            {report.issues && report.issues.length > 0 && (
                                                 <div className="text-amber-500">
                                                     <ExclamationCircleIcon className="h-5 w-5" />
                                                 </div>
@@ -460,9 +478,9 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                             <ChevronUpIcon className="h-5 w-5 text-gray-400" />
                                         ) : (
                                             <ChevronDownIcon className="h-5 w-5 text-gray-400" />
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
                                 {/* Expanded content */}
                                 {expandedReport === report._id && (
@@ -512,12 +530,12 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                                                 <span>{report.weatherConditions}</span>
                                                             </div>
                                                         </div>
-                                            </div>
-                                        )}
+                                                    </div>
+                                                )}
 
                                                 {/* Health and safety */}
                                                 {report.healthAndSafety && (
-                                                <div>
+                                                    <div>
                                                         <h4 className="font-medium text-gray-900 dark:text-white mb-2">Santé et sécurité</h4>
                                                         <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-2">
                                                             <div className="grid grid-cols-2 gap-2">
@@ -547,12 +565,12 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                                                 </div>
                                                             )}
                                                         </div>
-                                                </div>
-                                            )}
+                                                    </div>
+                                                )}
 
                                                 {/* Challenges and solutions */}
                                                 {(report.challenges || report.solutions) && (
-                                                <div>
+                                                    <div>
                                                         <h4 className="font-medium text-gray-900 dark:text-white mb-2">Défis et solutions</h4>
                                                         <div className="space-y-3">
                                                             {report.challenges && (
@@ -565,11 +583,11 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                                                 <div className="p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
                                                                     <div className="text-sm font-medium text-green-800 dark:text-green-300 mb-1">Solutions:</div>
                                                                     <div className="text-sm text-gray-700 dark:text-gray-300">{report.solutions}</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                            </div>
-                                        )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {/* Notes */}
                                                 {report.notes && (
@@ -594,9 +612,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                                     Soumettre
                                                 </button>
                                             )}
-                                            {report.status === 'submitted' && (
+                                            {report.status === 'submitted' && isManager && (
                                                 <>
-                                                    {/* Only show approve/reject buttons for managers */}
                                                     <button
                                                         onClick={() => handleApproveReport(report._id)}
                                                         className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-sm flex items-center"
@@ -627,8 +644,8 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                             </button>
                                         </div>
                                     </div>
-                            )}
-                        </motion.div>
+                                )}
+                            </motion.div>
                         ))
                     )}
                 </div>
