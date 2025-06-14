@@ -54,6 +54,7 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReportId, setRejectReportId] = useState<string | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [editingReport, setEditingReport] = useState<DailyReport | null>(null);
 
     // Add state for the new report form
     const [newReport, setNewReport] = useState({
@@ -106,7 +107,45 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
         });
     };
 
-    // Function to handle form submission
+    // Function to handle opening the edit modal
+    const handleEditReport = (report: DailyReport) => {
+        // Check if user can modify this report
+        if (!canModifyReport(report)) {
+            toast.error('Vous n\'avez pas les permissions pour modifier ce rapport');
+            return;
+        }
+
+        // Set the report to be edited
+        setEditingReport(report);
+
+        // Pre-fill the form with the report data
+        setNewReport({
+            date: report.date,
+            title: report.title || '',
+            activities: report.activities && report.activities.length > 0
+                ? report.activities.map(activity => ({
+                    description: activity.description || '',
+                    startTime: activity.startTime || '08:00',
+                    endTime: activity.endTime || '17:00',
+                    status: activity.status || 'inProgress' as 'completed' | 'inProgress' | 'delayed' | 'cancelled'
+                }))
+                : [{ description: '', startTime: '08:00', endTime: '17:00', status: 'inProgress' as 'completed' | 'inProgress' | 'delayed' | 'cancelled' }],
+            weatherConditions: report.weatherConditions || '',
+            healthAndSafety: {
+                incidents: report.healthAndSafety?.incidents || 0,
+                nearMisses: report.healthAndSafety?.nearMisses || 0,
+                safetyMeetingHeld: report.healthAndSafety?.safetyMeetingHeld || false,
+                notes: report.healthAndSafety?.notes || ''
+            },
+            challenges: report.challenges || '',
+            solutions: report.solutions || ''
+        });
+
+        // Show the modal
+        setShowModal(true);
+    };
+
+    // Update the handleCreateReport function to handle both creation and editing
     const handleCreateReport = () => {
         // Validate form
         if (!newReport.date) {
@@ -120,7 +159,7 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
         }
 
         // Show loading toast
-        const loadingToast = toast.loading('Création du rapport...');
+        const loadingToast = toast.loading(editingReport ? 'Mise à jour du rapport...' : 'Création du rapport...');
 
         // Create report data
         const reportData = {
@@ -128,20 +167,41 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
             title: newReport.title || `Rapport journalier - ${format(new Date(newReport.date), 'dd/MM/yyyy')}`
         };
 
-        // Create via Redux
-        dispatch(createDailyReport({ projectId: projectId || '', reportData }))
-            .unwrap()
-            .then(() => {
-                toast.dismiss(loadingToast);
-                toast.success('Rapport créé avec succès');
-                setShowModal(false);
-                resetNewReportForm();
-            })
-            .catch((error) => {
-                toast.dismiss(loadingToast);
-                toast.error(`Erreur: ${error.message || 'Une erreur est survenue'}`);
-                console.error('Failed to create report:', error);
-            });
+        if (editingReport) {
+            // Update via Redux
+            dispatch(updateDailyReport({
+                reportId: editingReport._id,
+                reportData
+            }))
+                .unwrap()
+                .then(() => {
+                    toast.dismiss(loadingToast);
+                    toast.success('Rapport mis à jour avec succès');
+                    setShowModal(false);
+                    setEditingReport(null);
+                    resetNewReportForm();
+                })
+                .catch((error) => {
+                    toast.dismiss(loadingToast);
+                    toast.error(`Erreur: ${error.message || 'Une erreur est survenue'}`);
+                    console.error('Failed to update report:', error);
+                });
+        } else {
+            // Create via Redux
+            dispatch(createDailyReport({ projectId: projectId || '', reportData }))
+                .unwrap()
+                .then(() => {
+                    toast.dismiss(loadingToast);
+                    toast.success('Rapport créé avec succès');
+                    setShowModal(false);
+                    resetNewReportForm();
+                })
+                .catch((error) => {
+                    toast.dismiss(loadingToast);
+                    toast.error(`Erreur: ${error.message || 'Une erreur est survenue'}`);
+                    console.error('Failed to create report:', error);
+                });
+        }
     };
 
     // Reset the new report form
@@ -360,6 +420,12 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                 toast.error(`Erreur: ${error.message || 'Une erreur est survenue'}`);
                 console.error('Failed to submit report:', error);
             });
+    };
+
+    // Function to check if user can modify a report
+    const canModifyReport = (report: DailyReport) => {
+        // User can modify if they are the creator or a manager
+        return user?._id === report.createdBy || isManager;
     };
 
     return (
@@ -630,12 +696,15 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                                     </button>
                                                 </>
                                             )}
-                                            <button
-                                                className="px-4 py-2 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors shadow-sm flex items-center"
-                                            >
-                                                <PencilIcon className="h-4 w-4 mr-1" />
-                                                Modifier
-                                            </button>
+                                            {canModifyReport(report) && (
+                                                <button
+                                                    onClick={() => handleEditReport(report)}
+                                                    className="px-4 py-2 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors shadow-sm flex items-center"
+                                                >
+                                                    <PencilIcon className="h-4 w-4 mr-1" />
+                                                    Modifier
+                                                </button>
+                                            )}
                                             <button
                                                 className="px-4 py-2 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors shadow-sm flex items-center"
                                             >
@@ -717,10 +786,14 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                     >
                         <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                                Nouveau rapport journalier
+                                {editingReport ? 'Modifier le rapport' : 'Nouveau rapport journalier'}
                             </h3>
                             <button
-                                onClick={() => setShowModal(false)}
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setEditingReport(null);
+                                    resetNewReportForm();
+                                }}
                                 className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                             >
                                 <XMarkIcon className="h-5 w-5" />
@@ -985,7 +1058,11 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
 
                             <div className="mt-6 flex justify-end space-x-3">
                                 <button
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => {
+                                        setShowModal(false);
+                                        setEditingReport(null);
+                                        resetNewReportForm();
+                                    }}
                                     className="px-4 py-2 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                                 >
                                     Annuler
@@ -994,7 +1071,7 @@ const OperationDailyReport: React.FC<OperationDailyReportProps> = ({ projectId, 
                                     onClick={handleCreateReport}
                                     className="px-4 py-2 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors"
                                 >
-                                    Créer le rapport
+                                    {editingReport ? 'Mettre à jour' : 'Créer le rapport'}
                                 </button>
                             </div>
                         </div>
