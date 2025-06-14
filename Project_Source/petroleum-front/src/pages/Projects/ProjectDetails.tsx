@@ -110,8 +110,9 @@ const ProjectDetails: React.FC = () => {
     const { users } = useSelector((state: RootState) => state.users);
     const { user } = useSelector((state: RootState) => state.auth);
 
-    // Check if user is Resp. RH
+    // Check user roles
     const isRespRH = user?.role === 'Resp. RH';
+    const isChefDeBase = user?.role === 'Chef de base';
 
     useEffect(() => {
         if (id) {
@@ -164,12 +165,23 @@ const ProjectDetails: React.FC = () => {
         );
     }
 
-    // For Resp. RH, create read-only versions of components
+    // For read-only sections
     const ReadOnlyView = ({ children }: { children: React.ReactNode }) => (
         <div className="opacity-80 pointer-events-none">
             {children}
         </div>
     );
+
+    // Determine if a section should be locked based on user role
+    const shouldLockSection = (sectionName: string) => {
+        if (isRespRH) {
+            return sectionName !== "Dossier RH";
+        }
+        if (isChefDeBase) {
+            return sectionName !== "Dossier Technique";
+        }
+        return false;
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
@@ -196,7 +208,7 @@ const ProjectDetails: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-4">
-                            {!isRespRH && (
+                            {!isRespRH && !isChefDeBase && (
                                 <button
                                     onClick={() => navigate(`/projects/${id}/edit`)}
                                     className="px-6 py-3 bg-[#F28C38] text-white rounded-lg hover:bg-[#E67E2E] transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2"
@@ -249,9 +261,9 @@ const ProjectDetails: React.FC = () => {
                             title="Configuration des KPIs"
                             icon={<ChartBarIcon className="h-6 w-6 text-white" />}
                             color="bg-indigo-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Configuration des KPIs")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Configuration des KPIs") ? (
                                 <ReadOnlyView>
                                     <KpiConfiguration projectId={id} />
                                 </ReadOnlyView>
@@ -264,9 +276,9 @@ const ProjectDetails: React.FC = () => {
                             title="Documents"
                             icon={<DocumentIcon className="h-6 w-6 text-white" />}
                             color="bg-blue-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Documents")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Documents") ? (
                                 <ReadOnlyView>
                                     <DocumentsGlobale projectId={id} />
                                     <div className="flex items-center mb-4 mt-8">
@@ -291,9 +303,9 @@ const ProjectDetails: React.FC = () => {
                             title="Dossier Administratif"
                             icon={<FolderIcon className="h-6 w-6 text-white" />}
                             color="bg-purple-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Dossier Administratif")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Dossier Administratif") ? (
                                 <ReadOnlyView>
                                     <DossierAdministratif projectId={id} />
                                     <div className="flex items-center mb-4 mt-8">
@@ -318,9 +330,9 @@ const ProjectDetails: React.FC = () => {
                             title="Dossier Technique"
                             icon={<WrenchScrewdriverIcon className="h-6 w-6 text-white" />}
                             color="bg-green-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Dossier Technique")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Dossier Technique") ? (
                                 <ReadOnlyView>
                                     <DossierTechnique projectId={id} />
                                     <div className="flex items-center mb-4 mt-8">
@@ -345,22 +357,36 @@ const ProjectDetails: React.FC = () => {
                             title="Dossier RH"
                             icon={<UserGroupIcon className="h-6 w-6 text-white" />}
                             color="bg-pink-500"
+                            isLocked={shouldLockSection("Dossier RH")}
                         >
-                            <DossierRH projectId={id} />
-                            <div className="flex items-center mb-4 mt-8">
-                                <UserGroupIcon className="h-6 w-6 text-[#F28C38] mr-2" />
-                                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
-                            </div>
-                            <Actions projectId={id} category="Dossier RH" users={users} />
+                            {shouldLockSection("Dossier RH") ? (
+                                <ReadOnlyView>
+                                    <DossierRH projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <UserGroupIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier RH" users={users} />
+                                </ReadOnlyView>
+                            ) : (
+                                <>
+                                    <DossierRH projectId={id} />
+                                    <div className="flex items-center mb-4 mt-8">
+                                        <UserGroupIcon className="h-6 w-6 text-[#F28C38] mr-2" />
+                                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Actions</h4>
+                                    </div>
+                                    <Actions projectId={id} category="Dossier RH" users={users} />
+                                </>
+                            )}
                         </Section>
 
                         <Section
                             title="Dossier HSE"
                             icon={<ShieldCheckIcon className="h-6 w-6 text-white" />}
                             color="bg-red-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Dossier HSE")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Dossier HSE") ? (
                                 <ReadOnlyView>
                                     <DossierHSE projectId={id} />
                                     <div className="flex items-center mb-4 mt-8">
@@ -385,9 +411,9 @@ const ProjectDetails: React.FC = () => {
                             title="Budget"
                             icon={<CurrencyDollarIcon className="h-6 w-6 text-white" />}
                             color="bg-emerald-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Budget")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Budget") ? (
                                 <ReadOnlyView>
                                     <Budget projectId={id} />
                                 </ReadOnlyView>
@@ -400,9 +426,9 @@ const ProjectDetails: React.FC = () => {
                             title="Exigences"
                             icon={<ClipboardDocumentListIcon className="h-6 w-6 text-white" />}
                             color="bg-indigo-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Exigences")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Exigences") ? (
                                 <ReadOnlyView>
                                     <ProjectRequirements projectId={id} />
                                 </ReadOnlyView>
@@ -415,9 +441,9 @@ const ProjectDetails: React.FC = () => {
                             title="Planification du Projet"
                             icon={<CalendarIcon className="h-6 w-6 text-white" />}
                             color="bg-blue-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Planification du Projet")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Planification du Projet") ? (
                                 <ReadOnlyView>
                                     {id && <ProjectPlanning projectId={id} />}
                                 </ReadOnlyView>
@@ -430,9 +456,9 @@ const ProjectDetails: React.FC = () => {
                             title="Statut du Projet"
                             icon={<ClockIcon className="h-6 w-6 text-white" />}
                             color="bg-orange-500"
-                            isLocked={isRespRH}
+                            isLocked={shouldLockSection("Statut du Projet")}
                         >
-                            {isRespRH ? (
+                            {shouldLockSection("Statut du Projet") ? (
                                 <ReadOnlyView>
                                     {id && <ProjectStatus projectId={id} />}
                                 </ReadOnlyView>

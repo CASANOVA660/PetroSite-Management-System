@@ -39,6 +39,8 @@ const AppSidebar: React.FC = () => {
   const { chats } = useSelector((state: RootState) => state.chat);
   const isManager = user?.role === 'Manager';
   const isRH = user?.role === 'Resp. RH';
+  const isChefOperateur = user?.role === 'Chef Opérateur';
+  const isChefDeBase = user?.role === 'Chef de base';
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main";
@@ -323,6 +325,66 @@ const AppSidebar: React.FC = () => {
           path: "/projects/preparation"
         }
       ]);
+    } else if (isChefOperateur) {
+      // Only show specific items for Chef Opérateur role
+      return [
+        {
+          icon: <UserCircleIcon />,
+          name: "User Profile",
+          path: "/profile",
+        },
+        {
+          icon: <FolderIcon />,
+          name: "Opération",
+          path: "/projects/operation"
+        },
+        {
+          icon: <ListIcon />,
+          name: "Mes Tâches",
+          path: "/tasks"
+        },
+        {
+          icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
+          name: "Messagerie",
+          path: "/chat",
+          badge: totalUnreadMessages
+        }
+      ];
+    } else if (isChefDeBase) {
+      // Only show specific items for Chef de base role
+      return [
+        {
+          icon: <UserCircleIcon />,
+          name: "User Profile",
+          path: "/profile",
+        },
+        {
+          icon: <FolderIcon />,
+          name: "Préparation Projet",
+          path: "/projects/preparation"
+        },
+        {
+          icon: <ListIcon />,
+          name: "Mes Tâches",
+          path: "/tasks"
+        },
+        {
+          icon: <ChatBubbleLeftRightIcon className="w-6 h-6" />,
+          name: "Messagerie",
+          path: "/chat",
+          badge: totalUnreadMessages
+        },
+        {
+          icon: <WarehouseIcon />,
+          name: "Magasin des équipments",
+          path: "/equipments"
+        },
+        {
+          icon: <CalenderIcon />,
+          name: "Planning",
+          path: "/planning"
+        }
+      ];
     } else if (isManager) {
       // Show all items for Manager role
       return allNavItems;
