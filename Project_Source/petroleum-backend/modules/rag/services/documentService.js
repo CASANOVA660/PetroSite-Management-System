@@ -187,9 +187,7 @@ async function splitTextIntoChunks(text, documentId) {
                 document: documentId,
                 chunkIndex: i,
                 content: rawChunks[i].pageContent,
-                metadata: {
-                    ...rawChunks[i].metadata
-                },
+                metadata: rawChunks[i].metadata || {},
                 vectorStatus: 'pending'
             });
 

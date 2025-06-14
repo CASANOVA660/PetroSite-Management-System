@@ -37,7 +37,7 @@ async function initPinecone() {
             });
         }
 
-        pineconeIndex = pineconeClient.Index(PINECONE_INDEX_NAME);
+        pineconeIndex = pineconeClient.index(PINECONE_INDEX_NAME);
         return pineconeIndex;
     } catch (error) {
         logger.error(`Error initializing Pinecone: ${error.message}`);

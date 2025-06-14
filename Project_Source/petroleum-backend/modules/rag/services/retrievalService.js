@@ -20,7 +20,7 @@ const simpleEmbedding = (text) => {
     const uniqueWords = Array.from(wordSet);
 
     // Create a simple embedding based on word frequency
-    const embedding = new Array(384).fill(0); // Use 384 dimensions
+    const embedding = new Array(1024).fill(0); // Updated to 1024 dimensions to match Pinecone index
 
     // Fill the embedding vector with simple hashed values
     for (let i = 0; i < uniqueWords.length; i++) {
@@ -56,46 +56,73 @@ const simpleEmbedding = (text) => {
 const retrieveRelevantDocuments = async (query, topK = 5) => {
     try {
         const startTime = Date.now();
+        logger.info(`Starting document retrieval for query: "${query}"`);
 
         // Generate simple embedding for the query
         const queryEmbedding = simpleEmbedding(query);
+        logger.info(`Generated embedding for query`);
 
-        // Get the index
-        const pinecone = new Pinecone({
-            apiKey: PINECONE_API_KEY,
-        });
-        const index = pinecone.Index(PINECONE_INDEX_NAME);
+        try {
+            // Get the index
+            const pinecone = new Pinecone({
+                apiKey: PINECONE_API_KEY,
+            });
 
-        // Search for similar documents
-        const results = await index.query({
-            vector: queryEmbedding,
-            topK: topK,
-            includeMetadata: true
-        });
+            if (!PINECONE_API_KEY) {
+                logger.error('PINECONE_API_KEY is missing in environment variables');
+                return { documents: [], relevanceScores: [] };
+            }
 
-        // Handle case where results.matches is undefined
-        const matches = results.matches || [];
+            logger.info(`Initialized Pinecone client with API key: ${PINECONE_API_KEY ? '***' : 'missing'}`);
 
-        // Convert Pinecone results to document format
-        const documents = matches.map(match => ({
-            documentId: match.metadata.documentId,
-            text: match.metadata.content,
-            title: match.metadata.title || 'Unknown Document',
-            chunkId: match.id
-        }));
+            const index = pinecone.index(PINECONE_INDEX_NAME);
+            logger.info(`Connected to Pinecone index: ${PINECONE_INDEX_NAME}`);
 
-        // Extract relevance scores
-        const relevanceScores = matches.map(match => match.score || 0);
+            // Search for similar documents
+            logger.info(`Querying Pinecone for top ${topK} matches`);
+            const results = await index.query({
+                vector: queryEmbedding,
+                topK: topK,
+                includeMetadata: true
+            });
 
-        const retrievalTime = Date.now() - startTime;
-        logger.info(`Retrieved ${documents.length} documents in ${retrievalTime}ms`);
+            // Handle case where results.matches is undefined
+            const matches = results.matches || [];
+            logger.info(`Received ${matches.length} matches from Pinecone`);
 
-        return {
-            documents,
-            relevanceScores
-        };
+            // Convert Pinecone results to document format
+            const documents = matches.map(match => ({
+                documentId: match.metadata.documentId,
+                text: match.metadata.content,
+                title: match.metadata.title || 'Unknown Document',
+                chunkId: match.id
+            }));
+
+            // Extract relevance scores
+            const relevanceScores = matches.map(match => match.score || 0);
+
+            const retrievalTime = Date.now() - startTime;
+            logger.info(`Retrieved ${documents.length} documents in ${retrievalTime}ms`);
+
+            if (documents.length === 0) {
+                logger.warn(`No documents found for query: "${query}". Check if documents are properly indexed in Pinecone.`);
+            }
+
+            return {
+                documents,
+                relevanceScores
+            };
+        } catch (pineconeError) {
+            logger.error(`Pinecone error: ${pineconeError.message}`);
+            logger.error(`Pinecone stack: ${pineconeError.stack}`);
+            return {
+                documents: [],
+                relevanceScores: []
+            };
+        }
     } catch (error) {
         logger.error(`Error retrieving documents: ${error.message}`);
+        logger.error(`Error stack: ${error.stack}`);
         // Return empty arrays to prevent undefined errors
         return {
             documents: [],

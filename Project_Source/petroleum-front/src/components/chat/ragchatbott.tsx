@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from '../../context/ThemeContext';
-import { PaperAirplaneIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, PlusIcon, Bars3Icon } from '@heroicons/react/24/solid';
 import {
     XMarkIcon,
     ArrowPathIcon,
@@ -189,27 +189,51 @@ const RAGChatbot: React.FC = () => {
         setInput('');
         setIsTyping(true);
 
-        // Check if we're in direct query mode
-        if (useDirectQuery) {
-            // Call the database query API
-            dispatch(sendQueryDirectly({
+        // Always use RAG mode
+        if (!currentChatId) {
+            // If no current chat, create one first
+            dispatch(createChat({ title: 'New Chat' }))
+                .then((createResponse: any) => {
+                    if (createChat.fulfilled.match(createResponse)) {
+                        const newChatId = createResponse.payload._id;
+                        setCurrentChatId(newChatId);
+
+                        // Now send the message with the new chat ID
+                        dispatch(sendMessage({
+                            chatId: newChatId,
+                            content: input
+                        }))
+                            .then((response: any) => {
+                                if (response.error) {
+                                    // Handle error
+                                    const errorMessage: Message = {
+                                        id: (Date.now() + 1).toString(),
+                                        content: `Error: ${response.error}. Please try again.`,
+                                        timestamp: new Date(),
+                                        isBot: true,
+                                    };
+                                    setMessages(prev => [...prev, errorMessage]);
+                                }
+                                setIsTyping(false);
+                            })
+                            .catch(handleRagError);
+                    } else {
+                        handleRagError(new Error('Failed to create chat'));
+                    }
+                })
+                .catch(handleRagError);
+        } else {
+            // We already have a chat ID, send message directly
+            dispatch(sendMessage({
+                chatId: currentChatId,
                 content: input
             }))
                 .then((response: any) => {
-                    if (response.payload) {
-                        // Create a bot message with the response
-                        const botMessage: Message = {
-                            id: (Date.now() + 1).toString(),
-                            content: response.payload.content || 'No response from database',
-                            timestamp: new Date(),
-                            isBot: true,
-                        };
-                        setMessages(prev => [...prev, botMessage]);
-                    } else if (response.error) {
+                    if (response.error) {
                         // Handle error
                         const errorMessage: Message = {
                             id: (Date.now() + 1).toString(),
-                            content: `Error: ${response.error}. Try rephrasing your query or switching to RAG mode.`,
+                            content: `Error: ${response.error}. Please try again.`,
                             timestamp: new Date(),
                             isBot: true,
                         };
@@ -217,73 +241,7 @@ const RAGChatbot: React.FC = () => {
                     }
                     setIsTyping(false);
                 })
-                .catch((error: any) => {
-                    // Handle API error
-                    const errorMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        content: 'Sorry, there was an error processing your database query. Please try again.',
-                        timestamp: new Date(),
-                        isBot: true,
-                    };
-                    setMessages(prev => [...prev, errorMessage]);
-                    setIsTyping(false);
-                    console.error('Database query error:', error);
-                });
-        } else {
-            // RAG mode
-            if (!currentChatId) {
-                // If no current chat, create one first
-                dispatch(createChat({ title: 'New Chat' }))
-                    .then((createResponse: any) => {
-                        if (createChat.fulfilled.match(createResponse)) {
-                            const newChatId = createResponse.payload._id;
-                            setCurrentChatId(newChatId);
-
-                            // Now send the message with the new chat ID
-                            dispatch(sendMessage({
-                                chatId: newChatId,
-                                content: input
-                            }))
-                                .then((response: any) => {
-                                    if (response.error) {
-                                        // Handle error
-                                        const errorMessage: Message = {
-                                            id: (Date.now() + 1).toString(),
-                                            content: `Error: ${response.error}. Please try again.`,
-                                            timestamp: new Date(),
-                                            isBot: true,
-                                        };
-                                        setMessages(prev => [...prev, errorMessage]);
-                                    }
-                                    setIsTyping(false);
-                                })
-                                .catch(handleRagError);
-                        } else {
-                            handleRagError(new Error('Failed to create chat'));
-                        }
-                    })
-                    .catch(handleRagError);
-            } else {
-                // We already have a chat ID, send message directly
-                dispatch(sendMessage({
-                    chatId: currentChatId,
-                    content: input
-                }))
-                    .then((response: any) => {
-                        if (response.error) {
-                            // Handle error
-                            const errorMessage: Message = {
-                                id: (Date.now() + 1).toString(),
-                                content: `Error: ${response.error}. Please try again.`,
-                                timestamp: new Date(),
-                                isBot: true,
-                            };
-                            setMessages(prev => [...prev, errorMessage]);
-                        }
-                        setIsTyping(false);
-                    })
-                    .catch(handleRagError);
-            }
+                .catch(handleRagError);
         }
     };
 
@@ -374,7 +332,7 @@ const RAGChatbot: React.FC = () => {
         if (!file) return;
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('document', file);
         formData.append('title', title);
         if (description) formData.append('description', description);
 
@@ -804,46 +762,20 @@ const RAGChatbot: React.FC = () => {
             {/* Main chat area */}
             <div className={`flex-1 flex flex-col bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative transition-all duration-300 ml-72 ${sidebarOpen ? 'mr-72' : 'mr-0'}`}>
                 {/* Header - fixed at top with higher z-index */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-20 relative">
-                    <div className="flex items-center">
-                        <div className="text-xl font-bold flex items-center">
-                            <span className="mr-1">ThinkAI</span>
-                            {theme === 'dark' ? (
-                                <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">M</span>
-                            ) : (
-                                <span className="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">M</span>
-                            )}
-                        </div>
-                    </div>
+                <div className={`flex items-center justify-between p-4 border-b ${theme === 'dark' ? 'bg-gray-850 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <h1 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                        RAG Chatbot
+                    </h1>
                     <div className="flex items-center space-x-2">
-                        {/* Direct Query Toggle */}
-                        <button
-                            onClick={() => setUseDirectQuery(!useDirectQuery)}
-                            className={`p-2 rounded-full flex items-center ${useDirectQuery
-                                ? theme === 'dark'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-blue-500 text-white'
-                                : theme === 'dark'
-                                    ? 'hover:bg-gray-800 text-gray-400'
-                                    : 'hover:bg-gray-100 text-gray-600'
-                                }`}
-                            aria-label={useDirectQuery ? "Switch to RAG mode" : "Switch to Database Query mode"}
-                            title={useDirectQuery ? "Currently in Database Query mode" : "Click to switch to Database Query mode"}
-                        >
-                            <ServerIcon className="h-5 w-5" />
-                            <span className="ml-1 text-xs hidden sm:inline">
-                                {useDirectQuery ? "DB Query" : "RAG Mode"}
-                            </span>
-                        </button>
                         <button
                             onClick={toggleSidebar}
-                            className="p-2.5 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-700 flex items-center justify-center"
+                            className={`p-2 rounded-full ${theme === 'dark' ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
                             aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
                         >
                             {sidebarOpen ? (
-                                <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                <XMarkIcon className="h-5 w-5" />
                             ) : (
-                                <ChevronLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                <Bars3Icon className="h-5 w-5" />
                             )}
                         </button>
                     </div>

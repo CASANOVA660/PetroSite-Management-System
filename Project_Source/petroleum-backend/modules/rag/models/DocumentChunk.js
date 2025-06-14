@@ -16,14 +16,21 @@ const documentChunkSchema = new mongoose.Schema(
             required: true
         },
         metadata: {
-            pageNumber: Number,
-            section: String,
-            title: String,
-            type: String
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
+            get: function (data) {
+                try {
+                    return typeof data === 'string' ? JSON.parse(data) : data;
+                } catch (e) {
+                    return data;
+                }
+            },
+            set: function (data) {
+                return data;
+            }
         },
         embedding: {
-            type: Map,
-            of: mongoose.Schema.Types.Mixed,
+            type: mongoose.Schema.Types.Mixed,
             default: null
         },
         // This field will store the vector database ID for this chunk

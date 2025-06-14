@@ -746,8 +746,27 @@ async function processMessage(content, chatId) {
             throw new Error('Chat not found');
         }
 
+        // Check if we have any documents in the system
+        const documentCount = await Document.countDocuments({ processingStatus: 'embedded' });
+        if (documentCount === 0) {
+            logger.warn('No properly processed documents found in the system');
+            return {
+                content: "I don't have any processed documents in my knowledge base yet. Please upload and process some documents first before asking questions.",
+                sources: []
+            };
+        }
+
         // Retrieve context based on the user's query
         const retrievalResults = await retrieveRelevantContext(content, chat);
+
+        // Check if we have any context to work with
+        if (!retrievalResults.contextText || retrievalResults.contextText.trim() === '' || retrievalResults.sources.length === 0) {
+            logger.warn(`No relevant documents found for query: "${content}"`);
+            return {
+                content: "I couldn't find any relevant information in the knowledge base for your query. Please try rephrasing your question, or upload relevant documents to the knowledge base.",
+                sources: []
+            };
+        }
 
         // Use Ollama for response
         const contextDocs = retrievalResults.sources.map(s => ({ text: s.text }));
@@ -761,7 +780,7 @@ async function processMessage(content, chatId) {
     } catch (error) {
         logger.error(`Error processing message: ${error.message}`);
         return {
-            content: "Je suis désolé, une erreur s'est produite lors du traitement de votre message. Veuillez réessayer plus tard.",
+            content: "I'm sorry, an error occurred while processing your message. Please try again later or contact support if the problem persists.",
             sources: [],
             error: error.message
         };
@@ -919,6 +938,18 @@ async function retrieveRelevantContext(query, chat) {
 
         // Get relevant documents using the retrieval service
         const { documents, relevanceScores } = await retrieveRelevantDocuments(query);
+
+        // If no documents found, return a helpful message
+        if (!documents || documents.length === 0) {
+            logger.info(`No relevant documents found for query: ${query}`);
+            return {
+                sources: [],
+                contextText: 'No relevant documents found in the knowledge base. Please try a different query or upload relevant documents.',
+                totalChunksRetrieved: 0,
+                topRelevanceScore: 0,
+                retrievalTime: Date.now() - startTime
+            };
+        }
 
         // Calculate retrieval metrics
         const retrievalTime = Date.now() - startTime;
