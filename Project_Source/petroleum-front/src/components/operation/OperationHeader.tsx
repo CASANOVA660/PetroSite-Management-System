@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Project } from '../../store/slices/projectSlice';
+import axios from 'axios';
 import {
     CalendarIcon,
     UserGroupIcon,
@@ -8,35 +9,48 @@ import {
     CurrencyDollarIcon,
     ChevronDownIcon
 } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
+
+// Define interfaces for stats
+interface EquipmentStats {
+    total: number;
+    active: number;
+    pending: number;
+}
+
+interface PersonnelStats {
+    total: number;
+    day: number;
+    night: number;
+}
+
+interface BudgetStats {
+    percentage: number;
+    used: number;
+    total: number;
+}
 
 interface OperationHeaderProps {
     project: Project;
-    equipmentStats?: {
-        total: number;
-        active: number;
-        pending: number;
-    };
-    personnelStats?: {
-        total: number;
-        day: number;
-        night: number;
-    };
-    budgetStats?: {
-        percentage: number;
-        used: number;
-        total: number;
-    };
+    equipmentStats?: EquipmentStats;
+    personnelStats?: PersonnelStats;
+    budgetStats?: BudgetStats;
     progressPercentage?: number;
 }
 
 const OperationHeader: React.FC<OperationHeaderProps> = ({
     project,
-    equipmentStats = { total: 12, active: 8, pending: 4 },
-    personnelStats = { total: 32, day: 24, night: 8 },
-    budgetStats = { percentage: 42.8, used: 128450, total: 300000 },
-    progressPercentage = 68
+    equipmentStats: propEquipmentStats,
+    personnelStats: propPersonnelStats,
+    budgetStats: propBudgetStats,
+    progressPercentage: propProgressPercentage
 }) => {
-    // Calculate days remaining
+    const [loading, setLoading] = useState(!propEquipmentStats || !propPersonnelStats || !propBudgetStats);
+    const [equipmentStats, setEquipmentStats] = useState<EquipmentStats>(propEquipmentStats || { total: 0, active: 0, pending: 0 });
+    const [personnelStats, setPersonnelStats] = useState<PersonnelStats>(propPersonnelStats || { total: 0, day: 0, night: 0 });
+    const [budgetStats, setBudgetStats] = useState<BudgetStats>(propBudgetStats || { percentage: 0, used: 0, total: 0 });
+
+    // Calculate progress percentage based on project dates
     const startDate = new Date(project.startDate);
     const endDate = new Date(project.endDate);
     const today = new Date();
@@ -44,6 +58,73 @@ const OperationHeader: React.FC<OperationHeaderProps> = ({
     const daysElapsed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     const daysRemaining = Math.max(0, totalDays - daysElapsed);
     const daysPercentage = Math.min(100, Math.floor((daysElapsed / totalDays) * 100));
+
+    // Calculate overall project progress - use provided value or days percentage as fallback
+    const progressPercentage = propProgressPercentage || daysPercentage;
+
+    // Fetch operation stats when component mounts, but only if props weren't provided
+    useEffect(() => {
+        // If all stats are provided via props, don't fetch
+        if (propEquipmentStats && propPersonnelStats && propBudgetStats) {
+            setLoading(false);
+            return;
+        }
+
+        if (project._id) {
+            setLoading(true);
+
+            // Fetch equipment stats if not provided via props
+            const fetchEquipmentStats = async () => {
+                if (propEquipmentStats) return;
+                try {
+                    const response = await axios.get(`/api/projects/${project._id}/equipment/stats`);
+                    setEquipmentStats(response.data.data || { total: 0, active: 0, pending: 0 });
+                } catch (error: any) {
+                    console.error('Error fetching equipment stats:', error);
+                    // Set default values if fetch fails
+                    setEquipmentStats({ total: 0, active: 0, pending: 0 });
+                }
+            };
+
+            // Fetch personnel stats if not provided via props
+            const fetchPersonnelStats = async () => {
+                if (propPersonnelStats) return;
+                try {
+                    const response = await axios.get(`/api/projects/${project._id}/personnel/stats`);
+                    setPersonnelStats(response.data.data || { total: 0, day: 0, night: 0 });
+                } catch (error: any) {
+                    console.error('Error fetching personnel stats:', error);
+                    // Set default values if fetch fails
+                    setPersonnelStats({ total: 0, day: 0, night: 0 });
+                }
+            };
+
+            // Fetch budget stats if not provided via props
+            const fetchBudgetStats = async () => {
+                if (propBudgetStats) return;
+                try {
+                    const response = await axios.get(`/api/projects/${project._id}/budget/stats`);
+                    setBudgetStats(response.data.data || { percentage: 0, used: 0, total: 0 });
+                } catch (error: any) {
+                    console.error('Error fetching budget stats:', error);
+                    // Set default values if fetch fails
+                    setBudgetStats({ percentage: 0, used: 0, total: 0 });
+                }
+            };
+
+            // Execute all fetches in parallel
+            Promise.all([
+                fetchEquipmentStats(),
+                fetchPersonnelStats(),
+                fetchBudgetStats()
+            ])
+                .then(() => setLoading(false))
+                .catch((error) => {
+                    toast.error(`Erreur lors du chargement des statistiques: ${error.message || 'Une erreur est survenue'}`);
+                    setLoading(false);
+                });
+        }
+    }, [project._id, propEquipmentStats, propPersonnelStats, propBudgetStats]);
 
     // Format currency
     const formatCurrency = (amount: number) => {
@@ -100,7 +181,9 @@ const OperationHeader: React.FC<OperationHeaderProps> = ({
                                 </div>
                                 <div>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">Progression</p>
-                                    <p className="font-semibold text-gray-700 dark:text-gray-300">En cours</p>
+                                    <p className="font-semibold text-gray-700 dark:text-gray-300">
+                                        {project.status === 'En opération' ? 'En opération' : 'En cours'}
+                                    </p>
                                 </div>
                             </div>
                             <span className="h-8 w-px bg-gray-300 dark:bg-gray-600"></span>
@@ -157,10 +240,18 @@ const OperationHeader: React.FC<OperationHeaderProps> = ({
                         <div className="flex justify-between items-end">
                             <div>
                                 <p className="text-xl font-bold text-gray-800 dark:text-white">
-                                    {equipmentStats.active} / {equipmentStats.total}
+                                    {loading ? (
+                                        <span className="animate-pulse">--</span>
+                                    ) : (
+                                        `${equipmentStats.active} / ${equipmentStats.total}`
+                                    )}
                                 </p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {equipmentStats.active} actifs, {equipmentStats.pending} en attente
+                                    {loading ? (
+                                        <span className="animate-pulse">Chargement...</span>
+                                    ) : (
+                                        `${equipmentStats.active} actifs, ${equipmentStats.pending} en attente`
+                                    )}
                                 </p>
                             </div>
                             <button className="text-xs flex items-center text-green-500 hover:text-green-400">
@@ -183,9 +274,19 @@ const OperationHeader: React.FC<OperationHeaderProps> = ({
                         </div>
                         <div className="flex justify-between items-end">
                             <div>
-                                <p className="text-xl font-bold text-gray-800 dark:text-white">{personnelStats.total}</p>
+                                <p className="text-xl font-bold text-gray-800 dark:text-white">
+                                    {loading ? (
+                                        <span className="animate-pulse">--</span>
+                                    ) : (
+                                        personnelStats.total
+                                    )}
+                                </p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {personnelStats.day} jour, {personnelStats.night} nuit
+                                    {loading ? (
+                                        <span className="animate-pulse">Chargement...</span>
+                                    ) : (
+                                        `${personnelStats.day} jour, ${personnelStats.night} nuit`
+                                    )}
                                 </p>
                             </div>
                             <div className="flex -space-x-2">
@@ -209,15 +310,25 @@ const OperationHeader: React.FC<OperationHeaderProps> = ({
                         </div>
                         <div className="flex justify-between items-end">
                             <div>
-                                <p className="text-xl font-bold text-gray-800 dark:text-white">{budgetStats.percentage.toFixed(1)}%</p>
+                                <p className="text-xl font-bold text-gray-800 dark:text-white">
+                                    {loading ? (
+                                        <span className="animate-pulse">--</span>
+                                    ) : (
+                                        `${budgetStats.percentage.toFixed(1)}%`
+                                    )}
+                                </p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {formatCurrency(budgetStats.used)} sur {formatCurrency(budgetStats.total)}
+                                    {loading ? (
+                                        <span className="animate-pulse">Chargement...</span>
+                                    ) : (
+                                        `${formatCurrency(budgetStats.used)} sur ${formatCurrency(budgetStats.total)}`
+                                    )}
                                 </p>
                             </div>
                             <div className="h-1 w-16 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                                 <div
                                     className="h-full bg-amber-500 rounded-full"
-                                    style={{ width: `${budgetStats.percentage}%` }}
+                                    style={{ width: `${loading ? 0 : budgetStats.percentage}%` }}
                                 ></div>
                             </div>
                         </div>

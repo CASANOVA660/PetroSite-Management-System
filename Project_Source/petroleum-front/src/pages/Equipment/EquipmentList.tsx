@@ -10,6 +10,20 @@ import { EyeIcon, PlusIcon, RefreshIcon, ChevronLeftIcon, ChevronRightIcon } fro
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Map API status values to our internal status values
+const mapApiStatus = (apiStatus: string): string => {
+    // Convert API status to our internal status values
+    const statusMap: Record<string, string> = {
+        'available': 'disponible',
+        'inUse': 'working_non_disponible',
+        'maintenance': 'on_repair',
+        'reserved': 'disponible_needs_repair',
+        // Add other mappings as needed
+    };
+
+    return statusMap[apiStatus] || apiStatus;
+};
+
 const EquipmentList: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const { equipment, loading, error } = useSelector((state: RootState) => state.equipment);
@@ -74,12 +88,20 @@ const EquipmentList: React.FC = () => {
             total: equipment.length,
             byStatus: {} as Record<string, number>
         };
+
+        console.log('Equipment status values:', equipment.map(item => item.status));
+
         equipment.forEach(item => {
-            if (!stats.byStatus[item.status]) {
-                stats.byStatus[item.status] = 0;
+            // Map API status to our internal status if needed
+            const status = mapApiStatus(item.status);
+
+            if (!stats.byStatus[status]) {
+                stats.byStatus[status] = 0;
             }
-            stats.byStatus[item.status]++;
+            stats.byStatus[status]++;
         });
+
+        console.log('Equipment stats by status:', stats.byStatus);
         return stats;
     }, [equipment]);
 
@@ -298,7 +320,10 @@ const EquipmentList: React.FC = () => {
                         <tbody>
                             {paginatedEquipment.length > 0 ? (
                                 paginatedEquipment.map((item) => {
-                                    const status = item.status as keyof typeof equipmentStatusColors;
+                                    // Map API status to our internal status if needed
+                                    const mappedStatus = mapApiStatus(item.status);
+                                    const statusKey = mappedStatus as keyof typeof equipmentStatusColors;
+
                                     return (
                                         <tr key={item._id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
                                             <td className="py-4 px-4">
@@ -309,8 +334,8 @@ const EquipmentList: React.FC = () => {
                                             </td>
                                             <td className="py-4 px-4 text-gray-600">{item.location}</td>
                                             <td className="py-4 px-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${equipmentStatusColors[status]}`}>
-                                                    {equipmentStatusLabels[status]}
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${equipmentStatusColors[statusKey] || 'bg-gray-100 text-gray-800'}`}>
+                                                    {equipmentStatusLabels[statusKey] || item.status}
                                                 </span>
                                             </td>
                                             <td className="py-4 px-4">
