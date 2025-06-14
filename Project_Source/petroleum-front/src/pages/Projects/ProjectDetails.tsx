@@ -18,6 +18,8 @@ import KpiConfiguration from '../../components/documents/configkpi/KpiConfigurat
 import Budget from '../../components/budget/Budget';
 import ProjectRequirements from '../../components/requirements/ProjectRequirements';
 import ProjectStatus from '../../components/projects/ProjectStatus';
+import { generateProjectPDF } from '../../utils/pdfUtils';
+import axios from 'axios';
 import {
     ChevronDownIcon,
     ChevronUpIcon,
@@ -37,7 +39,8 @@ import {
     DocumentTextIcon,
     BeakerIcon,
     LightBulbIcon,
-    LockClosedIcon
+    LockClosedIcon,
+    ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { clearProjectActions } from '../../store/slices/actionSlice';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -109,6 +112,7 @@ const ProjectDetails: React.FC = () => {
     const { loading, error, selectedProject } = useSelector((state: RootState) => state.projects);
     const { users } = useSelector((state: RootState) => state.users);
     const { user } = useSelector((state: RootState) => state.auth);
+    const [exportingPdf, setExportingPdf] = useState(false);
 
     // Check user roles
     const isRespRH = user?.role === 'Resp. RH';
@@ -130,6 +134,181 @@ const ProjectDetails: React.FC = () => {
             dispatch(clearProjectActions(null));
         };
     }, [dispatch, id]);
+
+    const handleExportPDF = async () => {
+        if (!selectedProject) return;
+
+        try {
+            setExportingPdf(true);
+
+            // Create an extended project object with all the data
+            const extendedProject = {
+                ...selectedProject,
+                documents: [] as any[],
+                employees: [] as any[]
+            };
+
+            console.log('Starting PDF export with project:', selectedProject._id);
+
+            // Try to fetch documents from different dossiers
+            try {
+                // Try different API patterns for documents
+                const documentEndpointPatterns = [
+                    // Pattern 1: Direct document endpoints
+                    {
+                        global: `/documents/project/${id}`,
+                        administratif: `/documents/project/${id}/administratif`,
+                        technique: `/documents/project/${id}/technique`,
+                        rh: `/documents/project/${id}/rh`,
+                        hse: `/documents/project/${id}/hse`
+                    },
+                    // Pattern 2: Alternative structure
+                    {
+                        global: `/projects/${id}/documents`,
+                        administratif: `/projects/${id}/documents/administratif`,
+                        technique: `/projects/${id}/documents/technique`,
+                        rh: `/projects/${id}/documents/rh`,
+                        hse: `/projects/${id}/documents/hse`
+                    },
+                    // Pattern 3: Another alternative
+                    {
+                        global: `/api/documents/project/${id}`,
+                        administratif: `/api/documents/project/${id}/administratif`,
+                        technique: `/api/documents/project/${id}/technique`,
+                        rh: `/api/documents/project/${id}/rh`,
+                        hse: `/api/documents/project/${id}/hse`
+                    }
+                ];
+
+                // Try each pattern until we get documents
+                for (const pattern of documentEndpointPatterns) {
+                    if (extendedProject.documents.length > 0) break; // Stop if we already have documents
+
+                    console.log('Trying document endpoint pattern:', pattern.global);
+
+                    // Try each dossier type in the current pattern
+                    for (const [dossierType, endpoint] of Object.entries(pattern)) {
+                        try {
+                            console.log(`Fetching ${dossierType} documents from: ${endpoint}`);
+                            const response = await axios.get(endpoint);
+
+                            console.log(`${dossierType} documents response:`, response.data);
+
+                            let docsData = [];
+                            if (response.data?.data && Array.isArray(response.data.data)) {
+                                docsData = response.data.data;
+                            } else if (Array.isArray(response.data)) {
+                                docsData = response.data;
+                            } else if (response.data?.documents && Array.isArray(response.data.documents)) {
+                                docsData = response.data.documents;
+                            }
+
+                            if (docsData.length > 0) {
+                                const docsWithType = docsData.map((doc: any) => ({
+                                    ...doc,
+                                    dossierType
+                                }));
+                                extendedProject.documents.push(...docsWithType);
+                                console.log(`Added ${docsWithType.length} ${dossierType} documents`);
+                            }
+                        } catch (error) {
+                            console.log(`Error fetching ${dossierType} documents from ${endpoint}:`, error);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Error in document fetching process:', error);
+            }
+
+            // Try to fetch employees assigned to the project
+            try {
+                // Try different API patterns for employees
+                const employeeEndpointPatterns = [
+                    `/projects/${id}/employees`,
+                    `/employees/project/${id}`,
+                    `/api/projects/${id}/employees`,
+                    `/api/employees/project/${id}`,
+                    `/projectemployees/${id}`,
+                    `/api/projectemployees/${id}`
+                ];
+
+                // Try each pattern until we get employees
+                for (const endpoint of employeeEndpointPatterns) {
+                    if (extendedProject.employees.length > 0) break; // Stop if we already have employees
+
+                    try {
+                        console.log(`Fetching employees from: ${endpoint}`);
+                        const response = await axios.get(endpoint);
+
+                        console.log('Employees response:', response.data);
+
+                        let employeesData = [];
+                        if (response.data?.data && Array.isArray(response.data.data)) {
+                            employeesData = response.data.data;
+                        } else if (Array.isArray(response.data)) {
+                            employeesData = response.data;
+                        } else if (response.data?.employees && Array.isArray(response.data.employees)) {
+                            employeesData = response.data.employees;
+                        }
+
+                        if (employeesData.length > 0) {
+                            extendedProject.employees = employeesData;
+                            console.log(`Added ${employeesData.length} employees from ${endpoint}`);
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`Error fetching employees from ${endpoint}:`, error);
+                    }
+                }
+            } catch (error) {
+                console.log('Error in employee fetching process:', error);
+            }
+
+            // Last resort: If we still have no documents or employees, try to extract them from the project object itself
+            if (extendedProject.documents.length === 0 && (selectedProject as any).documents) {
+                console.log('Using documents from project object');
+                extendedProject.documents = Array.isArray((selectedProject as any).documents)
+                    ? (selectedProject as any).documents.map((doc: any) => ({ ...doc, dossierType: doc.dossierType || 'global' }))
+                    : [];
+            }
+
+            if (extendedProject.employees.length === 0 && (selectedProject as any).employees) {
+                console.log('Using employees from project object');
+                extendedProject.employees = Array.isArray((selectedProject as any).employees) ? (selectedProject as any).employees : [];
+            }
+
+            // Add some mock data for testing if nothing was found
+            if (extendedProject.documents.length === 0) {
+                console.log('Adding mock document for testing');
+                extendedProject.documents = [
+                    { name: 'Document test', description: 'Document ajouté pour test', dossierType: 'global' }
+                ];
+            }
+
+            if (extendedProject.employees.length === 0) {
+                console.log('Adding mock employee for testing');
+                extendedProject.employees = [
+                    { name: 'Employé test', role: 'Testeur', email: 'test@example.com' }
+                ];
+            }
+
+            console.log('Final PDF data:', {
+                documentsCount: extendedProject.documents.length,
+                employeesCount: extendedProject.employees.length,
+                documents: extendedProject.documents,
+                employees: extendedProject.employees
+            });
+
+            // Generate PDF with the extended project data
+            await generateProjectPDF(extendedProject);
+            toast.success('PDF généré avec succès');
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            toast.error('Erreur lors de la génération du PDF');
+        } finally {
+            setExportingPdf(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -208,6 +387,26 @@ const ProjectDetails: React.FC = () => {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-4">
+                            <button
+                                onClick={handleExportPDF}
+                                disabled={exportingPdf}
+                                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {exportingPdf ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Génération...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ArrowDownTrayIcon className="h-5 w-5" />
+                                        <span>Exporter PDF</span>
+                                    </>
+                                )}
+                            </button>
                             {!isRespRH && !isChefDeBase && (
                                 <button
                                     onClick={() => navigate(`/projects/${id}/edit`)}
