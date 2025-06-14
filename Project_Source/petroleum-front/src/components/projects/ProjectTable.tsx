@@ -7,7 +7,7 @@ import {
     TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { EyeIcon, ArrowRightCircleIcon } from "@heroicons/react/24/solid";
+import { EyeIcon, ArrowRightCircleIcon, TrashIcon } from "@heroicons/react/24/solid";
 
 interface Project {
     _id: string;
@@ -17,7 +17,7 @@ interface Project {
     createdAt: string;
     startDate: string;
     endDate: string;
-    status: 'En cours' | 'Clôturé' | 'Annulé' | 'En attente';
+    status: 'En cours' | 'Clôturé' | 'Annulé' | 'En attente' | 'En opération';
     budget?: number;
     location?: string;
 }
@@ -25,10 +25,11 @@ interface Project {
 interface ProjectTableProps {
     projects: Project[];
     onViewProject: (id: string) => void;
+    onDeleteProject?: (id: string) => void;
     isOperationView?: boolean;
 }
 
-const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProject, isOperationView = false }) => {
+const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProject, onDeleteProject, isOperationView = false }) => {
     const formatDate = (dateString: string) => {
         if (!dateString) return 'Date non définie';
         try {
@@ -52,6 +53,8 @@ const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProjec
             case 'En cours':
                 return 'success';
             case 'Clôturé':
+                return 'info';
+            case 'En opération':
                 return 'info';
             case 'Annulé':
                 return 'error';
@@ -248,6 +251,16 @@ const ProjectTable: React.FC<ProjectTableProps> = ({ projects = [], onViewProjec
                                                             title="Démarrer le projet"
                                                         >
                                                             <ArrowRightCircleIcon className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+
+                                                    {!isOperationView && project.status !== 'En opération' && onDeleteProject && (
+                                                        <button
+                                                            onClick={() => onDeleteProject(project._id)}
+                                                            className="p-2 text-gray-500 hover:text-red-600 transition-colors rounded-full hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            title="Supprimer le projet"
+                                                        >
+                                                            <TrashIcon className="w-5 h-5" />
                                                         </button>
                                                     )}
                                                 </div>

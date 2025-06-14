@@ -44,14 +44,15 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
         }
 
         if (status !== 'En cours' && !statusNote) {
-            toast.error('Une note est requise pour les statuts "Clôturé" ou "Annulé"');
+            toast.error('Une note est requise pour les statuts "En opération" ou "Annulé"');
             return;
         }
 
         try {
             await dispatch(updateProjectStatus({
                 id: projectId,
-                status: status as 'En cours' | 'Clôturé' | 'Annulé' | 'En opération'
+                status: status as 'En cours' | 'Clôturé' | 'Annulé' | 'En opération',
+                statusNote
             })).unwrap();
 
             toast.success('Statut du projet mis à jour avec succès');
@@ -66,8 +67,10 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
         switch (statusValue) {
             case 'En cours':
                 return 'bg-green-100 text-green-800';
-            case 'Clôturé':
+            case 'En opération':
                 return 'bg-blue-100 text-blue-800';
+            case 'Clôturé':
+                return 'bg-yellow-100 text-yellow-800';
             case 'Annulé':
                 return 'bg-red-100 text-red-800';
             default:
@@ -79,8 +82,10 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
         switch (statusValue) {
             case 'En cours':
                 return <ClockIcon className="h-5 w-5 text-green-600" />;
-            case 'Clôturé':
+            case 'En opération':
                 return <CheckCircleIcon className="h-5 w-5 text-blue-600" />;
+            case 'Clôturé':
+                return <CheckCircleIcon className="h-5 w-5 text-yellow-600" />;
             case 'Annulé':
                 return <XCircleIcon className="h-5 w-5 text-red-600" />;
             default:
@@ -174,7 +179,7 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
                                     Modifier le statut du projet
                                 </h3>
 
-                                {(status === 'Annulé' || status === 'Clôturé') && (
+                                {(status === 'Annulé' || status === 'En opération') && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -182,8 +187,17 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
                                     >
                                         <ExclamationTriangleIcon className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
                                         <p className="text-sm">
-                                            Attention: Changer le statut du projet à "{status}" peut affecter la disponibilité
-                                            des ressources et la planification. Cette action est irréversible.
+                                            {status === 'Annulé' ? (
+                                                <>
+                                                    Attention: Changer le statut du projet à "Annulé" peut affecter la disponibilité
+                                                    des ressources et la planification. Cette action est irréversible.
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Attention: Changer le statut du projet à "En opération" déplacera ce projet
+                                                    vers la phase opérationnelle. Assurez-vous que toutes les étapes de préparation sont terminées.
+                                                </>
+                                            )}
                                         </p>
                                     </motion.div>
                                 )}
@@ -200,6 +214,7 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
                                         >
                                             <option value="En cours">En cours</option>
                                             <option value="Clôturé">Clôturé</option>
+                                            <option value="En opération">En opération</option>
                                             <option value="Annulé">Annulé</option>
                                         </select>
                                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
@@ -219,7 +234,9 @@ const ProjectStatus: React.FC<ProjectStatusProps> = ({ projectId }) => {
                                         onChange={handleNoteChange}
                                         rows={4}
                                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-[#F28C38] focus:border-[#F28C38] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        placeholder="Raison du changement de statut..."
+                                        placeholder={status === 'En opération' ?
+                                            "Raison du passage en phase opérationnelle..." :
+                                            "Raison du changement de statut..."}
                                     />
                                 </div>
 

@@ -71,7 +71,7 @@ interface CreateProjectData {
     description: string;
     startDate: string;
     endDate: string;
-    status: 'En cours' | 'Fermé' | 'Annulé';
+    status: 'En cours' | 'Clôturé' | 'Annulé' | 'En opération';
 }
 
 // Interface for creating/updating a requirement
@@ -441,17 +441,51 @@ export const sendValidationRequest = createAsyncThunk(
 // Update project status
 export const updateProjectStatus = createAsyncThunk(
     'projects/updateStatus',
-    async ({ id, status }: { id: string, status: 'En cours' | 'Clôturé' | 'Annulé' | 'En opération' }, { rejectWithValue }) => {
+    async ({ id, status, statusNote }: { id: string, status: 'En cours' | 'Clôturé' | 'Annulé' | 'En opération', statusNote?: string }, { rejectWithValue }) => {
         try {
-            // This would make an API call to update the project status
-            // const response = await axios.patch(`${API_URL}/projects/${id}/status`, { status });
-            // return response.data;
+            // Make an actual API call to update the project status
+            const response = await axios.patch(`/projects/${id}/status`, { status, statusNote });
+            console.log(`Project ${id} status updated to ${status}`, response.data);
 
-            // For now, we'll simulate a successful update
-            console.log(`Project ${id} status updated to ${status}`);
-            return { id, status };
+            // Return the updated project data from the response
+            if (response.data?.success && response.data?.data) {
+                return response.data.data;
+            } else {
+                return { id, status, statusNote };
+            }
         } catch (error: any) {
+            console.error('Error updating project status:', error);
             return rejectWithValue(error.response?.data?.message || 'Failed to update project status');
+        }
+    }
+);
+
+// Delete project
+export const deleteProject = createAsyncThunk(
+    'projects/deleteProject',
+    async (id: string, { rejectWithValue, getState }) => {
+        try {
+            // Get the current project to check its status
+            const state = getState() as RootState;
+            const project = state.projects.projects.find(p => p._id === id);
+
+            // Prevent deletion if the project is in operation
+            if (project && project.status === 'En opération') {
+                return rejectWithValue('Impossible de supprimer un projet en opération');
+            }
+
+            // Make the API call to delete the project
+            const response = await axios.delete(`/projects/${id}`);
+            console.log(`Project ${id} deleted`, response.data);
+
+            if (response.data?.success) {
+                return id; // Return the deleted project ID
+            } else {
+                return rejectWithValue('Erreur lors de la suppression du projet');
+            }
+        } catch (error: any) {
+            console.error('Error deleting project:', error);
+            return rejectWithValue(error.response?.data?.message || 'Erreur lors de la suppression du projet');
         }
     }
 );
@@ -633,20 +667,63 @@ const projectSlice = createSlice({
             })
             .addCase(updateProjectStatus.fulfilled, (state, action) => {
                 state.loading = false;
-                // Update the project status in the state
-                if (state.projects) {
-                    const index = state.projects.findIndex(p => p._id === action.payload.id);
-                    if (index !== -1) {
-                        state.projects[index].status = action.payload.status;
+
+                // If we received the full project object from the API
+                if (action.payload._id) {
+                    // Update the project in the projects array
+                    if (state.projects) {
+                        const index = state.projects.findIndex(p => p._id === action.payload._id);
+                        if (index !== -1) {
+                            state.projects[index] = action.payload;
+                        }
+                    }
+
+                    // Update the selected project if it's the same one
+                    if (state.selectedProject && state.selectedProject._id === action.payload._id) {
+                        state.selectedProject = action.payload;
                     }
                 }
-                if (state.selectedProject && state.selectedProject._id === action.payload.id) {
-                    state.selectedProject.status = action.payload.status;
+                // If we only received the id and status
+                else if (action.payload.id) {
+                    // Update the project status in the state
+                    if (state.projects) {
+                        const index = state.projects.findIndex(p => p._id === action.payload.id);
+                        if (index !== -1) {
+                            state.projects[index].status = action.payload.status;
+                            if (action.payload.statusNote !== undefined) {
+                                state.projects[index].statusNote = action.payload.statusNote;
+                            }
+                        }
+                    }
+                    if (state.selectedProject && state.selectedProject._id === action.payload.id) {
+                        state.selectedProject.status = action.payload.status;
+                        if (action.payload.statusNote !== undefined) {
+                            state.selectedProject.statusNote = action.payload.statusNote;
+                        }
+                    }
                 }
             })
             .addCase(updateProjectStatus.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
+                toast.error(action.payload as string || 'Erreur lors de la mise à jour du statut');
+            })
+
+            // Delete Project
+            .addCase(deleteProject.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(deleteProject.fulfilled, (state, action) => {
+                state.loading = false;
+                state.projects = state.projects.filter(p => p._id !== action.payload);
+                state.selectedProject = null;
+                toast.success('Projet supprimé avec succès');
+            })
+            .addCase(deleteProject.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+                toast.error('Erreur lors de la suppression du projet');
             });
     },
 });

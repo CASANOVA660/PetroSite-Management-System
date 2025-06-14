@@ -161,7 +161,11 @@ const ProjectOperation: React.FC = () => {
                 toast.success(`Le projet ${selectedProject.name} est maintenant en opération`);
 
                 // Update the project status
-                dispatch(updateProjectStatus({ id: selectedProject._id, status: 'En opération' }));
+                dispatch(updateProjectStatus({
+                    id: selectedProject._id,
+                    status: 'En opération',
+                    statusNote: 'Passage automatique en phase opérationnelle après clôture de la phase de préparation.'
+                }));
             }
         }
     }, [selectedProject, dispatch]);

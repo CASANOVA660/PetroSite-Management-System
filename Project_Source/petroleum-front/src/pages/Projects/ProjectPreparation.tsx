@@ -6,9 +6,11 @@ import ProjectTable from '../../components/projects/ProjectTable';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
-import { fetchProjects } from '../../store/slices/projectSlice';
+import { fetchProjects, deleteProject } from '../../store/slices/projectSlice';
 import { RootState, AppDispatch } from '../../store';
 import Button from '../../components/ui/button/Button';
+import { toast } from 'react-hot-toast';
+import { Modal } from '../../components/ui/modal';
 
 interface ProjectPreparationProps {
     operationView?: boolean;
@@ -19,6 +21,8 @@ const ProjectPreparation: React.FC<ProjectPreparationProps> = ({ operationView =
     const dispatch = useDispatch<AppDispatch>();
     const { projects, loading, error } = useSelector((state: RootState) => state.projects);
     const [filteredProjects, setFilteredProjects] = useState<any[]>([]);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
     console.log('ProjectPreparation projects state:', projects);
 
@@ -32,7 +36,7 @@ const ProjectPreparation: React.FC<ProjectPreparationProps> = ({ operationView =
         if (projects && projects.length > 0) {
             if (operationView) {
                 // For operation view, show projects with 'Clôturé' or 'En opération' status
-                setFilteredProjects(projects.filter(p => p.status === 'Clôturé'));
+                setFilteredProjects(projects.filter(p => p.status === 'Clôturé' || p.status === 'En opération'));
             } else {
                 // For preparation view, show all projects regardless of status
                 setFilteredProjects(projects);
@@ -52,6 +56,36 @@ const ProjectPreparation: React.FC<ProjectPreparationProps> = ({ operationView =
 
     const handleAddProject = () => {
         navigate('/projects/add');
+    };
+
+    const handleDeleteClick = (id: string) => {
+        // Find the project to get its name
+        const project = projects.find(p => p._id === id);
+        if (project && project.status === 'En opération') {
+            toast.error('Impossible de supprimer un projet en opération');
+            return;
+        }
+
+        setProjectToDelete(id);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!projectToDelete) return;
+
+        try {
+            await dispatch(deleteProject(projectToDelete)).unwrap();
+            setDeleteModalOpen(false);
+            setProjectToDelete(null);
+        } catch (error: any) {
+            console.error('Error deleting project:', error);
+            toast.error(typeof error === 'string' ? error : 'Erreur lors de la suppression du projet');
+        }
+    };
+
+    const cancelDelete = () => {
+        setDeleteModalOpen(false);
+        setProjectToDelete(null);
     };
 
     const getStats = () => {
@@ -83,6 +117,33 @@ const ProjectPreparation: React.FC<ProjectPreparationProps> = ({ operationView =
                 description="Gérez vos projets pétroliers avec PetroConnect"
             />
             <PageBreadcrumb pageTitle={pageTitle} />
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={deleteModalOpen}
+                onClose={cancelDelete}
+            >
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Confirmer la suppression</h2>
+                    <p className="mb-6 text-gray-700 dark:text-gray-300">
+                        Êtes-vous sûr de vouloir supprimer ce projet ? Cette action est irréversible.
+                    </p>
+                    <div className="flex justify-end space-x-4">
+                        <button
+                            onClick={cancelDelete}
+                            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            onClick={confirmDelete}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                        >
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <div className="space-y-6">
                 {/* Header with Action Buttons */}
@@ -222,6 +283,7 @@ const ProjectPreparation: React.FC<ProjectPreparationProps> = ({ operationView =
                         <ProjectTable
                             projects={filteredProjects}
                             onViewProject={handleViewProject}
+                            onDeleteProject={!operationView ? handleDeleteClick : undefined}
                             isOperationView={operationView}
                         />
                     )}
