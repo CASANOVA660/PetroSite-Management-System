@@ -1,34 +1,48 @@
+const mongoose = require('mongoose');
 const Equipment = require('../models/equipment.model');
 const EquipmentHistory = require('../models/history.model');
-const mongoose = require('mongoose');
-// const redis = require('../../../config/redis'); // REMOVE CACHE
 const logger = require('../../../utils/logger');
+const redis = require('../../../config/redis');
 
-const { EQUIPMENT_STATUS, ACTIVITY_TYPE } = Equipment;
+// Define equipment status constants directly to avoid dependency issues
+const EQUIPMENT_STATUS = {
+    AVAILABLE: 'AVAILABLE',
+    IN_USE: 'IN_USE',
+    MAINTENANCE: 'MAINTENANCE',
+    REPAIR: 'REPAIR',
+    OUT_OF_SERVICE: 'OUT_OF_SERVICE'
+};
+
+// Define activity type constants directly
+const ACTIVITY_TYPE = {
+    PLACEMENT: 'placement',
+    OPERATION: 'operation',
+    MAINTENANCE: 'maintenance',
+    REPAIR: 'repair'
+};
 
 class EquipmentService {
     // Redis cache TTL in seconds
-    // static CACHE_TTL = 300; // 5 minutes
+    static CACHE_TTL = 3600; // 1 hour
 
     // Create a new equipment
     async createEquipment(equipmentData, userId) {
         try {
-            logger.info('Creating new equipment', {
-                equipment: equipmentData.nom,
-                reference: equipmentData.reference
-            });
+            logger.info('Creating new equipment', { data: equipmentData });
 
+            // Create new equipment instance
             const equipment = new Equipment({
                 ...equipmentData,
                 createdBy: userId
             });
 
+            // Save to database
             await equipment.save();
+
             logger.info('Equipment created successfully', { id: equipment._id });
 
-            // Invalidate equipment list cache
-            // await this._invalidateListCache(); // REMOVE CACHE
-
+            // Populate creator info before returning
+            await equipment.populate('createdBy', 'nom prenom');
             return equipment;
         } catch (error) {
             logger.error('Error creating equipment', {
@@ -201,6 +215,17 @@ class EquipmentService {
             const newStatus = updateData.status;
 
             if (newStatus && oldStatus !== newStatus) {
+                // Make sure we have a userId
+                if (!userId) {
+                    logger.warn('No userId provided for equipment update with status change', { id: equipmentId });
+                    userId = updateData.updatedBy || equipment.updatedBy || equipment.createdBy;
+
+                    if (!userId) {
+                        logger.error('Cannot record status change without userId', { id: equipmentId });
+                        throw new Error('userId is required for status change');
+                    }
+                }
+
                 // Record status change in history
                 await this.recordStatusChange(
                     equipmentId,
@@ -265,6 +290,20 @@ class EquipmentService {
                 type: historyData.type
             });
 
+            // Make sure we have a userId
+            if (!userId) {
+                logger.error('No userId provided for history entry', {
+                    equipmentId: historyData.equipmentId,
+                    type: historyData.type
+                });
+                throw new Error('userId is required for history entry');
+            }
+
+            // Ensure createdBy is set
+            if (!historyData.createdBy) {
+                historyData.createdBy = userId;
+            }
+
             const historyEntry = new EquipmentHistory({
                 ...historyData,
                 createdBy: userId
@@ -302,9 +341,16 @@ class EquipmentService {
                         // Ongoing repair
                         statusUpdate = EQUIPMENT_STATUS.REPAIR;
                     }
-                } else if (historyData.type === ACTIVITY_TYPE.OPERATION ||
-                    historyData.type === ACTIVITY_TYPE.PLACEMENT) {
+                } else if (historyData.type === ACTIVITY_TYPE.OPERATION) {
                     // If operation has no end date, equipment is in use
+                    if (!historyData.toDate) {
+                        statusUpdate = EQUIPMENT_STATUS.IN_USE;
+                    } else {
+                        // If operation has end date, equipment is available
+                        statusUpdate = EQUIPMENT_STATUS.AVAILABLE;
+                    }
+                } else if (historyData.type === ACTIVITY_TYPE.PLACEMENT) {
+                    // If placement has no end date, equipment is in use
                     if (!historyData.toDate) {
                         statusUpdate = EQUIPMENT_STATUS.IN_USE;
                     }
@@ -392,26 +438,43 @@ class EquipmentService {
     // Record status change in history
     async recordStatusChange(equipmentId, fromStatus, toStatus, reason, userId) {
         try {
-            const statusHistory = new EquipmentHistory({
+            // Define the status mapping directly to avoid dependency issues
+            const localStatusMapping = {
+                'disponible': 'AVAILABLE',
+                'disponible_needs_repair': 'AVAILABLE',
+                'on_repair': 'REPAIR',
+                'disponible_bon_etat': 'AVAILABLE',
+                'working_non_disponible': 'IN_USE'
+            };
+
+            // Map old status values to new ones
+            if (localStatusMapping[fromStatus]) {
+                fromStatus = localStatusMapping[fromStatus];
+            }
+            if (localStatusMapping[toStatus]) {
+                toStatus = localStatusMapping[toStatus];
+            }
+
+            // Make sure userId is defined
+            if (!userId) {
+                logger.error('Missing userId for status change recording', {
+                    equipmentId,
+                    fromStatus,
+                    toStatus
+                });
+                throw new Error('userId is required for recording status change');
+            }
+
+            // Don't create history entries for status changes
+            // Just log the status change
+            logger.info('Status change recorded', {
                 equipmentId,
-                type: 'maintenance', // Using maintenance as a default type for status entries
-                isStatusChange: true,
                 fromStatus,
                 toStatus,
-                reason,
-                description: `Changement de statut: ${fromStatus} → ${toStatus} - ${reason}`,
-                fromDate: new Date(),
-                createdBy: userId
+                reason
             });
 
-            await statusHistory.save();
-            logger.info('Status change recorded in history', {
-                equipmentId,
-                fromStatus,
-                toStatus
-            });
-
-            return statusHistory;
+            return null;
         } catch (error) {
             logger.error('Error recording status change', {
                 equipmentId,
@@ -823,17 +886,62 @@ class EquipmentService {
         }
     }
 
-    // Get equipment with active activities
+    // Get active equipment (with ongoing activities or in use status)
     async getActiveEquipment() {
         try {
-            // Find equipment with activities in progress
-            const equipment = await Equipment.find({
-                'activities.status': 'IN_PROGRESS'
-            }).populate('createdBy', 'nom prenom').lean();
+            logger.info('Getting active equipment');
 
-            return equipment;
+            // Find equipment that is currently in use or has ongoing activities
+            const activeEquipment = await Equipment.find({
+                $or: [
+                    { status: EQUIPMENT_STATUS.IN_USE },
+                    { status: 'working_non_disponible' }, // Add legacy status value
+                    { 'activities.status': 'IN_PROGRESS' }
+                ]
+            }).lean();
+
+            // For each equipment, find the project it's allocated to
+            const equipmentWithProjects = await Promise.all(
+                activeEquipment.map(async (equipment) => {
+                    try {
+                        // Find project operation equipment entries for this equipment
+                        const mongoose = require('mongoose');
+                        const OperationEquipment = mongoose.model('OperationEquipment');
+                        const Project = mongoose.model('Project');
+
+                        const operationEntry = await OperationEquipment.findOne({
+                            equipmentId: equipment._id,
+                            isDeleted: false
+                        }).lean();
+
+                        if (operationEntry && operationEntry.projectId) {
+                            const project = await Project.findById(operationEntry.projectId)
+                                .select('name')
+                                .lean();
+
+                            if (project) {
+                                return {
+                                    ...equipment,
+                                    projectId: operationEntry.projectId,
+                                    projectName: project.name
+                                };
+                            }
+                        }
+
+                        return equipment;
+                    } catch (error) {
+                        logger.error('Error finding project for equipment', {
+                            equipmentId: equipment._id,
+                            error: error.message
+                        });
+                        return equipment;
+                    }
+                })
+            );
+
+            return equipmentWithProjects;
         } catch (error) {
-            logger.error('Error fetching active equipment', {
+            logger.error('Error getting active equipment', {
                 error: error.message,
                 stack: error.stack
             });

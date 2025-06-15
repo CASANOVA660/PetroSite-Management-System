@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { XMarkIcon, MagnifyingGlassIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, MagnifyingGlassIcon, CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
@@ -8,7 +8,7 @@ import { fetchEquipment } from '../../store/slices/equipmentSlice';
 import { fetchUsers } from '../../store/slices/userSlice';
 import { Equipment, equipmentStatusLabels, equipmentStatusColors } from '../../types/equipment';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
+import axios from '../../utils/axios';
 
 interface User {
     _id: string;
@@ -51,11 +51,13 @@ const EquipmentSelector: React.FC<EquipmentSelectorProps> = ({ isOpen, onClose, 
             chefDeBaseId: string;
         }
     }>({});
+    const [allocatedEquipment, setAllocatedEquipment] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
         if (isOpen) {
             dispatch(fetchEquipment());
             dispatch(fetchUsers());
+            checkAllocatedEquipment();
         }
     }, [isOpen, dispatch]);
 
@@ -73,7 +75,36 @@ const EquipmentSelector: React.FC<EquipmentSelectorProps> = ({ isOpen, onClose, 
         setFilteredEquipment(filtered);
     }, [searchTerm, equipment]);
 
+    // Check if equipment is allocated to any project
+    const checkAllocatedEquipment = async () => {
+        try {
+            const response = await axios.get('/equipment/active');
+            const allocated: { [key: string]: string } = {};
+
+            if (response.data?.data) {
+                response.data.data.forEach((eq: any) => {
+                    // Check for both uppercase and lowercase status formats
+                    if (eq.status === 'working_non_disponible' ||
+                        eq.status === 'IN_USE' ||
+                        eq.status === 'WORKING_NON_DISPONIBLE') {
+                        allocated[eq._id] = eq.projectName || 'un autre projet';
+                    }
+                });
+            }
+
+            setAllocatedEquipment(allocated);
+        } catch (error) {
+            console.error('Error checking allocated equipment:', error);
+        }
+    };
+
     const handleSelect = (item: Equipment) => {
+        // Check if equipment is allocated
+        if (allocatedEquipment[item._id]) {
+            toast.error(`Cet équipement est déjà alloué à ${allocatedEquipment[item._id]}`);
+            return;
+        }
+
         if (!selectedEquipment.some(selected => selected.equipment._id === item._id)) {
             setSelectedEquipment([...selectedEquipment, {
                 equipment: item,
@@ -198,16 +229,26 @@ const EquipmentSelector: React.FC<EquipmentSelectorProps> = ({ isOpen, onClose, 
                                             onClick={() => handleSelect(item)}
                                             className={`p-4 rounded-lg cursor-pointer transition-colors ${selectedEquipment.some(selected => selected.equipment._id === item._id)
                                                 ? 'bg-blue-50 dark:bg-blue-900'
-                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                : allocatedEquipment[item._id]
+                                                    ? 'bg-red-50 dark:bg-red-900/30 cursor-not-allowed'
+                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between mb-2">
                                                 <h4 className="font-medium text-gray-900 dark:text-white">
                                                     {item.nom}
                                                 </h4>
-                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${equipmentStatusColors[item.status]}`}>
-                                                    {equipmentStatusLabels[item.status]}
-                                                </span>
+                                                <div className="flex items-center">
+                                                    {allocatedEquipment[item._id] && (
+                                                        <span className="mr-2 inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                                            <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                                                            Alloué
+                                                        </span>
+                                                    )}
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${equipmentStatusColors[item.status]}`}>
+                                                        {equipmentStatusLabels[item.status]}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -219,6 +260,11 @@ const EquipmentSelector: React.FC<EquipmentSelectorProps> = ({ isOpen, onClose, 
                                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                                     <span className="font-medium">Emplacement:</span> {item.location}
                                                 </p>
+                                                {allocatedEquipment[item._id] && (
+                                                    <p className="text-sm text-red-500 dark:text-red-400 mt-2">
+                                                        Cet équipement est déjà alloué à {allocatedEquipment[item._id]}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

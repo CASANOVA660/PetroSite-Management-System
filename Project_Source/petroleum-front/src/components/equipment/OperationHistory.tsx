@@ -16,7 +16,7 @@ const OperationHistory: React.FC<OperationHistoryProps> = ({ history, isLoading 
     const [endDate, setEndDate] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Filter history entries by type "operation"
+    // Filter history entries by type "operation" only
     const operationHistory = history.filter(entry => entry.type === 'operation');
 
     useEffect(() => {
@@ -61,7 +61,10 @@ const OperationHistory: React.FC<OperationHistoryProps> = ({ history, isLoading 
             filtered = filtered.filter(entry =>
                 entry.description?.toLowerCase().includes(term) ||
                 entry.location?.toLowerCase().includes(term) ||
-                entry.responsiblePerson?.name.toLowerCase().includes(term)
+                entry.responsiblePerson?.name.toLowerCase().includes(term) ||
+                entry.reason?.toLowerCase().includes(term) ||
+                (entry.fromStatus && entry.fromStatus.toLowerCase().includes(term)) ||
+                (entry.toStatus && entry.toStatus.toLowerCase().includes(term))
             );
         }
 
@@ -82,6 +85,30 @@ const OperationHistory: React.FC<OperationHistoryProps> = ({ history, isLoading 
         setStartDate('');
         setEndDate('');
         setSearchTerm('');
+    };
+
+    // Helper function to format status for display
+    const formatStatus = (status: string | undefined) => {
+        if (!status) return '';
+
+        // Convert to lowercase for consistent comparison
+        const statusLower = status.toLowerCase();
+
+        const statusMap: { [key: string]: string } = {
+            'disponible': 'Disponible',
+            'disponible_needs_repair': 'Disponible (nécessite réparation)',
+            'on_repair': 'En réparation',
+            'disponible_bon_etat': 'Disponible (bon état)',
+            'working_non_disponible': 'En opération (non disponible)',
+            // Add uppercase status mappings
+            'available': 'Disponible',
+            'in_use': 'En opération (non disponible)',
+            'maintenance': 'En maintenance',
+            'repair': 'En réparation',
+            'out_of_service': 'Hors service'
+        };
+
+        return statusMap[statusLower] || status;
     };
 
     return (
@@ -108,7 +135,13 @@ const OperationHistory: React.FC<OperationHistoryProps> = ({ history, isLoading 
                     {filteredHistory.map((entry, index) => (
                         <HistoryEntryCard
                             key={entry._id}
-                            entry={entry}
+                            entry={{
+                                ...entry,
+                                // Add additional context for status change entries
+                                description: entry.isStatusChange
+                                    ? `${entry.description || ''} ${entry.reason ? `- ${entry.reason}` : ''} (${formatStatus(entry.fromStatus)} → ${formatStatus(entry.toStatus)})`
+                                    : entry.description
+                            }}
                             isFirst={index === 0}
                             isLast={index === filteredHistory.length - 1}
                         />

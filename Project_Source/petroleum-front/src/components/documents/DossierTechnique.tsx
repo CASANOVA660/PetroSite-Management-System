@@ -71,6 +71,29 @@ const DossierTechnique: React.FC<DossierTechniqueProps> = ({ projectId }) => {
 
             console.log('Selected equipment data:', equipment);
 
+            // Check if any equipment is already allocated (status is working_non_disponible)
+            const allocatedEquipment = [];
+            for (const item of equipment) {
+                try {
+                    const response = await axios.get(`/equipment/${item.equipment._id}`);
+                    if (response.data?.data?.status === 'working_non_disponible') {
+                        allocatedEquipment.push({
+                            name: item.equipment.nom,
+                            id: item.equipment._id
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Error checking equipment ${item.equipment._id} status:`, error);
+                }
+            }
+
+            if (allocatedEquipment.length > 0) {
+                const equipmentNames = allocatedEquipment.map(eq => eq.name).join(', ');
+                toast.error(`Les équipements suivants sont déjà alloués à d'autres projets: ${equipmentNames}`);
+                setLoading(false);
+                return;
+            }
+
             // First, add the equipment to the project
             await axios.post(`/projects/${projectId}/equipment`, {
                 equipment: equipment.map(item => ({

@@ -93,6 +93,19 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                     }
                 }
 
+                // Check if we have a stored status in localStorage
+                const actualEquipmentId = typeof item.equipmentId === 'string' ? item.equipmentId : item.equipmentId._id;
+                try {
+                    const equipmentStatusKey = `equipment_status_${actualEquipmentId}`;
+                    const storedStatus = localStorage.getItem(equipmentStatusKey);
+                    if (storedStatus === 'inUse' || storedStatus === 'available' ||
+                        storedStatus === 'maintenance' || storedStatus === 'reserved') {
+                        mappedStatus = storedStatus as Equipment['status'];
+                    }
+                } catch (e) {
+                    console.error('Error retrieving equipment status:', e);
+                }
+
                 return {
                     _id: item._id,
                     name: equipData.nom,
@@ -197,6 +210,8 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
             setProjectEquipment([]);
         } finally {
             setLoading(false);
+            // Check localStorage after loading equipment
+            setTimeout(checkLocalStorageForEquipmentStatus, 500);
         }
     };
 
@@ -226,6 +241,69 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
         setFilteredEquipment(filtered);
     }, [equipment, searchTerm, statusFilter, typeFilter]);
 
+    // Function to check localStorage for equipment status
+    const checkLocalStorageForEquipmentStatus = () => {
+        if (equipment.length > 0 && projectEquipment.length > 0) {
+            let needsUpdate = false;
+            const updatedEquipment = equipment.map(eq => {
+                // Find the corresponding project equipment
+                const projectEquip = projectEquipment.find(pe => pe._id === eq._id);
+                if (!projectEquip) return eq;
+
+                // Get the actual equipment ID
+                const actualEquipmentId = typeof projectEquip.equipmentId === 'string'
+                    ? projectEquip.equipmentId
+                    : projectEquip.equipmentId._id;
+
+                // Check localStorage for status
+                try {
+                    const equipmentStatusKey = `equipment_status_${actualEquipmentId}`;
+                    const storedStatus = localStorage.getItem(equipmentStatusKey);
+                    if (storedStatus === 'inUse' || storedStatus === 'available' ||
+                        storedStatus === 'maintenance' || storedStatus === 'reserved') {
+                        if (eq.status !== storedStatus) {
+                            needsUpdate = true;
+                            return { ...eq, status: storedStatus as Equipment['status'] };
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error retrieving equipment status:', e);
+                }
+
+                return eq;
+            });
+
+            if (needsUpdate) {
+                setEquipment(updatedEquipment);
+
+                // Apply current filters
+                let filtered = [...updatedEquipment];
+                if (searchTerm) {
+                    filtered = filtered.filter(eq =>
+                        eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (eq.serialNumber && eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        eq.type.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                }
+                if (statusFilter !== 'all') {
+                    filtered = filtered.filter(eq => eq.status === statusFilter);
+                }
+                if (typeFilter !== 'all') {
+                    filtered = filtered.filter(eq => eq.type === typeFilter);
+                }
+                setFilteredEquipment(filtered);
+            }
+        }
+    };
+
+    // Call this function after fetching equipment
+    useEffect(() => {
+        if (equipment.length > 0 && projectEquipment.length > 0) {
+            checkLocalStorageForEquipmentStatus();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectEquipment]);
+
     // Status badge styling
     const getStatusBadge = (status: Equipment['status']) => {
         switch (status) {
@@ -254,30 +332,261 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
 
     const stats = getStats();
 
+    // Map frontend status to backend status
+    const mapStatusToBackend = (frontendStatus: string): string => {
+        switch (frontendStatus) {
+            case 'available':
+                return 'AVAILABLE';
+            case 'inUse':
+                return 'IN_USE';
+            case 'maintenance':
+                return 'MAINTENANCE';
+            case 'reserved':
+                return 'REPAIR';
+            default:
+                return frontendStatus;
+        }
+    };
+
     // Handle equipment reservation
-    const handleReserveEquipment = (equipmentId: string) => {
-        // This would be an API call in a real app
-        setEquipment(prev =>
-            prev.map(eq =>
+    const handleReserveEquipment = async (equipmentId: string) => {
+        try {
+            // Find the equipment in our local state
+            const equipmentToReserve = equipment.find(eq => eq._id === equipmentId);
+            if (!equipmentToReserve) {
+                toast.error('Équipement non trouvé');
+                return;
+            }
+
+            // Find the corresponding project equipment to get the actual equipment ID
+            const projectEquip = projectEquipment.find(pe => pe._id === equipmentId);
+            if (!projectEquip) {
+                toast.error('Équipement non trouvé dans les données du projet');
+                return;
+            }
+
+            // Get the actual equipment ID
+            const actualEquipmentId = typeof projectEquip.equipmentId === 'string'
+                ? projectEquip.equipmentId
+                : projectEquip.equipmentId._id;
+
+            console.log('Reserving equipment with ID:', actualEquipmentId);
+
+            // Get current user from localStorage
+            const userString = localStorage.getItem('user');
+            const user = userString ? JSON.parse(userString) : null;
+            const userId = user?._id;
+
+            if (!userId) {
+                toast.error('Utilisateur non authentifié');
+                return;
+            }
+
+            // FIRST update the UI immediately
+            const updatedEquipment = equipment.map(eq =>
                 eq._id === equipmentId
-                    ? { ...eq, status: 'reserved' }
+                    ? { ...eq, status: 'inUse' as 'inUse' }
                     : eq
-            )
-        );
-        toast.success('Équipement réservé avec succès');
+            );
+            setEquipment(updatedEquipment);
+            setFilteredEquipment(updatedEquipment.filter(eq => {
+                // Apply current filters
+                if (statusFilter !== 'all' && eq.status !== statusFilter) return false;
+                if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+                if (searchTerm && !eq.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !(eq.serialNumber && eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                    !eq.type.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+                return true;
+            }));
+
+            // Force re-render
+            setExpandedEquipment(null);
+            setTimeout(() => setExpandedEquipment(equipmentId), 10);
+
+            toast.success('Équipement réservé avec succès');
+
+            // THEN make the API calls
+            await axios.put(`/equipment/${actualEquipmentId}`, {
+                status: 'working_non_disponible',
+                statusReason: `Réservé pour le projet ${projectId}`,
+                updatedBy: userId
+            });
+
+            // Store the equipment status in localStorage to persist across refreshes
+            try {
+                const equipmentStatusKey = `equipment_status_${actualEquipmentId}`;
+                localStorage.setItem(equipmentStatusKey, 'inUse');
+            } catch (e) {
+                console.error('Error storing equipment status:', e);
+            }
+
+            // Get project name for history entry
+            let projectName = projectId;
+            try {
+                // Try to get project name from localStorage
+                const projectsString = localStorage.getItem('projects');
+                if (projectsString) {
+                    const projects = JSON.parse(projectsString);
+                    const project = projects.find((p: any) => p._id === projectId);
+                    if (project && project.name) {
+                        projectName = project.name;
+                    }
+                }
+
+                // If not found, try to get from sessionStorage
+                if (projectName === projectId) {
+                    const projectData = sessionStorage.getItem(`project_${projectId}`);
+                    if (projectData) {
+                        const project = JSON.parse(projectData);
+                        if (project && project.name) {
+                            projectName = project.name;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error getting project name:', e);
+            }
+
+            await axios.post(`/equipment/${actualEquipmentId}/history`, {
+                type: 'operation',
+                equipmentId: actualEquipmentId,
+                description: `Équipement réservé pour le projet ${projectName}`,
+                fromDate: new Date().toISOString(),
+                location: equipmentToReserve.location || 'Site principal',
+                responsiblePerson: {
+                    name: user?.nom || 'Utilisateur actuel',
+                    userId: userId
+                },
+                createdBy: userId,
+                reason: `Réservé pour le projet ${projectName}`
+            });
+
+            // No need to fetch from server again as we already updated the UI
+        } catch (error) {
+            console.error('Error reserving equipment:', error);
+            toast.error('Erreur lors de la réservation de l\'équipement');
+        }
     };
 
     // Handle equipment release
-    const handleReleaseEquipment = (equipmentId: string) => {
-        // This would be an API call in a real app
-        setEquipment(prev =>
-            prev.map(eq =>
+    const handleReleaseEquipment = async (equipmentId: string) => {
+        try {
+            // Find the equipment in our local state
+            const equipmentToRelease = equipment.find(eq => eq._id === equipmentId);
+            if (!equipmentToRelease) {
+                toast.error('Équipement non trouvé');
+                return;
+            }
+
+            // Find the corresponding project equipment to get the actual equipment ID
+            const projectEquip = projectEquipment.find(pe => pe._id === equipmentId);
+            if (!projectEquip) {
+                toast.error('Équipement non trouvé dans les données du projet');
+                return;
+            }
+
+            // Get the actual equipment ID
+            const actualEquipmentId = typeof projectEquip.equipmentId === 'string'
+                ? projectEquip.equipmentId
+                : projectEquip.equipmentId._id;
+
+            console.log('Releasing equipment with ID:', actualEquipmentId);
+
+            // Get current user from localStorage
+            const userString = localStorage.getItem('user');
+            const user = userString ? JSON.parse(userString) : null;
+            const userId = user?._id;
+
+            if (!userId) {
+                toast.error('Utilisateur non authentifié');
+                return;
+            }
+
+            // FIRST update the UI immediately
+            const updatedEquipment = equipment.map(eq =>
                 eq._id === equipmentId
-                    ? { ...eq, status: 'available' }
+                    ? { ...eq, status: 'available' as 'available' }
                     : eq
-            )
-        );
-        toast.success('Équipement libéré avec succès');
+            );
+            setEquipment(updatedEquipment);
+            setFilteredEquipment(updatedEquipment.filter(eq => {
+                // Apply current filters
+                if (statusFilter !== 'all' && eq.status !== statusFilter) return false;
+                if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+                if (searchTerm && !eq.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !(eq.serialNumber && eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                    !eq.type.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+                return true;
+            }));
+
+            // Force re-render
+            setExpandedEquipment(null);
+            setTimeout(() => setExpandedEquipment(equipmentId), 10);
+
+            toast.success('Équipement libéré avec succès');
+
+            // THEN make the API calls
+            await axios.put(`/equipment/${actualEquipmentId}`, {
+                status: 'disponible',
+                statusReason: `Libéré du projet ${projectId}`,
+                updatedBy: userId
+            });
+
+            // Remove the equipment status from localStorage
+            try {
+                const equipmentStatusKey = `equipment_status_${actualEquipmentId}`;
+                localStorage.removeItem(equipmentStatusKey);
+            } catch (e) {
+                console.error('Error removing equipment status:', e);
+            }
+
+            // Get project name for history entry
+            let projectName = projectId;
+            try {
+                // Try to get project name from localStorage
+                const projectsString = localStorage.getItem('projects');
+                if (projectsString) {
+                    const projects = JSON.parse(projectsString);
+                    const project = projects.find((p: any) => p._id === projectId);
+                    if (project && project.name) {
+                        projectName = project.name;
+                    }
+                }
+
+                // If not found, try to get from sessionStorage
+                if (projectName === projectId) {
+                    const projectData = sessionStorage.getItem(`project_${projectId}`);
+                    if (projectData) {
+                        const project = JSON.parse(projectData);
+                        if (project && project.name) {
+                            projectName = project.name;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error getting project name:', e);
+            }
+
+            await axios.post(`/equipment/${actualEquipmentId}/history`, {
+                type: 'operation',
+                equipmentId: actualEquipmentId,
+                description: `Équipement libéré du projet ${projectName}`,
+                fromDate: new Date().toISOString(),
+                toDate: new Date().toISOString(), // End date is now
+                location: equipmentToRelease.location || 'Site principal',
+                responsiblePerson: {
+                    name: user?.nom || 'Utilisateur actuel',
+                    userId: userId
+                },
+                createdBy: userId,
+                reason: `Libéré du projet ${projectName}`
+            });
+
+            // No need to fetch from server again as we already updated the UI
+        } catch (error) {
+            console.error('Error releasing equipment:', error);
+            toast.error('Erreur lors de la libération de l\'équipement');
+        }
     };
 
     // Format date for display

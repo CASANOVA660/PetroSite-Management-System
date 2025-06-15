@@ -11,6 +11,14 @@ router.route('/')
     .get(equipmentController.getAllEquipment)
     .post(equipmentController.createEquipment);
 
+// Equipment status routes
+router.route('/status/summary')
+    .get(equipmentController.getStatusSummary);
+
+// Active equipment route - moved before ID route to prevent conflict
+router.route('/active')
+    .get(equipmentController.getActiveEquipment);
+
 router.route('/:id')
     .get(equipmentController.getEquipmentById)
     .put(equipmentController.updateEquipment)
@@ -20,13 +28,6 @@ router.route('/:id')
 router.route('/:id/history')
     .get(equipmentController.getEquipmentHistory)
     .post(equipmentController.addHistoryEntry);
-
-// Equipment status routes
-router.route('/status/summary')
-    .get(equipmentController.getStatusSummary);
-
-router.route('/active')
-    .get(equipmentController.getActiveEquipment);
 
 router.route('/:id/status/history')
     .get(equipmentController.getStatusHistory);
