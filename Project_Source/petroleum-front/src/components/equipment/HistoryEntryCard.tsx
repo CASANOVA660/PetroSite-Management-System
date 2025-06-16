@@ -116,6 +116,30 @@ const HistoryEntryCard: React.FC<HistoryEntryCardProps> = ({
         }
     };
 
+    // Format project name in description
+    const formatProjectNameInDescription = (description: string) => {
+        // Check if description contains a project name in quotes
+        if (description.includes('"') && description.includes('"')) {
+            // Extract the project name
+            const match = description.match(/"([^"]*)"/);
+            if (match && match[1]) {
+                const projectName = match[1];
+                // Split around the quoted project name
+                const parts = description.split(`"${projectName}"`);
+
+                // Return formatted description with highlighted project name
+                return (
+                    <>
+                        {parts[0]}
+                        <span className="font-medium text-blue-600">"{projectName}"</span>
+                        {parts[1] || ''}
+                    </>
+                );
+            }
+        }
+        return description;
+    };
+
     return (
         <div className={`relative ${!isLast && 'mb-8'}`}>
             {/* Timeline connector */}
@@ -139,7 +163,9 @@ const HistoryEntryCard: React.FC<HistoryEntryCardProps> = ({
                                     {formatDate(entry.fromDate)} {entry.toDate ? `→ ${formatDate(entry.toDate)}` : ''}
                                 </span>
                             </div>
-                            <p className="mt-1 text-gray-700">{entry.description}</p>
+                            <p className="mt-1 text-gray-700">
+                                {entry.description ? formatProjectNameInDescription(entry.description) : 'Pas de description'}
+                            </p>
                         </div>
                         <button
                             onClick={() => setIsExpanded(!isExpanded)}
@@ -188,7 +214,9 @@ const HistoryEntryCard: React.FC<HistoryEntryCardProps> = ({
                                             <span className="px-2 py-0.5 rounded bg-gray-100">{entry.toStatus}</span>
                                         </p>
                                         {entry.reason && (
-                                            <p className="text-sm text-gray-600 mt-1">Raison: {entry.reason}</p>
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                Raison: {formatProjectNameInDescription(entry.reason)}
+                                            </p>
                                         )}
                                     </div>
                                 </div>

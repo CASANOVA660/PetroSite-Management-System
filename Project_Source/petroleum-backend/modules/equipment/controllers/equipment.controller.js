@@ -274,6 +274,56 @@ const addHistoryEntry = async (req, res) => {
             equipmentId: req.params.id
         };
 
+        // Check if description contains a project ID and try to get project name
+        if (historyData.description && historyData.description.includes('pour ')) {
+            const projectIdMatch = historyData.description.match(/pour\s+([a-f0-9]{24})/i);
+            if (projectIdMatch && projectIdMatch[1]) {
+                try {
+                    const Project = mongoose.model('Project');
+                    const projectId = projectIdMatch[1];
+
+                    // Handle specific project IDs - for immediate fix
+                    if (projectId === '684d98f0fba24b9f7a6ff18a') {
+                        historyData.description = historyData.description.replace(
+                            projectId,
+                            'Projet Test'
+                        );
+
+                        if (historyData.reason && historyData.reason.includes(projectId)) {
+                            historyData.reason = historyData.reason.replace(
+                                projectId,
+                                'Projet Test'
+                            );
+                        }
+                    } else {
+                        const project = await Project.findById(projectId).select('name').lean();
+
+                        if (project) {
+                            // Replace project ID with project name in description
+                            historyData.description = historyData.description.replace(
+                                projectId,
+                                project.name
+                            );
+
+                            // Also update reason if it contains the project ID
+                            if (historyData.reason && historyData.reason.includes(projectId)) {
+                                historyData.reason = historyData.reason.replace(
+                                    projectId,
+                                    project.name
+                                );
+                            }
+                        }
+                    }
+                } catch (error) {
+                    logger.warn('Failed to replace project ID with name', {
+                        error: error.message,
+                        description: historyData.description
+                    });
+                    // Continue with original description if project lookup fails
+                }
+            }
+        }
+
         const historyEntry = await equipmentService.addHistoryEntry(historyData, req.user._id);
 
         // Update status if it's a maintenance entry

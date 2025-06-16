@@ -421,7 +421,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
             }
 
             // Get project name for history entry
-            let projectName = projectId;
+            let projectName = '';
             try {
                 // Try to get project name from localStorage
                 const projectsString = localStorage.getItem('projects');
@@ -434,7 +434,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                 }
 
                 // If not found, try to get from sessionStorage
-                if (projectName === projectId) {
+                if (!projectName) {
                     const projectData = sessionStorage.getItem(`project_${projectId}`);
                     if (projectData) {
                         const project = JSON.parse(projectData);
@@ -443,14 +443,30 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                         }
                     }
                 }
+
+                // If still not found, fetch from API
+                if (!projectName) {
+                    const projectResponse = await axios.get(`/projects/${projectId}`);
+                    if (projectResponse.data && projectResponse.data.data && projectResponse.data.data.name) {
+                        projectName = projectResponse.data.data.name;
+                        // Store for future use
+                        sessionStorage.setItem(`project_${projectId}`, JSON.stringify(projectResponse.data.data));
+                    }
+                }
+
+                // If still not found, use project ID
+                if (!projectName) {
+                    projectName = projectId;
+                }
             } catch (e) {
                 console.error('Error getting project name:', e);
+                projectName = projectId; // Fallback to ID
             }
 
             await axios.post(`/equipment/${actualEquipmentId}/history`, {
                 type: 'operation',
                 equipmentId: actualEquipmentId,
-                description: `Équipement réservé pour le projet ${projectName}`,
+                description: `Équipement réservé pour ${projectName}`,
                 fromDate: new Date().toISOString(),
                 location: equipmentToReserve.location || 'Site principal',
                 responsiblePerson: {
@@ -458,7 +474,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                     userId: userId
                 },
                 createdBy: userId,
-                reason: `Réservé pour le projet ${projectName}`
+                reason: `Réservé pour ${projectName}`
             });
 
             // No need to fetch from server again as we already updated the UI
@@ -541,7 +557,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
             }
 
             // Get project name for history entry
-            let projectName = projectId;
+            let projectName = '';
             try {
                 // Try to get project name from localStorage
                 const projectsString = localStorage.getItem('projects');
@@ -554,7 +570,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                 }
 
                 // If not found, try to get from sessionStorage
-                if (projectName === projectId) {
+                if (!projectName) {
                     const projectData = sessionStorage.getItem(`project_${projectId}`);
                     if (projectData) {
                         const project = JSON.parse(projectData);
@@ -563,14 +579,30 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                         }
                     }
                 }
+
+                // If still not found, fetch from API
+                if (!projectName) {
+                    const projectResponse = await axios.get(`/projects/${projectId}`);
+                    if (projectResponse.data && projectResponse.data.data && projectResponse.data.data.name) {
+                        projectName = projectResponse.data.data.name;
+                        // Store for future use
+                        sessionStorage.setItem(`project_${projectId}`, JSON.stringify(projectResponse.data.data));
+                    }
+                }
+
+                // If still not found, use project ID
+                if (!projectName) {
+                    projectName = projectId;
+                }
             } catch (e) {
                 console.error('Error getting project name:', e);
+                projectName = projectId; // Fallback to ID
             }
 
             await axios.post(`/equipment/${actualEquipmentId}/history`, {
                 type: 'operation',
                 equipmentId: actualEquipmentId,
-                description: `Équipement libéré du projet ${projectName}`,
+                description: `Équipement libéré de ${projectName}`,
                 fromDate: new Date().toISOString(),
                 toDate: new Date().toISOString(), // End date is now
                 location: equipmentToRelease.location || 'Site principal',
@@ -579,7 +611,7 @@ const OperationEquipment: React.FC<OperationEquipmentProps> = ({ projectId, init
                     userId: userId
                 },
                 createdBy: userId,
-                reason: `Libéré du projet ${projectName}`
+                reason: `Libéré de ${projectName}`
             });
 
             // No need to fetch from server again as we already updated the UI
